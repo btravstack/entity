@@ -40,7 +40,7 @@ const isPlainObject = (value: object): boolean => {
 };
 
 const freezeInto = (value: object, seen: WeakSet<object>): void => {
-  // `seen` guards the cyclic case — decoded data is normally a tree, but a
+  // `seen` guards the cyclic case — entity data is normally a tree, but a
   // `z.custom` field or a caller-supplied object can close a loop, and a
   // shared subtree would otherwise be walked once per reference.
   if (seen.has(value)) return;

@@ -21,7 +21,7 @@ class ServiceAccount extends Entity("ServiceAccount")({
   label: Label,
 }) {}
 
-const Member = z.discriminatedUnion("kind", [User.decoded, ServiceAccount.decoded]);
+const Member = z.discriminatedUnion("kind", [User.output, ServiceAccount.output]);
 
 const userRow = {
   kind: "user",
@@ -63,6 +63,6 @@ const describe = (m: User | ServiceAccount) =>
     .exhaustive();
 
 test("entities match with P.tag on the runtime tag", () => {
-  expect(describe(User.decode(userRow).getOrThrow())).toBe("user:a@b.com");
-  expect(describe(ServiceAccount.decode(svcRow).getOrThrow())).toBe("svc:deploy-bot");
+  expect(describe(User.make(userRow).getOrThrow())).toBe("user:a@b.com");
+  expect(describe(ServiceAccount.make(svcRow).getOrThrow())).toBe("svc:deploy-bot");
 });

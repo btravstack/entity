@@ -35,7 +35,7 @@ org.toJSON(); // stored data — never carries _tag
 org.equals(other); // equal stored data
 ```
 
-Every fallible entry point (`decode`, `make`, `create`, `update`) returns an
+Every fallible entry point (`make`, `make`, `create`, `update`) returns an
 `unthrown` `Result<T, InvalidEntity>` — call `.getOrThrow()`, `.match()`, or
 any other `Result` combinator on it, per this library's error-as-values
 convention. `InvalidEntity.issues` is `SchemaIssues` — Standard Schema issues,
@@ -53,30 +53,29 @@ class name it labels, ahead of the field map.
 
 `options` are all optional:
 
-| Option       | Meaning                                                                                                               |
-| ------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `generated`  | keys the domain supplies, not the caller — omitted from `createInput`                                                 |
-| `immutable`  | keys that never change after creation — omitted from `updateInput`                                                    |
-| `computed`   | fields derived from the declared ones, declared with the `computed` helper — re-derived on every construction         |
-| `invariants` | `(decoded) => readonly string[]` — non-empty means rejected, checked on every `decode`, `make`, `create` and `update` |
+| Option       | Meaning                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| `generated`  | keys the domain supplies, not the caller — omitted from `createInput`                                         |
+| `immutable`  | keys that never change after creation — omitted from `updateInput`                                            |
+| `computed`   | fields derived from the declared ones, declared with the `computed` helper — re-derived on every construction |
+| `invariants` | `(output) => readonly string[]` — non-empty means rejected, checked on every `make`, `create` and `update`    |
 
 ## Statics
 
 | Static               | Kind            | Purpose                                                                   |
 | -------------------- | --------------- | ------------------------------------------------------------------------- |
 | `entityName`         | `string`        | the tag passed to `Entity(tag)`                                           |
-| `encoded`            | `ZodObject`     | the full wire object                                                      |
-| `decoded`            | `ZodObject`     | stored state and response body                                            |
-| `createInput`        | `ZodObject`     | create request — `encoded` minus `generated`                              |
-| `updateInput`        | `ZodObject`     | update request — `decoded` minus `immutable`, partial                     |
-| `instance`           | `ZodType`       | decodes straight to a class instance, for nesting entities in domain code |
+| `input`              | `ZodObject`     | the full wire object                                                      |
+| `output`             | `ZodObject`     | stored state and response body                                            |
+| `createInput`        | `ZodObject`     | create request — `input` minus `generated`                                |
+| `updateInput`        | `ZodObject`     | update request — `output` minus `immutable`, partial                      |
+| `instance`           | `ZodType`       | parses straight to a class instance, for nesting entities in domain code  |
 | `~standard`          | Standard Schema | `instance`'s Standard Schema entry point                                  |
-| `decode(raw)`        | method          | a full untrusted encoded payload → entity                                 |
 | `make(state)`        | method          | already-stored state → entity, for row mappers and event folds            |
 | `factory(gens)`      | method          | binds the generated fields' sources → `{ create(input) }`                 |
 | `factoryAsync(gens)` | method          | same, for promise-returning generators → `{ create(input): AsyncResult }` |
 
-**Contracts compose the four `ZodObject`s (`encoded`, `decoded`, `createInput`,
+**Contracts compose the four `ZodObject`s (`input`, `output`, `createInput`,
 `updateInput`); domain code composes `instance`.** All four `ZodObject`s
 generate JSON Schema in both `"input"` and `"output"` directions. `instance`
 carries a transform, so it has no _output_ representation —
@@ -100,7 +99,7 @@ test in `contract.spec.ts` pins that.
 - `update(patch)` — a partial of the mutable fields → a **new** entity,
   re-running the invariants; immutable fields are dropped even if smuggled
   in at runtime past the type check
-- `toJSON()` — the stored data, projected to exactly the `decoded` schema's
+- `toJSON()` — the stored data, projected to exactly the `output` schema's
   keys, even when the class body declares extra fields. This is the **only** public
   projection: it is the hook `JSON.stringify` looks for, so it has to exist,
   and a second method returning the same value under a domain name would be
@@ -125,14 +124,14 @@ One entry per derived field. `d` is the declared shape, contextually typed, and
 each return value is checked against that field's own schema, so every value
 must already be branded.
 
-A computed field is **re-derived on every construction** — `decode`, `make` and
+A computed field is **re-derived on every construction** — `make`, `make` and
 `update` alike — so it cannot drift from the data it derives from, and `make`
 heals a row written before the derivation changed. It follows that it is not
 patchable: absent from `updateInput` and `Patch`, and dropped by `update()`
 even if smuggled in at runtime.
 
 Use a **getter** instead when the derived value is domain-only. A getter
-carries no schema, so it cannot reach `decoded`, the JSON Schema, or
+carries no schema, so it cannot reach `output`, the JSON Schema, or
 `toJSON()`; `computed` exists for exactly the cases where it must.
 
 ## Helper types
@@ -141,10 +140,10 @@ Four generic type-level helpers name each shape by reading it off an entity
 class, instead of re-declaring it:
 
 ```ts
-import type { CreateInput, Decoded, Encoded, Patch } from "@btravstack/entity";
+import type { CreateInput, Input, Output, Patch } from "@btravstack/entity";
 
-type OrgWire = Encoded<typeof Organization>; // for mapper and request signatures
-type OrgState = Decoded<typeof Organization>; // for `make` and repository signatures
+type OrgWire = Input<typeof Organization>; // for mapper and request signatures
+type OrgState = Output<typeof Organization>; // for `make` and repository signatures
 type OrgCreate = CreateInput<typeof Organization>; // what `create` accepts from a caller
 type OrgPatch = Patch<typeof Organization>; // what `update` accepts
 ```

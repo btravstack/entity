@@ -14,7 +14,7 @@ class Organization extends Entity("Organization")(
 
 const raw = { id: "0199b1f4-1b1e-7000-8000-000000000000", slug: "acme" };
 
-test("instance decodes encoded input to a class instance", () => {
+test("instance parses input data into a class instance", () => {
   expect(Organization.instance.parse(raw)).toBeInstanceOf(Organization);
 });
 
@@ -52,7 +52,7 @@ test("instance and ~standard are built once and reused", () => {
   expect(Organization["~standard"]).toBe(Organization["~standard"]);
 });
 
-test("a defect during decode propagates instead of becoming a validation issue", () => {
+test("a defect during make propagates instead of becoming a validation issue", () => {
   class Buggy extends Entity("Buggy")(
     { id: OrgId },
     {

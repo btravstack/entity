@@ -22,43 +22,43 @@ class Organization extends Entity("Organization")({
 
 const raw = { id: "0199b1f4-1b1e-7000-8000-000000000000", slug: "acme", name: "Acme" };
 
-test("decode produces an instance with typed data and working methods", () => {
-  const org = Organization.decode(raw).getOrThrow();
+test("make produces an instance with typed data and working methods", () => {
+  const org = Organization.make(raw).getOrThrow();
   expect(org).toBeInstanceOf(Organization);
   expect(org.slug).toBe("acme");
   expect(org.shout()).toBe("ACME");
 });
 
 test("toJSON returns the stored data", () => {
-  expect(Organization.decode(raw).getOrThrow().toJSON()).toEqual(raw);
+  expect(Organization.make(raw).getOrThrow().toJSON()).toEqual(raw);
 });
 
-test("with no options, decoded and encoded describe the same fields", () => {
-  expect(Object.keys(Organization.decoded.shape).toSorted()).toEqual(
-    Object.keys(Organization.encoded.shape).toSorted(),
+test("with no options, input and output describe the same fields", () => {
+  expect(Object.keys(Organization.output.shape).toSorted()).toEqual(
+    Object.keys(Organization.input.shape).toSorted(),
   );
 });
 
 test("the tag is readable but never part of the data", () => {
-  const org = Organization.decode(raw).getOrThrow();
+  const org = Organization.make(raw).getOrThrow();
   expect(org._tag).toBe("Organization");
   expect(Object.keys(org)).not.toContain("_tag");
   expect(org.toJSON()).not.toHaveProperty("_tag");
   expect(JSON.stringify(org)).not.toContain("_tag");
   expect({ ...org }).not.toHaveProperty("_tag");
-  expect(Organization.encoded.shape).not.toHaveProperty("_tag");
-  expect(Organization.decoded.shape).not.toHaveProperty("_tag");
+  expect(Organization.input.shape).not.toHaveProperty("_tag");
+  expect(Organization.output.shape).not.toHaveProperty("_tag");
 });
 
 test("JSON.stringify emits data only, because methods live on the prototype", () => {
-  expect(JSON.parse(JSON.stringify(Organization.decode(raw).getOrThrow()))).toEqual(raw);
+  expect(JSON.parse(JSON.stringify(Organization.make(raw).getOrThrow()))).toEqual(raw);
 });
 
 type Flat = { readonly path: readonly PropertyKey[]; readonly message: string };
 const flatten = (issues: SchemaIssues): readonly Flat[] =>
   issues.map((i) => ({ path: keysOf(i), message: i.message }));
 
-const orgIssuesOf = (r: ReturnType<typeof Organization.decode>): readonly Flat[] =>
+const orgIssuesOf = (r: ReturnType<typeof Organization.make>): readonly Flat[] =>
   r.match({
     ok: () => [{ path: [], message: "WRONGLY ACCEPTED" }],
     errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => flatten(e.issues)),
@@ -66,7 +66,7 @@ const orgIssuesOf = (r: ReturnType<typeof Organization.decode>): readonly Flat[]
   });
 
 test("schema validation failure surfaces as InvalidEntity, not a defect", () => {
-  const failure = Organization.decode({ ...raw, slug: "" }).match({
+  const failure = Organization.make({ ...raw, slug: "" }).match({
     ok: () => "WRONGLY ACCEPTED",
     errCases: (m) =>
       m.with(P.tag("InvalidEntity"), (e) => `${e.entity}:${flatten(e.issues)[0]?.path.join(".")}`),
@@ -76,20 +76,20 @@ test("schema validation failure surfaces as InvalidEntity, not a defect", () => 
 });
 
 test("a schema issue carries the path of the field that failed", () => {
-  expect(orgIssuesOf(Organization.decode({ ...raw, slug: "" }))).toEqual([
+  expect(orgIssuesOf(Organization.make({ ...raw, slug: "" }))).toEqual([
     { path: ["slug"], message: "Too small: expected string to have >=1 characters" },
   ]);
 });
 
 test("every failing field is reported, not just the first", () => {
-  expect(orgIssuesOf(Organization.decode({ ...raw, slug: "", name: "" }))).toEqual([
+  expect(orgIssuesOf(Organization.make({ ...raw, slug: "", name: "" }))).toEqual([
     { path: ["slug"], message: "Too small: expected string to have >=1 characters" },
     { path: ["name"], message: "Too small: expected string to have >=1 characters" },
   ]);
 });
 
 test("a whole-object issue has an empty path", () => {
-  expect(orgIssuesOf(Organization.decode("not an object"))).toEqual([
+  expect(orgIssuesOf(Organization.make("not an object"))).toEqual([
     { path: [], message: "Invalid input: expected object, received string" },
   ]);
 });
@@ -102,7 +102,7 @@ test("a nested path keeps its segments, array indices included", () => {
     tags: z.array(Tag).brand("Tags"),
     address: Address,
   }) {}
-  const issues = Profile.decode({ id: raw.id, tags: ["ok", "x"], address: { city: "y" } }).match({
+  const issues = Profile.make({ id: raw.id, tags: ["ok", "x"], address: { city: "y" } }).match({
     ok: () => [] as readonly Flat[],
     errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => flatten(e.issues)),
     defect: () => [{ path: [], message: "DEFECT" }],
@@ -124,7 +124,7 @@ test("entityName carries the tag", () => {
 });
 
 test("data fields are locked against mutation at runtime", () => {
-  const org = Organization.decode(raw).getOrThrow();
+  const org = Organization.make(raw).getOrThrow();
   expect(() => {
     (org as unknown as Record<string, unknown>)["slug"] = "hacked";
   }).toThrow(TypeError);
@@ -144,21 +144,21 @@ class OrgWithCache extends Entity("OrgWithCache")({
 test("locking data fields leaves class-body instance fields writable", () => {
   // Object.freeze(this) would break this: class-body field initialisers run
   // after super() returns, so the object must stay extensible.
-  const org = OrgWithCache.decode(raw).getOrThrow();
+  const org = OrgWithCache.make(raw).getOrThrow();
   org.cachedSummary = "computed";
   expect(org.cachedSummary).toBe("computed");
   expect(org.slug).toBe("acme");
 });
 
 test("toJSON does not leak class-body instance fields", () => {
-  const org = OrgWithCache.decode(raw).getOrThrow();
+  const org = OrgWithCache.make(raw).getOrThrow();
   org.cachedSummary = "leak me";
   expect(org.toJSON()).not.toHaveProperty("cachedSummary");
 });
 
 test("subclassing an entity is a defect, not a silent success", () => {
   class Sub extends Organization {}
-  const outcome = Sub.decode(raw).match({
+  const outcome = Sub.make(raw).match({
     ok: () => "WRONGLY ACCEPTED",
     errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
     defect: () => "defect",
@@ -168,7 +168,7 @@ test("subclassing an entity is a defect, not a silent success", () => {
 
 test("using the builder's return directly, without extends, still works", () => {
   const Anon = Entity("Anon")({ id: OrgId, slug: Slug, name: DisplayName });
-  expect(Anon.decode(raw).getOrThrow().slug).toBe("acme");
+  expect(Anon.make(raw).getOrThrow().slug).toBe("acme");
 });
 
 const Instant = z.iso.datetime().brand("Instant");
@@ -199,7 +199,7 @@ const trialRaw = {
   seatsUsed: 2,
 };
 
-const issuesOf = (r: ReturnType<typeof Trial.decode>): readonly Flat[] =>
+const issuesOf = (r: ReturnType<typeof Trial.make>): readonly Flat[] =>
   r.match({
     ok: () => [] as readonly Flat[],
     errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => flatten(e.issues)),
@@ -207,23 +207,23 @@ const issuesOf = (r: ReturnType<typeof Trial.decode>): readonly Flat[] =>
   });
 
 test("a satisfied invariant lets the entity through", () => {
-  expect(Trial.decode(trialRaw).isOk()).toBe(true);
+  expect(Trial.make(trialRaw).isOk()).toBe(true);
 });
 
 test("a broken invariant surfaces as InvalidEntity", () => {
-  expect(issuesOf(Trial.decode({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }))).toEqual([
+  expect(issuesOf(Trial.make({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }))).toEqual([
     { path: [], message: "trialEndsAt must be after createdAt" },
   ]);
 });
 
 test("every broken rule is reported, not just the first", () => {
   expect(
-    issuesOf(Trial.decode({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z", seatsUsed: 9 })),
+    issuesOf(Trial.make({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z", seatsUsed: 9 })),
   ).toHaveLength(2);
 });
 
 test("an invariant issue has no path, unlike a schema issue", () => {
-  const [issue] = issuesOf(Trial.decode({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }));
+  const [issue] = issuesOf(Trial.make({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }));
   expect(issue?.path).toEqual([]);
   expect(issue?.message).toBe("trialEndsAt must be after createdAt");
 });
@@ -252,7 +252,7 @@ const asMutableArray = (value: unknown) => value as string[];
 const asMutableRecord = (value: unknown) => value as Record<string, unknown>;
 
 test("an array field cannot be mutated in place", () => {
-  const bag = Bag.decode(bagRaw).getOrThrow();
+  const bag = Bag.make(bagRaw).getOrThrow();
   expect(() => asMutableArray(bag.tags).push("b")).toThrow(TypeError);
   expect(() => {
     asMutableArray(bag.tags)[0] = "hacked";
@@ -261,7 +261,7 @@ test("an array field cannot be mutated in place", () => {
 });
 
 test("a nested object field, and the array inside it, are frozen too", () => {
-  const bag = Bag.decode(bagRaw).getOrThrow();
+  const bag = Bag.make(bagRaw).getOrThrow();
   expect(() => {
     asMutableRecord(bag.address)["city"] = "Paris";
   }).toThrow(TypeError);
@@ -271,22 +271,22 @@ test("a nested object field, and the array inside it, are frozen too", () => {
 
 test("a construction-time invariant cannot be defeated after construction", () => {
   // decoding straight into the forbidden state is rejected …
-  expect(Bag.decode({ ...bagRaw, tags: ["a", "b", "c"] }).isErr()).toBe(true);
+  expect(Bag.make({ ...bagRaw, tags: ["a", "b", "c"] }).isErr()).toBe(true);
   // … and so is reaching it one push at a time
-  const bag = Bag.decode({ ...bagRaw, tags: ["a", "b"] }).getOrThrow();
+  const bag = Bag.make({ ...bagRaw, tags: ["a", "b"] }).getOrThrow();
   expect(() => asMutableArray(bag.tags).push("c")).toThrow(TypeError);
   expect(bag.tags).toHaveLength(2);
 });
 
 test("update still produces a new entity from frozen data", () => {
-  const bag = Bag.decode(bagRaw).getOrThrow();
+  const bag = Bag.make(bagRaw).getOrThrow();
   const updated = bag.update({ tags: ["x", "y"] as unknown as z.infer<typeof Tag>[] }).getOrThrow();
   expect(updated.toJSON().tags).toEqual(["x", "y"]);
   expect(bag.toJSON().tags).toEqual(["a"]);
 });
 
 test("update cannot smuggle a mutation in through the patch it was handed", () => {
-  const bag = Bag.decode(bagRaw).getOrThrow();
+  const bag = Bag.make(bagRaw).getOrThrow();
   const patch = { tags: ["x"] as unknown as z.infer<typeof Tag>[] };
   const updated = bag.update(patch).getOrThrow();
   asMutableArray(patch.tags).push("y");

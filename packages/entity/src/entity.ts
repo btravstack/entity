@@ -13,9 +13,9 @@ import type {
   AsyncGenerators,
   EntityFactory,
   Generators,
-  DecodedOf,
+  OutputOf,
   DeepReadonly,
-  EncodedOf,
+  InputOf,
   EntityStatic,
   Fields,
   PatchOf,
@@ -51,17 +51,17 @@ export function Entity<Tag extends string>(tag: Tag) {
     S extends Fields,
     A extends Fields = Record<never, never>,
     const G extends readonly (keyof S)[] = [],
-    const I extends readonly (keyof DecodedOf<S, A>)[] = [],
+    const I extends readonly (keyof OutputOf<S, A>)[] = [],
   >(
     fields: S & OnlyNominal<S>,
     options?: {
       readonly generated?: G;
       readonly immutable?: I;
-      readonly computed?: { [K in keyof A]: ComputedField<A[K], EncodedOf<S>> };
-      readonly invariants?: (d: DecodedOf<S, A>) => readonly string[];
+      readonly computed?: { [K in keyof A]: ComputedField<A[K], InputOf<S>> };
+      readonly invariants?: (d: OutputOf<S, A>) => readonly string[];
     },
   ): EntityStatic<Tag, S, A, G, I> {
-    const encoded = shape<S>(fields);
+    const input = shape<S>(fields);
 
     // `.omit()`'s mask can't be satisfied by a mask built from a generic key
     // list — TS won't reduce `Exclude<G[number], keyof S>` (or the equivalent
@@ -74,15 +74,15 @@ export function Entity<Tag extends string>(tag: Tag) {
 
     /** [key, validate its output, produce it] per computed field. */
     const computedFields = Object.entries(
-      (options?.computed ?? {}) as Record<string, ComputedField<z.ZodTypeAny, EncodedShape>>,
+      (options?.computed ?? {}) as Record<string, ComputedField<z.ZodTypeAny, InputShape>>,
     );
 
-    const decoded = (
+    const output = (
       computedFields.length > 0
-        ? (encoded as z.ZodObject<Fields>).extend(
+        ? (input as z.ZodObject<Fields>).extend(
             Object.fromEntries(computedFields.map(([k, f]) => [k, f.schema])),
           )
-        : encoded
+        : input
     ) as z.ZodObject<S & A>;
 
     const generatedKeys = options?.generated ?? [];
@@ -102,33 +102,33 @@ export function Entity<Tag extends string>(tag: Tag) {
     ];
 
     /** what a caller may send to create */
-    const createInput = omitBy(encoded as z.ZodObject<Fields>, generatedKeys) as z.ZodObject<
+    const createInput = omitBy(input as z.ZodObject<Fields>, generatedKeys) as z.ZodObject<
       Omit<S, G[number]>
     >;
     /** what a caller may send to update */
-    const updateInput = omitBy(decoded as z.ZodObject<Fields>, frozenKeys).partial() as z.ZodObject<
+    const updateInput = omitBy(output as z.ZodObject<Fields>, frozenKeys).partial() as z.ZodObject<
       UpdateInputShapeOf<S, A, I>
     >;
 
-    type DecodedShape = DecodedOf<S, A>;
-    type EncodedShape = EncodedOf<S>;
+    type OutputShape = OutputOf<S, A>;
+    type InputShape = InputOf<S>;
 
-    const dataKeys = Object.keys(decoded.shape) as unknown as readonly (keyof DecodedShape)[];
+    const dataKeys = Object.keys(output.shape) as unknown as readonly (keyof OutputShape)[];
 
     /**
-     * Projects an instance down to exactly the `decoded` schema's keys.
+     * Projects an instance down to exactly the `output` schema's keys.
      *
      * Module-private on purpose. `toJSON`, `equals` and `update` all need this
      * projection, but only `toJSON` is a public surface — routing the other
      * two through a shared function rather than through `toJSON` keeps them
      * from depending on a serialization hook a subclass is free to override.
      */
-    const project = (self: object): DecodedShape => {
-      const source = self as Record<keyof DecodedShape, unknown>;
-      return Object.fromEntries(dataKeys.map((k) => [k, source[k]])) as DecodedShape;
+    const project = (self: object): OutputShape => {
+      const source = self as Record<keyof OutputShape, unknown>;
+      return Object.fromEntries(dataKeys.map((k) => [k, source[k]])) as OutputShape;
     };
 
-    const parseEncoded = fromSchema(encoded);
+    const parseInput = fromSchema(input);
 
     const toInvalidEntity = (issues: SchemaIssues) => new InvalidEntity({ entity: tag, issues });
 
@@ -136,7 +136,7 @@ export function Entity<Tag extends string>(tag: Tag) {
      * Each computed field's own validator, so a failure names that field.
      *
      * Only the derived values are checked, never the declared ones: those were
-     * already validated against `encoded`, and re-running a field schema over
+     * already validated against `input`, and re-running a field schema over
      * its own output is not a no-op — a non-idempotent transform applies twice,
      * and a type-changing one rejects its own output. Checking the derived
      * output is what makes `from`'s unchecked `as Brand` cast honest.
@@ -159,8 +159,8 @@ export function Entity<Tag extends string>(tag: Tag) {
      * output its own schema rejects are defects — `from` is pure, total and
      * typed, so either is a bug rather than bad caller input.
      */
-    const recompute = (base: EncodedShape): Result<DecodedShape, InvalidEntity> => {
-      if (computedParsers.length === 0) return Ok({ ...base } as unknown as DecodedShape);
+    const recompute = (base: InputShape): Result<OutputShape, InvalidEntity> => {
+      if (computedParsers.length === 0) return Ok({ ...base } as unknown as OutputShape);
       return all(
         computedParsers.map(([key, from, parse]) =>
           fromThrowable(
@@ -181,16 +181,16 @@ export function Entity<Tag extends string>(tag: Tag) {
         // `.flatMap` rather than `.map`: `map`'s NotThenable guard cannot
         // resolve while the shape is still generic.
       ).flatMap((pairs) =>
-        Ok({ ...base, ...Object.fromEntries(pairs) } as unknown as DecodedShape),
-      ) as Result<DecodedShape, InvalidEntity>;
+        Ok({ ...base, ...Object.fromEntries(pairs) } as unknown as OutputShape),
+      ) as Result<OutputShape, InvalidEntity>;
     };
 
     const invariants = options?.invariants;
 
     /** The tail every entry point shares: check the invariants, then seal and construct. */
     const construct = <T>(
-      Ctor: new (d: Sealed<DecodedShape>) => T,
-      d: DecodedShape,
+      Ctor: new (d: Sealed<OutputShape>) => T,
+      d: OutputShape,
     ): Result<T, InvalidEntity> => {
       const broken = invariants?.(d) ?? [];
       // no `path` — an invariant spans the entity, not one field
@@ -211,7 +211,7 @@ export function Entity<Tag extends string>(tag: Tag) {
               `${tag}: subclassing an entity class is not supported — put the behaviour in the entity's own class body.`,
             );
           }
-          return new Ctor(d as Sealed<DecodedShape>);
+          return new Ctor(d as Sealed<OutputShape>);
         },
         (cause, defect) => defect(cause),
       )() as Result<T, InvalidEntity>;
@@ -219,16 +219,16 @@ export function Entity<Tag extends string>(tag: Tag) {
 
     class Base {
       static readonly entityName = tag;
-      /** the full wire object */
-      static readonly encoded = encoded;
+      /** everything `make` accepts */
+      static readonly input = input;
       /** stored state and response body */
-      static readonly decoded = decoded;
+      static readonly output = output;
       /** what a caller may send to create */
       static readonly createInput = createInput;
       /** what a caller may send to update */
       static readonly updateInput = updateInput;
 
-      constructor(d: Sealed<DecodedShape>) {
+      constructor(d: Sealed<OutputShape>) {
         const source = d as unknown as Record<PropertyKey, unknown>;
         // One set for the whole instance, not one per field: fields can share
         // a subtree, and a per-field set would re-walk it once per field that
@@ -254,7 +254,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
 
       /**
-       * The stored data, projected to exactly the `decoded` schema's keys.
+       * The stored data, projected to exactly the `output` schema's keys.
        *
        * This is the *only* public projection. `toJSON` is not a name this
        * package chose — it is the hook `JSON.stringify` looks for — and it has
@@ -268,7 +268,7 @@ export function Entity<Tag extends string>(tag: Tag) {
        * of one projection is the alias CONTRIBUTING tells us to resist, and a
        * repository write reads perfectly well as `db.insert(org.toJSON())`.
        */
-      toJSON(): DecodedShape {
+      toJSON(): OutputShape {
         return project(this);
       }
 
@@ -279,25 +279,11 @@ export function Entity<Tag extends string>(tag: Tag) {
         return JSON.stringify(project(this)) === JSON.stringify(project(other));
       }
 
-      /** a full untrusted encoded payload → entity */
-      static decode<T>(
-        this: new (d: Sealed<DecodedShape>) => T,
-        raw: unknown,
-      ): Result<T, InvalidEntity> {
-        return parseEncoded(raw)
-          .mapErrCases((m) =>
-            // SchemaIssues is `readonly Issue[]` — a single non-union type, nothing to enumerate
-            // oxlint-disable-next-line unthrown/no-catch-all-pattern
-            m.with(P._, toInvalidEntity),
-          )
-          .flatMap(recompute)
-          .flatMap((d) => construct(this, d));
-      }
-
       /**
-       * already-stored state → entity, for row mappers and event folds
+       * data → entity. The only way in: a database row, a folded event stream,
+       * an untrusted import, a replayed integration event.
        *
-       * Validated against `encoded`, not `decoded`, even though a stored row
+       * Validated against `input`, not `output`, even though a stored row
        * carries the computed keys too. Those keys are re-derived rather than
        * read, so validating them would reject exactly the rows this is meant to
        * heal: one written before a derivation changed, or written before the
@@ -305,10 +291,10 @@ export function Entity<Tag extends string>(tag: Tag) {
        * any unknown key.
        */
       static make<T>(
-        this: new (d: Sealed<DecodedShape>) => T,
+        this: new (d: Sealed<OutputShape>) => T,
         state: unknown,
       ): Result<T, InvalidEntity> {
-        return parseEncoded(state)
+        return parseInput(state)
           .mapErrCases((m) =>
             // SchemaIssues is `readonly Issue[]` — a single non-union type, nothing to enumerate
             // oxlint-disable-next-line unthrown/no-catch-all-pattern
@@ -320,28 +306,28 @@ export function Entity<Tag extends string>(tag: Tag) {
 
       /** caller fields + domain-generated fields → entity */
       static factory<T>(
-        this: new (d: Sealed<DecodedShape>) => T,
+        this: new (d: Sealed<OutputShape>) => T,
         generators: Generators<S, G>,
       ): EntityFactory<T, S, G> {
-        const Ctor = this as unknown as { decode: (raw: unknown) => Result<T, InvalidEntity> };
+        const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
         return {
           create: (input) =>
             // generated spreads last, so a caller cannot override a domain-owned field
-            Ctor.decode({ ...(input as object), ...callAll(generators) }),
+            Ctor.make({ ...(input as object), ...callAll(generators) }),
         };
       }
 
       static factoryAsync<T>(
-        this: new (d: Sealed<DecodedShape>) => T,
+        this: new (d: Sealed<OutputShape>) => T,
         generators: AsyncGenerators<S, G>,
       ): AsyncEntityFactory<T, S, G> {
-        const Ctor = this as unknown as { decode: (raw: unknown) => Result<T, InvalidEntity> };
+        const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
         return {
           create: (input) =>
             // a generator that rejects is infrastructure failing, not bad domain
             // input, so it stays a Defect rather than becoming an InvalidEntity
             fromPromise(resolveAll(generators), (cause, defect) => defect(cause)).flatMap(
-              (generated) => Ctor.decode({ ...(input as object), ...generated }),
+              (generated) => Ctor.make({ ...(input as object), ...generated }),
             ),
         };
       }
@@ -364,17 +350,17 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
     }
 
-    attachInstance<Base & DeepReadonly<DecodedShape>>(Base, encoded);
+    attachInstance<Base & DeepReadonly<OutputShape>>(Base, input);
 
     return Base as unknown as EntityStatic<Tag, S, A, G, I>;
   };
 }
 
 /** What the wire sends — for mapper and request signatures. */
-export type Encoded<E extends { readonly __encoded: unknown }> = E["__encoded"];
+export type Input<E extends { readonly __input: unknown }> = E["__input"];
 
 /** What the entity stores — for `make` and repository signatures. */
-export type Decoded<E extends { readonly __decoded: unknown }> = E["__decoded"];
+export type Output<E extends { readonly __output: unknown }> = E["__output"];
 
 /** What `create` accepts from a caller. */
 export type CreateInput<E extends { readonly __createInput: unknown }> = E["__createInput"];

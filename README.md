@@ -20,8 +20,8 @@ absorb.
 gets all four right at once, and is the closest existing prior art. This
 package targets the same shape of solution on top of **zod v4** and
 **[Standard Schema](https://standardschema.dev)**, with entry points named for
-the use case they serve (`create`, `update`, `make`, `decode`) instead of one
-generic `decode`.
+the use case they serve (`create`, `update`, `make`, `make`) instead of one
+generic `make`.
 
 ```ts
 import { z } from "zod";
@@ -50,14 +50,14 @@ That one declaration gives you:
 
 - a **type** — `Organization`'s data fields, read-only, each carrying a
   branded (nominal) type;
-- **validators** — `Organization.encoded` / `.decoded` / `.createInput` /
+- **validators** — `Organization.input` / `.output` / `.createInput` /
   `.updateInput`, four plain `ZodObject`s a contract layer can hand straight
   to a JSON Schema converter, plus `Organization.instance` for decoding
   straight to a class instance;
 - **behaviour** — the class body (`greeting` above) plus built-in
   `update`/`encode`/`toJSON`/`equals`;
 - **composability** — `Organization.instance` nests inside `z.object({...})`
-  or `z.array(...)` and decodes to a real `Organization`, so an aggregate can
+  or `z.array(...)` and parses to a real `Organization`, so an aggregate can
   hold other entities without losing their behaviour.
 
 Every fallible operation returns an
@@ -118,7 +118,7 @@ org.equals(otherOrg); // true when both are `Organization` and their stored data
 Organization.make(rowFromDatabase);
 
 // A full untrusted payload — an import, a replayed integration event:
-Organization.decode(rawJson);
+Organization.make(rawJson);
 ```
 
 `new Organization(...)` does not compile — construction is **sealed**; see
@@ -127,11 +127,11 @@ Organization.decode(rawJson);
 ## The five schema members
 
 ```ts
-Organization.encoded; // ZodObject — full wire object; decode() accepts
-Organization.decoded; // ZodObject — stored state and response body; make() accepts
-Organization.createInput; // ZodObject — encoded minus generated
-Organization.updateInput; // ZodObject — decoded minus immutable, partial
-Organization.instance; // ZodType<Organization> — decodes to a class instance
+Organization.input; // ZodObject — everything make() accepts
+Organization.output; // ZodObject — stored state and response body; make() accepts
+Organization.createInput; // ZodObject — input minus generated
+Organization.updateInput; // ZodObject — output minus immutable, partial
+Organization.instance; // ZodType<Organization> — parses to a class instance
 ```
 
 **Contracts compose the four `ZodObject`s. Domain code composes `instance`.**
@@ -140,14 +140,14 @@ constraint in zod's schema-to-JSON-Schema conversion:
 
 A schema that carries a `.transform()` — which is what turns parsed data into
 a class instance — **has no output representation**. `instance` does exactly
-that (it decodes to `Organization`, not to plain data), so:
+that (it parses to `Organization`, not to plain data), so:
 
 ```ts
-z.toJSONSchema(Organization.decoded, { io: "output" }); // ✓ real JSON Schema
+z.toJSONSchema(Organization.output, { io: "output" }); // ✓ real JSON Schema
 z.toJSONSchema(Organization.instance, { io: "output" }); // ✗ throws — by design
 ```
 
-The four plain `ZodObject`s (`encoded`, `decoded`, `createInput`,
+The four plain `ZodObject`s (`input`, `output`, `createInput`,
 `updateInput`) generate JSON Schema in **both** `"input"` and `"output"`
 directions, so an HTTP contract layer can hand them straight to a schema
 converter with no hand-written omit lists:
@@ -155,7 +155,7 @@ converter with no hand-written omit lists:
 ```ts
 const CreateBody = Organization.createInput;
 const UpdateBody = Organization.updateInput;
-const ResponseBody = Organization.decoded;
+const ResponseBody = Organization.output;
 ```
 
 `instance` is the composable surface for domain code — the only member that
@@ -184,17 +184,16 @@ parseOrg(raw).getOrThrow(); // Organization
 It does **not** make `z.object({ owner: Organization })` work — zod requires
 a real `ZodType`, so nesting always goes through `Organization.instance`.
 
-## The four entry points
+## The three entry points
 
-| Entry point                          | Input                           | Use                                          |
-| ------------------------------------ | ------------------------------- | -------------------------------------------- |
-| `Entity.factory(gens).create(input)` | caller fields only              | a create use case                            |
-| `entity.update(patch)`               | a partial of the mutable fields | an update use case                           |
-| `Entity.make(state)`                 | full stored state               | row mappers, event folds                     |
-| `Entity.decode(raw)`                 | full encoded payload            | untrusted input already carrying every field |
+| Entry point                          | Input                           | Use                                                                |
+| ------------------------------------ | ------------------------------- | ------------------------------------------------------------------ |
+| `Entity.factory(gens).create(input)` | caller fields only              | a create use case                                                  |
+| `entity.update(patch)`               | a partial of the mutable fields | an update use case                                                 |
+| `Entity.make(data)`                  | everything `input` describes    | a row, a folded event stream, an untrusted import, a nested entity |
 
-`create` is the one entry point reached through a factory, because it is the
-only one that needs values the domain generates rather than receives.
+`create` is the one reached through a factory, because it is the only one that
+needs values the domain generates rather than receives.
 
 The types and the schemas are derived from the same declarations, so the
 rules are compile-time facts:
@@ -220,26 +219,25 @@ and a test binds fixed generators instead of stubbing
 the domain is the _rule_ — which fields the domain owns, and that a caller may
 never send them.
 
-**Why `decode` survives alongside `create`/`update`/`make`.** `create` and
-`update` cover the use-case paths and `make` covers rehydration from state
-that's already valid shape (a database row, a folded event stream). `decode`
-remains for a full encoded payload from an untrusted source that legitimately
-carries every field: an import, a replayed integration event, an entity
-nested inside another entity's payload (`instance` runs `decode` under the
-hood, which is why nesting works).
+**Why one `make` and not a separate `decode`.** They would be the same
+function. Rehydrating a database row and validating an untrusted import differ
+in where the data came from, not in what has to happen to it — parse against
+`input`, re-derive the computed fields, check the invariants, construct. A
+second name for that would be an alias, so there is one: `make`. `instance`
+runs it under the hood, which is why nesting works.
 
 `update` returns a **new** entity — data is immutable — and re-runs
 `invariants`, so a patch where every individual field is valid but the
 combination is not still fails.
 
 `toJSON()` returns the **stored** shape, so it pairs naturally with `make`.
-`decode` accepts it too: the stored shape is the wire shape plus the computed
+`make` accepts it too: the stored shape is the wire shape plus the computed
 fields, and a computed field is re-derived rather than read, so the extra keys
 are simply ignored.
 
 ```ts
 Person.make(person.toJSON()); // ✓ the natural pairing
-Person.decode(person.toJSON()); // ✓ also fine — computed keys are re-derived
+Person.make(person.toJSON()); // ✓ also fine — computed keys are re-derived
 ```
 
 ## `generated` and `immutable`
@@ -252,13 +250,13 @@ Person.decode(person.toJSON()); // ✓ also fine — computed keys are re-derive
 ```
 
 Both are **arrays of field names**, and both are keyed off `keyof S`
-(`generated`) or `keyof decoded` (`immutable`), so a typo — `immutable:
+(`generated`) or `keyof output` (`immutable`), so a typo — `immutable:
 ["slugg"]` — is a compile error, not a silently-mutable field.
 
 ## `computed`
 
 A computed field is derived from the declared ones, carries a schema, and is
-**re-derived on every construction** — `decode`, `make` and `update` alike:
+**re-derived on every construction** — `make`, `make` and `update` alike:
 
 ```ts
 import { z } from "zod";
@@ -286,7 +284,7 @@ class Person extends Entity("Person")(
   },
 ) {}
 
-const p = Person.decode({
+const p = Person.make({
   id: "0199b1f4-1b1e-7000-8000-000000000000",
   first: "Ada",
   last: "Lovelace",
@@ -303,7 +301,7 @@ checked against **that field's** schema, so a wrong brand reports on the field
 that produced it rather than on the whole map.
 
 **Why not a getter?** Because a getter carries no schema. It cannot appear in
-`decoded`, cannot generate JSON Schema, and is skipped by `toJSON()` — it lives
+`output`, cannot generate JSON Schema, and is skipped by `toJSON()` — it lives
 on the prototype, not in the data. The rule:
 
 |                                                    | use        |
@@ -350,7 +348,7 @@ class Organization extends Entity("Organization")(
 ) {}
 ```
 
-`invariants` receives the stored (`decoded`) data and returns the messages of
+`invariants` receives the stored (`output`) data and returns the messages of
 the broken rules — an empty array means valid, and it can return **more than
 one** message, so a caller violating two rules at once learns about both:
 
@@ -366,7 +364,7 @@ invariants: (d) => [
 ```
 
 It runs before the instance exists, on **every** entry point — `create`,
-`update`, `make` and `decode`. Because data is _deeply_ immutable once
+`update`, `make` and `make`. Because data is _deeply_ immutable once
 constructed — frozen values, not just locked bindings, see
 [Immutability](#immutability) — a rule that holds at construction holds for
 the instance's entire lifetime: an entity that rejects three tags cannot be
@@ -375,13 +373,13 @@ pushed into holding three tags afterwards.
 ## `equals`
 
 Two entities are equal when they are instances of the **same entity** and
-their **encoded data is deep-equal**:
+their **stored data is deep-equal**:
 
 ```ts
 const a = Organization.make(state).getOrThrow();
 const b = Organization.make(state).getOrThrow();
 a === b; // false — different instances
-a.equals(b); // true — same encoded data
+a.equals(b); // true — same stored data
 
 a.equals(a.update({ name: other }).getOrThrow()); // false — data differs
 someOrg.equals(someApiKey); // false — different entities, even with identical field values
@@ -426,15 +424,15 @@ class ServiceAccount extends Entity("ServiceAccount")({
 }) {}
 
 const Member = z.discriminatedUnion("kind", [
-  User.decoded,
-  ServiceAccount.decoded,
+  User.output,
+  ServiceAccount.output,
 ]);
 ```
 
 This parses both members, rejects an unknown discriminant, and generates JSON
 Schema in both directions with one branch per member — because `kind` is a
 real field on a real `ZodObject`, not framework metadata layered on top. A
-union of the `instance` surfaces decodes to the right class:
+union of the `instance` surfaces parses to the right class:
 
 ```ts
 const Instances = z.union([User.instance, ServiceAccount.instance]);
@@ -484,13 +482,13 @@ path (`["tags", 0]`, `["address", "city"]`); an `invariants` violation has
 none, which is what distinguishes a whole-entity rule from a field complaint.
 
 ```ts
-ApiKey.decode({ ...raw, secret: "short" });
+ApiKey.make({ ...raw, secret: "short" });
 // Err(InvalidEntity {
 //   entity: "ApiKey",
 //   issues: [{ path: ["secret"], message: "Too small: expected string to have >=16 characters" }],
 // })
 
-Trial.decode(brokenRow);
+Trial.make(brokenRow);
 // Err(InvalidEntity {
 //   entity: "Trial",
 //   issues: [{ message: "trialEndsAt must be after createdAt" }], // an invariant: no path
@@ -519,8 +517,8 @@ new Organization({ id, slug, name, createdAt }); // ✗ compile error
 
 The constructor is closed by a module-private `unique symbol` the package
 never exports, so no outside code can produce a value satisfying it — every
-instance is built through `create`/`update`/`make`/`decode`, which means
-`invariants` has run and the stored data is exactly the shape `decoded`
+instance is built through `create`/`update`/`make`/`make`, which means
+`invariants` has run and the stored data is exactly the shape `output`
 describes. This is a compile-time-only mechanism (there is no runtime
 constructor guard to keep in sync, and none is needed for the type-level
 guarantee it gives you), and it survives a published build: the package's
@@ -561,7 +559,7 @@ works). It deliberately leaves `Map`, `Set` and anything a `z.custom(...)` or
 either ineffective (a frozen `Map` still accepts `.set`) or destructive. A
 field whose schema yields a live mutable object is outside the guarantee.
 
-`toJSON()` still returns the plain `decoded` shape: it builds a fresh object,
+`toJSON()` still returns the plain `output` shape: it builds a fresh object,
 so assigning to _its_ keys is fine and mappers keep working unchanged (the
 values inside it are the entity's own, and stay frozen).
 
@@ -573,7 +571,7 @@ extensible. Freezing the field values individually leaves that intact:
 class OrgWithCache extends Entity("OrgWithCache")({ id: OrgId, slug: Slug }) {
   cachedSummary = "";
 }
-const org = OrgWithCache.decode(raw).getOrThrow();
+const org = OrgWithCache.make(raw).getOrThrow();
 org.cachedSummary = "computed"; // ✓ still writable — it isn't declared data
 org.toJSON(); // does NOT include cachedSummary — toJSON() projects only the declared schema's keys
 ```
@@ -585,7 +583,7 @@ supported, and fails at construction with a `Defect`:
 
 ```ts
 class Sub extends Organization {}
-Sub.decode(raw); // Defect — not an InvalidEntity: this is a bug in domain code
+Sub.make(raw); // Defect — not an InvalidEntity: this is a bug in domain code
 ```
 
 Put the behaviour in the entity's own class body, which is what it is for:
@@ -616,10 +614,10 @@ Four generic type-level helpers name each schema by reading it off an entity
 class, instead of re-declaring the shape by hand:
 
 ```ts
-import type { CreateInput, Decoded, Encoded, Patch } from "@btravstack/entity";
+import type { CreateInput, Input, Output, Patch } from "@btravstack/entity";
 
-type OrgWire = Encoded<typeof Organization>; // what the wire sends — mapper/request signatures
-type OrgState = Decoded<typeof Organization>; // what make() takes — repository signatures
+type OrgWire = Input<typeof Organization>; // what the wire sends — mapper/request signatures
+type OrgState = Output<typeof Organization>; // what make() takes — repository signatures
 type OrgCreate = CreateInput<typeof Organization>; // what create() takes from a caller
 type OrgPatch = Patch<typeof Organization>; // what update() takes
 ```
