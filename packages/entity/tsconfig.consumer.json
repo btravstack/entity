@@ -1,9 +1,6 @@
 {
   "extends": "@btravstack/tsconfig/base.json",
   "compilerOptions": {
-    // The point of this pass: a consumer that emits declarations. `noEmit` in
-    // the shared base would defeat it, and declaration emit is exactly what
-    // surfaces a private name leaking out of the published types (TS4020).
     "noEmit": false,
     "declaration": true,
     "declarationMap": false,
@@ -11,7 +8,6 @@
     "outDir": "./node_modules/.consumer-check",
     "rootDir": "./consumer",
     "types": ["node"],
-    // resolve the package the way a consumer does — through its built types
     "paths": { "@btravstack/entity": ["./dist/index.d.mts"] }
   },
   "include": ["consumer/**/*"]

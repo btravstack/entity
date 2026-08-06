@@ -3,8 +3,12 @@
  * emits its own declarations. That combination is what regressed before — a
  * module-private `unique symbol` in the seal made every such consumer fail
  * with TS4020, while this repo's own build (which does not emit declarations
- * through `tsc`) stayed green. Compiled by `tsconfig.consumer.json` against
- * the built `dist/*.d.mts`, so it exercises the published types, not `src`.
+ * through `tsc`) stayed green.
+ *
+ * `tsconfig.consumer.json` compiles this, and both of its overrides are load
+ * bearing: it turns `noEmit` off because declaration emit is what surfaces a
+ * leaked private name, and points `paths` at `dist/*.d.mts` so this exercises
+ * the published types rather than `src`.
  */
 import { Entity, computed } from "@btravstack/entity";
 import type { ConstructionKey } from "@btravstack/entity";
