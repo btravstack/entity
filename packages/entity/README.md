@@ -80,6 +80,15 @@ carries a transform, so it has no _output_ representation —
 `z.toJSONSchema(SomeEntity.instance, { io: "output" })` throws by design, and a
 test in `contract.spec.ts` pins that.
 
+`instance` is bound to the class it is read from, including a plain
+`class Special extends SomeEntity {}` that never calls `Entity(...)` itself:
+`Special.instance.parse(raw)` yields a `Special`, `Special.instance` is not
+`SomeEntity.instance`, and neither read order changes that. Each class's
+schema is built once and reused, so `Special.instance === Special.instance`.
+The _type_ of `instance` is always the base entity's, though — TypeScript
+cannot repolymorphize a static property per subclass — so narrow with
+`instanceof` after parsing if you need the subclass's own members back.
+
 ## Instance members
 
 - the declared data fields, **deeply** read-only: each is installed

@@ -42,41 +42,61 @@ function instanceSchema<T>(
 }
 
 /**
- * Attaches `instance` and `~standard` to an entity class as lazily
- * computed, self-overwriting accessor properties.
+ * The one schema each class gets, keyed by the class that asked for it.
+ * Keys are constructors, so a discarded class stays collectable.
+ */
+const schemas = new WeakMap<object, z.ZodType>();
+
+/**
+ * Attaches `instance` and `~standard` to an entity class as lazily computed
+ * accessor properties, memoised per receiver.
  *
  * The class is only ever consumed through a subclass (`class X extends
  * Entity(tag)(fields) {}`), which does not exist yet when the entity builder
  * runs. A plain value would close over the literal base constructor, so
- * `X.instance.parse(...)` would build a base instance — not an `X` —
- * failing `instanceof X`. A getter instead reads `this` from the access
- * site (`X.instance`), which JS's prototype-based static inheritance sets
- * to the actual receiver, so it binds to whichever subclass it was read
- * from — but a bare getter would rebuild the schema (and its `~standard`)
- * on every access, so `X.instance !== X.instance` and every `validate()`
- * call would reconstruct the whole transform chain. Each getter therefore
- * overwrites itself with a plain, non-enumerable data property on the same
- * receiver the first time it runs, so later reads are free and identity is
- * stable.
+ * `X.instance.parse(...)` would build a base instance — not an `X` — failing
+ * `instanceof X`. A getter instead reads `this` from the access site
+ * (`X.instance`), which JS's prototype-based static inheritance sets to the
+ * actual receiver, so it binds to whichever subclass it was read from. That
+ * receiver-reading is the whole point of the accessor and is why it cannot
+ * be replaced by a value.
  *
- * Caveat: the self-overwrite is first-read-wins *per receiver*, not per
- * class. `attachInstance` runs once per `Entity(...)` call, so every entity
- * built that way defines its own getter and is unaffected. But a bare `class
- * Y extends X {}` — a plain JS subclass with no `Entity(...)` call of its
- * own — has no getter of its own; it inherits `X`'s. If `X.instance` is read
- * first, the getter on `X` is replaced by `X`'s own data property before `Y`
- * ever reads it, and `Y.instance` then resolves to that inherited property:
- * `Y.instance.parse(...)` silently builds an `X`, not a `Y`, with no error.
+ * A bare getter would rebuild the schema (and its `~standard`) on every
+ * access, so `X.instance !== X.instance` and every `validate()` call would
+ * reconstruct the whole transform chain. The obvious cure — letting each
+ * getter overwrite itself with a plain data property on the receiver — was
+ * tried and abandoned, because a data property defined on `X` is *inherited*
+ * by every `class Y extends X {}` that has no `Entity(...)` call of its own.
+ * Reading `X.instance` first replaced the getter before `Y` ever saw it, and
+ * `Y.instance` then resolved to `X`'s property: `Y.instance.parse(...)`
+ * silently built an `X`, not a `Y`, with no error. Read order must not
+ * decide which class comes out.
+ *
+ * So the accessor stays in place permanently and the built schema is cached
+ * against the receiver in `schemas` instead. Every read re-enters the getter
+ * with `this` bound to the class actually read, and gets that class's own
+ * entry: `X.instance === X.instance` (built once, stable identity),
+ * `Y.instance !== X.instance`, and `Y.instance.parse(...)` yields a `Y`
+ * whichever of the two was read first.
+ *
+ * `~standard` reads through `this.instance` rather than caching separately,
+ * so the two can never disagree about which class they decode to; zod hangs
+ * `~standard` off the schema at construction, so a memoised `instance` makes
+ * it stable for free. Both properties stay non-enumerable — absent from
+ * `Object.keys`, spread and `JSON.stringify` — and configurable, so a
+ * consumer can still redefine them on a class of their own.
  */
 export function attachInstance<T>(Base: object, encoded: z.ZodType): void {
   Object.defineProperty(Base, "instance", {
     configurable: true,
     enumerable: false,
     get(this: object) {
+      const cached = schemas.get(this);
+      if (cached !== undefined) return cached;
       const built = instanceSchema<T>(encoded, (d) =>
         (this as unknown as { decode: (raw: unknown) => Result<T, InvalidEntity> }).decode(d),
       );
-      Object.defineProperty(this, "instance", { value: built, enumerable: false });
+      schemas.set(this, built);
       return built;
     },
   });
@@ -84,9 +104,7 @@ export function attachInstance<T>(Base: object, encoded: z.ZodType): void {
     configurable: true,
     enumerable: false,
     get(this: { instance: z.ZodType<T> }) {
-      const standard = (this.instance as unknown as { "~standard": unknown })["~standard"];
-      Object.defineProperty(this, "~standard", { value: standard, enumerable: false });
-      return standard;
+      return (this.instance as unknown as { "~standard": unknown })["~standard"];
     },
   });
 }

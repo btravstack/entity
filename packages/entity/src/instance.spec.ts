@@ -52,6 +52,71 @@ test("instance and ~standard are built once and reused", () => {
   expect(Organization["~standard"]).toBe(Organization["~standard"]);
 });
 
+test("a bare subclass decodes to itself when the parent was read first", () => {
+  class Parent extends Entity("ParentReadFirst")({ id: OrgId, slug: Slug }) {}
+  class Sub extends Parent {}
+
+  expect(Parent.instance.parse(raw)).toBeInstanceOf(Parent);
+  expect(Sub.instance.parse(raw)).toBeInstanceOf(Sub);
+});
+
+test("a bare subclass decodes to itself when the subclass was read first", () => {
+  class Parent extends Entity("SubclassReadFirst")({ id: OrgId, slug: Slug }) {}
+  class Sub extends Parent {}
+
+  expect(Sub.instance.parse(raw)).toBeInstanceOf(Sub);
+  const built = Parent.instance.parse(raw);
+  expect(built).toBeInstanceOf(Parent);
+  expect(built).not.toBeInstanceOf(Sub);
+});
+
+test("a bare subclass gets its own instance and ~standard, each still stable", () => {
+  class Parent extends Entity("DistinctFromParent")({ id: OrgId, slug: Slug }) {}
+  class Sub extends Parent {}
+
+  expect(Sub.instance).not.toBe(Parent.instance);
+  expect(Parent.instance).toBe(Parent.instance);
+  expect(Sub.instance).toBe(Sub.instance);
+  expect(Sub["~standard"]).not.toBe(Parent["~standard"]);
+  expect(Parent["~standard"]).toBe(Parent["~standard"]);
+  expect(Sub["~standard"]).toBe(Sub["~standard"]);
+});
+
+test("instance follows a two-level subclass chain", () => {
+  class Root extends Entity("SubclassChainRoot")({ id: OrgId, slug: Slug }) {}
+  class Mid extends Root {}
+  class Leaf extends Mid {}
+
+  expect(Root.instance.parse(raw)).toBeInstanceOf(Root);
+  expect(Mid.instance.parse(raw)).toBeInstanceOf(Mid);
+  const leaf = Leaf.instance.parse(raw);
+  expect(leaf).toBeInstanceOf(Leaf);
+  expect(leaf).toBeInstanceOf(Root);
+  expect(new Set([Root.instance, Mid.instance, Leaf.instance]).size).toBe(3);
+});
+
+test("neither instance nor ~standard becomes an own enumerable key", () => {
+  class Parent extends Entity("NotEnumerable")({ id: OrgId, slug: Slug }) {}
+  class Sub extends Parent {}
+
+  // read both on both classes: nothing may be materialised as a plain key
+  void Parent.instance;
+  void Parent["~standard"];
+  void Sub.instance;
+  void Sub["~standard"];
+
+  for (const C of [Parent, Sub]) {
+    expect(Object.keys(C)).not.toContain("instance");
+    expect(Object.keys(C)).not.toContain("~standard");
+  }
+  // the accessor lives on the `Entity(...)` base and stays there: reading it
+  // must not stamp a value onto `Parent` (which would then reach `Sub`)
+  expect(Object.hasOwn(Parent, "instance")).toBe(false);
+  expect(Object.hasOwn(Sub, "instance")).toBe(false);
+  const base = Object.getPrototypeOf(Parent) as object;
+  expect(Object.getOwnPropertyDescriptor(base, "instance")?.get).toBeTypeOf("function");
+});
+
 test("a defect during decode propagates instead of becoming a validation issue", () => {
   class Buggy extends Entity("Buggy")(
     { id: OrgId },
