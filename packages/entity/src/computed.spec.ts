@@ -1,0 +1,162 @@
+import { P } from "unthrown";
+import { expect, test } from "vitest";
+import { z } from "zod";
+
+import { Entity, computed } from "./index.js";
+
+const PersonId = z.uuid().brand("PersonId");
+const NamePart = z.string().min(1).brand("NamePart");
+const FullName = z.string().min(1).brand("FullName");
+const Initials = z.string().min(1).brand("Initials");
+
+class Person extends Entity("Person")(
+  { id: PersonId, first: NamePart, last: NamePart },
+  {
+    immutable: ["id"],
+    computed: {
+      fullName: computed(FullName, (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>),
+      initials: computed(Initials, (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>),
+    },
+  },
+) {}
+
+const raw = { id: "0199b1f4-1b1e-7000-8000-000000000000", first: "Ada", last: "Lovelace" };
+
+test("every computed field reaches the entity and its stored output", () => {
+  const p = Person.decode(raw).getOrThrow();
+  expect(p.fullName).toBe("Ada Lovelace");
+  expect(p.initials).toBe("AL");
+  expect(p.toJSON()).toMatchObject({ fullName: "Ada Lovelace", initials: "AL" });
+});
+
+test("computed fields are in decoded but not in encoded", () => {
+  expect(Object.keys(Person.decoded.shape).toSorted()).toEqual([
+    "first",
+    "fullName",
+    "id",
+    "initials",
+    "last",
+  ]);
+  expect(Person.encoded.shape).not.toHaveProperty("fullName");
+});
+
+test("update re-derives every computed field instead of leaving them stale", () => {
+  const p = Person.decode(raw).getOrThrow();
+  const renamed = p.update({ last: "Byron" as z.infer<typeof NamePart> }).getOrThrow();
+  expect(renamed.fullName).toBe("Ada Byron");
+  expect(renamed.initials).toBe("AB");
+  expect(p.fullName).toBe("Ada Lovelace");
+});
+
+test("make re-derives rather than trusting a stale stored value", () => {
+  const p = Person.make({ ...raw, fullName: "Whatever Was Written Before" }).getOrThrow();
+  expect(p.fullName).toBe("Ada Lovelace");
+});
+
+test("make heals a row whose stored computed value is invalid", () => {
+  // "" would fail FullName's own min(1); validating it would reject the very
+  // row this is meant to repair
+  const p = Person.make({ ...raw, fullName: "", initials: "" }).getOrThrow();
+  expect(p.fullName).toBe("Ada Lovelace");
+});
+
+test("make heals a row written before the computed field existed", () => {
+  const p = Person.make(raw).getOrThrow();
+  expect(p.fullName).toBe("Ada Lovelace");
+  expect(p.initials).toBe("AL");
+});
+
+test("computed fields are absent from updateInput and dropped if smuggled in", () => {
+  expect(Object.keys(Person.updateInput.shape).toSorted()).toEqual(["first", "last"]);
+  const p = Person.decode(raw).getOrThrow();
+  const lied = p.update({ fullName: "LIES" } as never).getOrThrow();
+  expect(lied.fullName).toBe("Ada Lovelace");
+});
+
+test("toJSON round-trips through both decode and make", () => {
+  const p = Person.decode(raw).getOrThrow();
+  expect(Person.decode(p.toJSON()).getOrThrow().fullName).toBe("Ada Lovelace");
+  expect(Person.make(p.toJSON()).getOrThrow().fullName).toBe("Ada Lovelace");
+});
+
+test("invariants see the computed fields", () => {
+  class Checked extends Entity("Checked")(
+    { id: PersonId, first: NamePart, last: NamePart },
+    {
+      computed: {
+        fullName: computed(FullName, (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>),
+      },
+      invariants: (d) => (d.fullName.length <= 20 ? [] : ["fullName must be at most 20 chars"]),
+    },
+  ) {}
+  expect(Checked.decode(raw).isOk()).toBe(true);
+  expect(Checked.decode({ ...raw, last: "Lovelace-Byron-Of-Somewhere" }).isErr()).toBe(true);
+});
+
+const outcomeOf = (r: ReturnType<typeof Person.decode>) =>
+  r.match({
+    ok: () => "WRONGLY ACCEPTED",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
+    defect: () => "defect",
+  });
+
+test("computed output failing its own schema is a defect, not bad input", () => {
+  class Broken extends Entity("Broken")(
+    { id: PersonId, first: NamePart, last: NamePart },
+    {
+      // FullName requires at least 1 char; this returns an empty string
+      computed: {
+        fullName: computed(FullName, () => "" as z.infer<typeof FullName>),
+      },
+    },
+  ) {}
+  expect(outcomeOf(Broken.decode(raw) as never)).toBe("defect");
+});
+
+test("a throwing derivation is a defect, not an escaped exception", () => {
+  class Throws extends Entity("Throws")(
+    { id: PersonId, first: NamePart, last: NamePart },
+    {
+      computed: {
+        fullName: computed(FullName, () => {
+          // oxlint-disable-next-line unthrown/no-throw
+          throw new Error("boom");
+        }),
+      },
+    },
+  ) {}
+  // the point is that this does NOT throw out of decode()
+  expect(outcomeOf(Throws.decode(raw) as never)).toBe("defect");
+});
+
+test("a defect names the field that produced it", () => {
+  class Broken extends Entity("Broken")(
+    { id: PersonId, first: NamePart, last: NamePart },
+    {
+      computed: {
+        initials: computed(Initials, () => "" as z.infer<typeof Initials>),
+      },
+    },
+  ) {}
+  let message = "";
+  try {
+    Broken.decode(raw).getOrThrow();
+  } catch (e) {
+    message = (e as Error).message;
+  }
+  expect(message).toContain("Broken.computed.initials");
+});
+
+test("a field transform is applied exactly once, not once per validation pass", () => {
+  let calls = 0;
+  const Counted = z
+    .string()
+    .transform((s) => {
+      calls += 1;
+      return s;
+    })
+    .brand("NamePart");
+  class Once extends Entity("Once")({ id: PersonId, first: Counted }) {}
+  Once.decode({ id: raw.id, first: "Ada" }).getOrThrow();
+  expect(calls).toBe(1);
+});

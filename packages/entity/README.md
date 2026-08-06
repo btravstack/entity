@@ -41,7 +41,7 @@ any other `Result` combinator on it, per this library's error-as-values
 convention. `InvalidEntity.issues` is `SchemaIssues` — Standard Schema issues,
 kept structured: a **schema** issue carries the failing field's `path`, an
 `invariants` message has none. See the [root README](../../README.md) for the full guide,
-including the `decoded: { omit, add }` split, unions, and the lifecycle in a
+including `computed` fields, unions, and the lifecycle in a
 hexagonal architecture.
 
 ## `Entity(tag)(fields, options?)`
@@ -53,13 +53,12 @@ class name it labels, ahead of the field map.
 
 `options` are all optional:
 
-| Option         | Meaning                                                                                                               |
-| -------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `generated`    | keys the domain supplies, not the caller — omitted from `createInput`                                                 |
-| `immutable`    | keys that never change after creation — omitted from `updateInput`                                                    |
-| `decoded.omit` | keys present on the wire but not stored (e.g. a raw secret)                                                           |
-| `decoded.add`  | computed fields, declared with the `add` helper — implicitly immutable (see below)                                    |
-| `invariants`   | `(decoded) => readonly string[]` — non-empty means rejected, checked on every `decode`, `make`, `create` and `update` |
+| Option       | Meaning                                                                                                               |
+| ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `generated`  | keys the domain supplies, not the caller — omitted from `createInput`                                                 |
+| `immutable`  | keys that never change after creation — omitted from `updateInput`                                                    |
+| `computed`   | fields derived from the declared ones, declared with the `computed` helper — re-derived on every construction         |
+| `invariants` | `(decoded) => readonly string[]` — non-empty means rejected, checked on every `decode`, `make`, `create` and `update` |
 
 ## Statics
 
@@ -111,27 +110,30 @@ test in `contract.spec.ts` pins that.
   stored data is deep-equal. Two separate `Entity(...)` calls never compare
   equal, even with identical fields
 
-## Computed fields: `add`
+## Computed fields
 
-`decoded.add` declares fields that are derived rather than stored, using the
-curried `add` helper:
+`computed` declares fields derived from the declared ones:
 
 ```ts
-add({ fingerprint: Fingerprint })((e) => ({
-  fingerprint: fingerprintOf(e.secret),
-}));
+computed: {
+  fullName: computed(FullName, (d) => `${d.first} ${d.last}`),
+  initials: computed(Initials, (d) => `${d.first[0]}${d.last[0]}`),
+}
 ```
 
-`e` is the encoded shape (so an omitted field, like a raw secret, is still
-visible to compute from) and the callback's return type is checked against
-the declared fields, so every value must already be branded.
+One entry per derived field. `d` is the declared shape, contextually typed, and
+each return value is checked against that field's own schema, so every value
+must already be branded.
 
-Added fields are **implicitly immutable**: they are absent from `updateInput`
-and from `Patch`, and `update()` ignores them even if smuggled in at runtime.
-They are not recomputed either, because `add` reads the encoded shape and
-`update()` only holds the decoded one — the omitted source field is already
-gone by then. A derived value therefore changes only by decoding a fresh
-encoded payload.
+A computed field is **re-derived on every construction** — `decode`, `make` and
+`update` alike — so it cannot drift from the data it derives from, and `make`
+heals a row written before the derivation changed. It follows that it is not
+patchable: absent from `updateInput` and `Patch`, and dropped by `update()`
+even if smuggled in at runtime.
+
+Use a **getter** instead when the derived value is domain-only. A getter
+carries no schema, so it cannot reach `decoded`, the JSON Schema, or
+`toJSON()`; `computed` exists for exactly the cases where it must.
 
 ## Helper types
 

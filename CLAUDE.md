@@ -47,7 +47,7 @@ Six source modules under `packages/entity/src`, split by what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`encoded`, `decoded`, `createInput`, `updateInput`) from
-  one field map plus `generated` / `immutable` / `decoded.omit` / `decoded.add`,
+  one field map plus `generated` / `immutable` / `computed`,
   then returns a `Base` class carrying them as statics. `create` delegates to
   `decode`; `update` delegates to `make`; every path funnels through
   `construct`, which runs `invariants` and seals the constructor call. Data
@@ -72,8 +72,9 @@ Six source modules under `packages/entity/src`, split by what they own:
   since the subclass does not exist when the builder runs.
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
   fields, and `shape()`, the only sanctioned way to build a domain object.
-- **`add.ts`** / **`errors.ts`** — the curried `add(fields)(from)` helper and
-  the `InvalidEntity` tagged error.
+- **`computed.ts`** / **`errors.ts`** — the `computed(fields, from)` helper and
+  the `InvalidEntity` tagged error. Computed fields are re-derived on every
+  construction path, so they cannot drift from their sources.
 
 The design rule the whole package turns on: **contracts compose the four plain
 `ZodObject`s; domain code composes `instance`.** `instance` carries a

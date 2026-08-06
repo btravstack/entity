@@ -9,7 +9,7 @@ export type Fields = Record<string, z.ZodTypeAny>;
 export type EncodedOf<S extends Fields> = z.infer<z.ZodObject<S>>;
 
 /**
- * The fields `add` contributes.
+ * The values the computed fields contribute.
  *
  * Zod's `$InferObjectOutput` special-cases an *empty* shape to
  * `Record<string, never>` — a real index signature, not `{}`. Unguarded, that
@@ -25,20 +25,16 @@ export type EncodedOf<S extends Fields> = z.infer<z.ZodObject<S>>;
  * `.optional()` field keeps its optional key (`k?: T`) instead of becoming a
  * required `k: T | undefined`.
  */
-export type AddedOf<A extends Fields> = [keyof A] extends [never]
+export type ComputedOf<A extends Fields> = [keyof A] extends [never]
   ? Record<never, never>
   : z.infer<z.ZodObject<A>>;
 
 /**
- * What the entity stores and returns: encoded, minus the omitted fields, plus
- * the added ones. There is deliberately no `_tag` — the tag is a
+ * What the entity stores and returns: the declared fields plus the computed
+ * ones. There is deliberately no `_tag` — the tag is a
  * non-enumerable instance property and never part of the data.
  */
-export type DecodedOf<S extends Fields, A extends Fields, K extends readonly (keyof S)[]> = Omit<
-  EncodedOf<S>,
-  K[number]
-> &
-  AddedOf<A>;
+export type DecodedOf<S extends Fields, A extends Fields> = EncodedOf<S> & ComputedOf<A>;
 
 /** What `create` accepts from a caller: everything the domain does not generate. */
 export type CreateInputOf<S extends Fields, G extends readonly (keyof S)[]> = Omit<
@@ -129,26 +125,20 @@ export type DeepReadonly<T> = T extends Immutable
 
 /**
  * What `update` accepts: a partial of the stored data, minus the immutable
- * fields — and minus `keyof A`, because an `add`-produced field is
- * *implicitly* immutable whether or not `immutable` names it. Nothing can
- * honestly recompute one on update: `add`'s input is the *encoded* object, and
- * `update` only has the decoded one, which no longer carries the omitted source
- * field the computation reads from (the same asymmetry that stops
- * `decode(x.encode())` round-tripping). Leaving a computed field patchable
- * would let a caller set it to a value its own source contradicts, so it is
- * excluded instead.
+ * fields — and minus `keyof A`, because a computed field is derived, not
+ * supplied. `update` re-runs every derivation like any other construction
+ * path, so a patched value would only be overwritten by the next one.
  */
 export type PatchOf<
   S extends Fields,
   A extends Fields,
-  K extends readonly (keyof S)[],
-  I extends readonly (keyof DecodedOf<S, A, K>)[],
-> = Partial<Omit<DecodedOf<S, A, K>, I[number] | keyof A>>;
+  I extends readonly (keyof DecodedOf<S, A>)[],
+> = Partial<Omit<DecodedOf<S, A>, I[number] | keyof A>>;
 
 /**
  * The field *schemas* `updateInput` is built from: the decoded field map
- * (`Omit<S, K[number]> & A`, the same construction `EntityStatic["decoded"]`
- * uses), minus the immutable keys and minus `keyof A` — the added fields are
+ * (`S & A`, the same construction `EntityStatic["decoded"]`
+ * uses), minus the immutable keys and minus `keyof A` — the computed fields are
  * implicitly immutable, see `PatchOf` — with every remaining schema wrapped in
  * `ZodOptional` — the type-level mirror of what `.omit(...).partial()`
  * produces at runtime. A mapped object type rather than the `Fields` index
@@ -158,12 +148,9 @@ export type PatchOf<
 export type UpdateInputShapeOf<
   S extends Fields,
   A extends Fields,
-  K extends readonly (keyof S)[],
-  I extends readonly (keyof DecodedOf<S, A, K>)[],
+  I extends readonly (keyof DecodedOf<S, A>)[],
 > = {
-  [Key in Exclude<keyof (Omit<S, K[number]> & A), I[number] | keyof A>]: z.ZodOptional<
-    (Omit<S, K[number]> & A)[Key]
-  >;
+  [Key in Exclude<keyof (S & A), I[number] | keyof A>]: z.ZodOptional<(S & A)[Key]>;
 };
 
 /**
@@ -201,12 +188,11 @@ export type Sealed<D> = D & { readonly [CtorKey]: true };
 interface BaseInstance<
   S extends Fields,
   A extends Fields,
-  K extends readonly (keyof S)[],
-  I extends readonly (keyof DecodedOf<S, A, K>)[],
+  I extends readonly (keyof DecodedOf<S, A>)[],
 > {
-  toJSON(): DecodedOf<S, A, K>;
+  toJSON(): DecodedOf<S, A>;
   equals(other: unknown): boolean;
-  update(patch: PatchOf<S, A, K, I>): Result<this, InvalidEntity>;
+  update(patch: PatchOf<S, A, I>): Result<this, InvalidEntity>;
 }
 
 /**
@@ -229,10 +215,9 @@ type ConstructedInstance<
   Tag extends string,
   S extends Fields,
   A extends Fields,
-  K extends readonly (keyof S)[],
-  I extends readonly (keyof DecodedOf<S, A, K>)[],
-> = BaseInstance<S, A, K, I> &
-  DeepReadonly<DecodedOf<S, A, K>> & {
+  I extends readonly (keyof DecodedOf<S, A>)[],
+> = BaseInstance<S, A, I> &
+  DeepReadonly<DecodedOf<S, A>> & {
     readonly _tag: Tag;
   };
 
@@ -244,7 +229,7 @@ type ConstructedInstance<
  * can double as the builder's *explicit* return-type annotation, and so the
  * package's exported helper types (`Encoded`, `Decoded`, `CreateInput`,
  * `Patch`) have a single surface to read the shapes off. This is why every
- * member below is expressed from `S`/`A`/`K`/`G`/`I`/`Tag` alone instead of
+ * member below is expressed from `S`/`A`/`G`/`I`/`Tag` alone instead of
  * the builder's body-local `Base`/`encoded`/`decoded`/etc. — those aren't in
  * scope at the annotation position, before the body that declares them.
  */
@@ -252,16 +237,15 @@ export type EntityStatic<
   Tag extends string,
   S extends Fields,
   A extends Fields,
-  K extends readonly (keyof S)[],
   G extends readonly (keyof S)[],
-  I extends readonly (keyof DecodedOf<S, A, K>)[],
+  I extends readonly (keyof DecodedOf<S, A>)[],
 > = {
-  new (d: Sealed<DecodedOf<S, A, K>>): ConstructedInstance<Tag, S, A, K, I>;
+  new (d: Sealed<DecodedOf<S, A>>): ConstructedInstance<Tag, S, A, I>;
   readonly entityName: Tag;
   readonly encoded: z.ZodObject<S>;
-  readonly decoded: z.ZodObject<Omit<S, K[number]> & A>;
+  readonly decoded: z.ZodObject<S & A>;
   readonly createInput: z.ZodObject<Omit<S, G[number]>>;
-  readonly updateInput: z.ZodObject<UpdateInputShapeOf<S, A, K, I>>;
+  readonly updateInput: z.ZodObject<UpdateInputShapeOf<S, A, I>>;
   /**
    * At runtime `X.instance.parse(...)` yields an actual `X` — `attachInstance`
    * (see `instance.ts`) reads the receiver, which JS's prototype-based static
@@ -276,23 +260,23 @@ export type EntityStatic<
    * needs the subclass's own members back must narrow explicitly (e.g.
    * `instanceof`) after parsing.
    */
-  readonly instance: z.ZodType<BaseInstance<S, A, K, I> & DeepReadonly<DecodedOf<S, A, K>>>;
+  readonly instance: z.ZodType<BaseInstance<S, A, I> & DeepReadonly<DecodedOf<S, A>>>;
   readonly "~standard": z.ZodType<
-    BaseInstance<S, A, K, I> & DeepReadonly<DecodedOf<S, A, K>>
+    BaseInstance<S, A, I> & DeepReadonly<DecodedOf<S, A>>
   >["~standard"];
   /** phantom carriers, so consumers can recover the shapes for annotations */
   readonly __encoded: EncodedOf<S>;
-  readonly __decoded: DecodedOf<S, A, K>;
+  readonly __decoded: DecodedOf<S, A>;
   readonly __createInput: CreateInputOf<S, G>;
-  readonly __patch: PatchOf<S, A, K, I>;
-  decode<T>(this: new (d: Sealed<DecodedOf<S, A, K>>) => T, raw: unknown): Result<T, InvalidEntity>;
-  make<T>(this: new (d: Sealed<DecodedOf<S, A, K>>) => T, state: unknown): Result<T, InvalidEntity>;
+  readonly __patch: PatchOf<S, A, I>;
+  decode<T>(this: new (d: Sealed<DecodedOf<S, A>>) => T, raw: unknown): Result<T, InvalidEntity>;
+  make<T>(this: new (d: Sealed<DecodedOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
   factory<T>(
-    this: new (d: Sealed<DecodedOf<S, A, K>>) => T,
+    this: new (d: Sealed<DecodedOf<S, A>>) => T,
     generators: Generators<S, G>,
   ): EntityFactory<T, S, G>;
   factoryAsync<T>(
-    this: new (d: Sealed<DecodedOf<S, A, K>>) => T,
+    this: new (d: Sealed<DecodedOf<S, A>>) => T,
     generators: AsyncGenerators<S, G>,
   ): AsyncEntityFactory<T, S, G>;
 };

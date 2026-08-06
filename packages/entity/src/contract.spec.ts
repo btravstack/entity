@@ -2,25 +2,23 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { Entity, add } from "./index.js";
+import { Entity, computed } from "./index.js";
 
 const ApiKeyId = z.uuid().brand("ApiKeyId");
 const OrgId = z.uuid().brand("OrgId");
-const Secret = z.string().min(16).brand("Secret");
-const Fingerprint = z.string().length(12).brand("Fingerprint");
+const SearchKey = z.string().min(1).brand("SearchKey");
 const Instant = z.iso.datetime().brand("Instant");
 const Label = z.string().min(1).brand("Label");
 
 class ApiKey extends Entity("ApiKey")(
-  { id: ApiKeyId, orgId: OrgId.readonly(), secret: Secret, label: Label, createdAt: Instant },
+  { id: ApiKeyId, orgId: OrgId.readonly(), label: Label, createdAt: Instant },
   {
     generated: ["id", "createdAt"],
     immutable: ["id", "orgId", "createdAt"],
-    decoded: {
-      omit: ["secret"],
-      add: add({ fingerprint: Fingerprint })((e) => ({
-        fingerprint: e.secret.slice(0, 12) as z.infer<typeof Fingerprint>,
-      })),
+    // a denormalised field: stored so a query can index it, re-derived on
+    // every construction so it cannot drift from `label`
+    computed: {
+      searchKey: computed(SearchKey, (d) => d.label.toLowerCase() as z.infer<typeof SearchKey>),
     },
   },
 ) {}
@@ -36,26 +34,26 @@ const props = (s: z.ZodType, io: "input" | "output") => {
 };
 
 test("encoded drives the full request schema", () => {
-  expect(props(ApiKey.encoded, "input")).toEqual(["createdAt", "id", "label", "orgId", "secret"]);
+  expect(props(ApiKey.encoded, "input")).toEqual(["createdAt", "id", "label", "orgId"]);
 });
 
 test("decoded drives the response schema", () => {
   expect(props(ApiKey.decoded, "output")).toEqual([
     "createdAt",
-    "fingerprint",
     "id",
     "label",
     "orgId",
+    "searchKey",
   ]);
 });
 
 test("createInput is the create request schema", () => {
-  expect(props(ApiKey.createInput, "input")).toEqual(["label", "orgId", "secret"]);
+  expect(props(ApiKey.createInput, "input")).toEqual(["label", "orgId"]);
 });
 
 test("updateInput is the update request schema", () => {
-  // `fingerprint` is on the response schema but not this one: `add` fields are
-  // implicitly immutable, so they are never part of an update request.
+  // `searchKey` is on the response schema but not this one: a computed field is
+  // derived on every construction, so it is never part of an update request.
   expect(props(ApiKey.updateInput, "input")).toEqual(["label"]);
 });
 
@@ -85,6 +83,6 @@ test("readonly() surfaces as readOnly in the generated schema", () => {
 });
 
 test("contracts can still derive further views", () => {
-  const Summary = ApiKey.decoded.pick({ id: true, fingerprint: true });
-  expect(Object.keys(Summary.shape).toSorted()).toEqual(["fingerprint", "id"]);
+  const Summary = ApiKey.decoded.pick({ id: true, searchKey: true });
+  expect(Object.keys(Summary.shape).toSorted()).toEqual(["id", "searchKey"]);
 });

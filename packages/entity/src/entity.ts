@@ -1,15 +1,14 @@
 import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
-import { Err, Ok, P, fromPromise, fromThrowable, type Result } from "unthrown";
+import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthrown";
 import type { z } from "zod";
 
-import type { AddSpec } from "./add.js";
+import type { ComputedField } from "./computed.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
 import { attachInstance } from "./instance.js";
 import { renderIssue } from "./issues.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
-  AddedOf,
   AsyncEntityFactory,
   AsyncGenerators,
   EntityFactory,
@@ -51,53 +50,55 @@ export function Entity<Tag extends string>(tag: Tag) {
   return function <
     S extends Fields,
     A extends Fields = Record<never, never>,
-    const K extends readonly (keyof S)[] = [],
     const G extends readonly (keyof S)[] = [],
-    const I extends readonly (keyof DecodedOf<S, A, K>)[] = [],
+    const I extends readonly (keyof DecodedOf<S, A>)[] = [],
   >(
     fields: S & OnlyNominal<S>,
     options?: {
       readonly generated?: G;
       readonly immutable?: I;
-      readonly decoded?: { readonly omit?: K; readonly add?: AddSpec<A, EncodedOf<S>> };
-      readonly invariants?: (d: DecodedOf<S, A, K>) => readonly string[];
+      readonly computed?: { [K in keyof A]: ComputedField<A[K], EncodedOf<S>> };
+      readonly invariants?: (d: DecodedOf<S, A>) => readonly string[];
     },
-  ): EntityStatic<Tag, S, A, K, G, I> {
+  ): EntityStatic<Tag, S, A, G, I> {
     const encoded = shape<S>(fields);
 
-    const omitted = options?.decoded?.omit ?? [];
-    const addSpec = options?.decoded?.add;
-
     // `.omit()`'s mask can't be satisfied by a mask built from a generic key
-    // list — TS won't reduce `Exclude<K[number], keyof S>` (or the equivalent
-    // for `G`/`I`) to `never` even though the constraint implies it — so this
+    // list — TS won't reduce `Exclude<G[number], keyof S>` (or the equivalent
+    // for `I`) to `never` even though the constraint implies it — so this
     // calls through a simplified signature rather than fight it.
     const omitBy = (o: z.ZodObject<Fields>, keys: readonly PropertyKey[]) =>
       keys.length > 0
         ? (o.omit as (m: Record<string, true>) => z.ZodObject<Fields>)(maskOf(keys))
         : o;
 
-    const afterOmit = omitBy(encoded as z.ZodObject<Fields>, omitted);
-    const decoded = (addSpec ? afterOmit.extend(addSpec.fields) : afterOmit) as z.ZodObject<
-      Omit<S, K[number]> & A
-    >;
+    /** [key, validate its output, produce it] per computed field. */
+    const computedFields = Object.entries(
+      (options?.computed ?? {}) as Record<string, ComputedField<z.ZodTypeAny, EncodedShape>>,
+    );
+
+    const decoded = (
+      computedFields.length > 0
+        ? (encoded as z.ZodObject<Fields>).extend(
+            Object.fromEntries(computedFields.map(([k, f]) => [k, f.schema])),
+          )
+        : encoded
+    ) as z.ZodObject<S & A>;
 
     const generatedKeys = options?.generated ?? [];
     const immutableKeys = options?.immutable ?? [];
 
     /**
-     * Every key `update` refuses: the declared immutable ones, plus the keys
-     * `add` contributed. An added field is *implicitly* immutable — `add`
-     * reads the **encoded** object, and `update` only ever holds the decoded
-     * one, which no longer carries an omitted source field like `secret`, so
-     * there is nothing to recompute from. Freezing them is the only answer
-     * that keeps a computed field consistent with its source; see `PatchOf`.
-     * Typed at the widened runtime element type so both uses below — the
-     * `.omit()` mask and `update`'s drop-list — take it without a cast.
+     * Every key `update` refuses: the declared immutable ones, plus the
+     * computed ones. A computed field is not patchable because it is derived —
+     * `update` re-runs `from` like every other construction path, so patching
+     * it would only be overwritten. Typed at the widened runtime element type
+     * so both uses below — the `.omit()` mask and `update`'s drop-list — take
+     * it without a cast.
      */
     const frozenKeys: readonly PropertyKey[] = [
       ...immutableKeys,
-      ...(addSpec ? Object.keys(addSpec.fields) : []),
+      ...computedFields.map(([k]) => k),
     ];
 
     /** what a caller may send to create */
@@ -106,10 +107,10 @@ export function Entity<Tag extends string>(tag: Tag) {
     >;
     /** what a caller may send to update */
     const updateInput = omitBy(decoded as z.ZodObject<Fields>, frozenKeys).partial() as z.ZodObject<
-      UpdateInputShapeOf<S, A, K, I>
+      UpdateInputShapeOf<S, A, I>
     >;
 
-    type DecodedShape = DecodedOf<S, A, K>;
+    type DecodedShape = DecodedOf<S, A>;
     type EncodedShape = EncodedOf<S>;
 
     const dataKeys = Object.keys(decoded.shape) as unknown as readonly (keyof DecodedShape)[];
@@ -128,29 +129,60 @@ export function Entity<Tag extends string>(tag: Tag) {
     };
 
     const parseEncoded = fromSchema(encoded);
-    // `DecodedShape` is hand-rolled alias of the same values for better error clarity
-    const parseDecoded = fromSchema(decoded) as (d: unknown) => Result<DecodedShape, SchemaIssues>;
 
     const toInvalidEntity = (issues: SchemaIssues) => new InvalidEntity({ entity: tag, issues });
 
     /**
-     * Validates ONLY what `add` returned, never the kept fields: `decode`
-     * already validated every kept field against `encoded`, and re-running a
-     * field schema over its own output is not a no-op — a non-idempotent
-     * transform applies twice, and a type-changing one rejects its own
-     * output. Checking `add`'s output is what makes its unchecked `as Brand`
-     * casts honest.
+     * Each computed field's own validator, so a failure names that field.
+     *
+     * Only the derived values are checked, never the declared ones: those were
+     * already validated against `encoded`, and re-running a field schema over
+     * its own output is not a no-op — a non-idempotent transform applies twice,
+     * and a type-changing one rejects its own output. Checking the derived
+     * output is what makes `from`'s unchecked `as Brand` cast honest.
      */
-    const parseAdded = addSpec
-      ? (fromSchema(shape<A>(addSpec.fields as A & OnlyNominal<A>)) as (
-          d: unknown,
-        ) => Result<AddedOf<A>, SchemaIssues>)
-      : undefined;
+    const computedParsers = computedFields.map(
+      ([key, f]) => [key, f.from, fromSchema(f.schema)] as const,
+    );
 
-    const decodedFrom = (e: EncodedShape, computed: object): DecodedShape => {
-      const kept = { ...e } as Record<PropertyKey, unknown>;
-      for (const k of omitted) delete kept[k as PropertyKey];
-      return { ...kept, ...computed } as unknown as DecodedShape;
+    const computedDefect = (key: string, detail: string) =>
+      new Error(`${tag}.computed.${key} produced data its own schema rejects: ${detail}`);
+
+    /**
+     * Re-derives every computed field from the declared ones. Runs on every
+     * construction path, so a derived value cannot go stale against its own
+     * sources — which is why `from` reads the declared fields rather than the
+     * raw payload.
+     *
+     * `from` is wrapped: it is domain code, and a throw would otherwise escape
+     * `decode`/`make`/`update` and break the Result contract. Both a throw and
+     * output its own schema rejects are defects — `from` is pure, total and
+     * typed, so either is a bug rather than bad caller input.
+     */
+    const recompute = (base: EncodedShape): Result<DecodedShape, InvalidEntity> => {
+      if (computedParsers.length === 0) return Ok({ ...base } as unknown as DecodedShape);
+      return all(
+        computedParsers.map(([key, from, parse]) =>
+          fromThrowable(
+            () => from(base),
+            (cause, defect) => defect(cause),
+          )()
+            .flatMap((produced) =>
+              parse(produced).mapErrCases((m, defect) =>
+                // SchemaIssues is `readonly Issue[]` — a single non-union type, nothing to enumerate
+                // oxlint-disable-next-line unthrown/no-catch-all-pattern
+                m.with(P._, (issues) =>
+                  defect(computedDefect(key, issues.map(renderIssue).join("; "))),
+                ),
+              ),
+            )
+            .map((value) => [key, value] as const),
+        ),
+        // `.flatMap` rather than `.map`: `map`'s NotThenable guard cannot
+        // resolve while the shape is still generic.
+      ).flatMap((pairs) =>
+        Ok({ ...base, ...Object.fromEntries(pairs) } as unknown as DecodedShape),
+      ) as Result<DecodedShape, InvalidEntity>;
     };
 
     const invariants = options?.invariants;
@@ -258,41 +290,31 @@ export function Entity<Tag extends string>(tag: Tag) {
             // oxlint-disable-next-line unthrown/no-catch-all-pattern
             m.with(P._, toInvalidEntity),
           )
-          .flatMap((e) =>
-            parseAdded === undefined || addSpec === undefined
-              ? Ok(decodedFrom(e, {}))
-              : parseAdded(addSpec.from(e))
-                  .mapErrCases((m, defect) =>
-                    // SchemaIssues is `readonly Issue[]` — a single non-union type, nothing to enumerate
-                    // oxlint-disable-next-line unthrown/no-catch-all-pattern
-                    m.with(P._, (issues) =>
-                      defect(
-                        new Error(
-                          `${tag}.add produced data its own schema rejects: ${issues
-                            .map(renderIssue)
-                            .join("; ")}`,
-                        ),
-                      ),
-                    ),
-                  )
-                  // `.flatMap` rather than `.map` because `map`'s NotThenable
-                  // guard cannot resolve while the type is still generic.
-                  .flatMap((computed) => Ok(decodedFrom(e, computed))),
-          )
+          .flatMap(recompute)
           .flatMap((d) => construct(this, d));
       }
 
-      /** already-stored state → entity, for row mappers and event folds */
+      /**
+       * already-stored state → entity, for row mappers and event folds
+       *
+       * Validated against `encoded`, not `decoded`, even though a stored row
+       * carries the computed keys too. Those keys are re-derived rather than
+       * read, so validating them would reject exactly the rows this is meant to
+       * heal: one written before a derivation changed, or written before the
+       * computed field existed at all. Extra keys are ignored, as zod ignores
+       * any unknown key.
+       */
       static make<T>(
         this: new (d: Sealed<DecodedShape>) => T,
         state: unknown,
       ): Result<T, InvalidEntity> {
-        return parseDecoded(state)
+        return parseEncoded(state)
           .mapErrCases((m) =>
             // SchemaIssues is `readonly Issue[]` — a single non-union type, nothing to enumerate
             // oxlint-disable-next-line unthrown/no-catch-all-pattern
             m.with(P._, toInvalidEntity),
           )
+          .flatMap(recompute)
           .flatMap((d) => construct(this, d));
       }
 
@@ -325,11 +347,11 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
 
       /** a partial of the mutable fields → a NEW entity */
-      update(this: Base, patch: PatchOf<S, A, K, I>): Result<Base, InvalidEntity> {
+      update(this: Base, patch: PatchOf<S, A, I>): Result<Base, InvalidEntity> {
         const current = project(this) as Record<PropertyKey, unknown>;
         const applied = { ...current };
         for (const [k, v] of Object.entries(patch as object)) {
-          // frozen keys — declared immutable, or contributed by `add` — are a
+          // frozen keys — declared immutable, or computed — are a
           // compile error already; drop them at runtime too, so a patch that
           // reached here as `unknown` cannot desynchronise a computed field
           // from the source it was derived from.
@@ -344,7 +366,7 @@ export function Entity<Tag extends string>(tag: Tag) {
 
     attachInstance<Base & DeepReadonly<DecodedShape>>(Base, encoded);
 
-    return Base as unknown as EntityStatic<Tag, S, A, K, G, I>;
+    return Base as unknown as EntityStatic<Tag, S, A, G, I>;
   };
 }
 
