@@ -136,6 +136,10 @@ export function Entity<Tag extends string>(tag: Tag) {
 
       constructor(d: Sealed<DecodedShape>) {
         const source = d as unknown as Record<PropertyKey, unknown>;
+        // One set for the whole instance, not one per field: fields can share
+        // a subtree, and a per-field set would re-walk it once per field that
+        // reaches it. See `deepFreeze`.
+        const seen = new WeakSet<object>();
         for (const k of dataKeys) {
           Object.defineProperty(this, k, {
             // `writable: false` locks the binding; `deepFreeze` locks the
@@ -145,7 +149,7 @@ export function Entity<Tag extends string>(tag: Tag) {
             // initialisers run after `super()` returns, so the instance
             // itself must stay extensible (pinned by a test in
             // `entity.spec.ts`).
-            value: deepFreeze(source[k as PropertyKey]),
+            value: deepFreeze(source[k as PropertyKey], seen),
             writable: false,
             enumerable: true,
           });

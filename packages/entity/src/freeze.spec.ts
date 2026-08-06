@@ -62,3 +62,25 @@ test("a null-prototype object counts as plain data", () => {
   const bare = Object.assign(Object.create(null) as object, { a: 1 });
   expect(Object.isFrozen(deepFreeze(bare))).toBe(true);
 });
+
+test("a shared `seen` set freezes a subtree reachable from two fields once", () => {
+  const shared = { tags: ["a"] };
+  const left = { shared };
+  const right = { shared };
+
+  // what the entity constructor does: one set across every field
+  const seen = new WeakSet<object>();
+  deepFreeze(left, seen);
+  deepFreeze(right, seen);
+
+  expect(Object.isFrozen(shared)).toBe(true);
+  expect(Object.isFrozen(shared.tags)).toBe(true);
+  expect(Object.isFrozen(left)).toBe(true);
+  expect(Object.isFrozen(right)).toBe(true);
+});
+
+test("omitting `seen` still freezes, so a standalone call is unchanged", () => {
+  const value = { nested: { tags: ["a"] } };
+  deepFreeze(value);
+  expect(Object.isFrozen(value.nested.tags)).toBe(true);
+});

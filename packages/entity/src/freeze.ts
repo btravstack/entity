@@ -71,8 +71,18 @@ const freezeInto = (value: object, seen: WeakSet<object>): void => {
  * Freezes `value` in place and returns it, so it can wrap the expression it
  * guards. A primitive — which is every branded scalar field — costs one
  * `typeof` and allocates nothing.
+ *
+ * `seen` is optional so a single call site stays a one-liner, but the entity
+ * constructor passes one `WeakSet` across every field of the instance it is
+ * building. That is not only about allocation: two fields can reference the
+ * same object (zod hands back whatever the payload held, so a shared subtree
+ * survives decoding), and a per-field set would walk that subtree once per
+ * field that reaches it. Sharing the set makes the whole instance one
+ * traversal. It is allocated lazily rather than as a default parameter,
+ * because a default is evaluated before the `isObject` guard and would
+ * allocate for every primitive field.
  */
-export const deepFreeze = <T>(value: T): T => {
-  if (isObject(value)) freezeInto(value, new WeakSet<object>());
+export const deepFreeze = <T>(value: T, seen?: WeakSet<object>): T => {
+  if (isObject(value)) freezeInto(value, seen ?? new WeakSet<object>());
   return value;
 };

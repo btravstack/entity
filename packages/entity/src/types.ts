@@ -74,12 +74,22 @@ export type GeneratedOf<S extends Fields, G extends readonly (keyof S)[]> = {
  * bare primitives first short-circuits every branded scalar with its brand
  * intact, because an intersection is assignable to any of its constituents.
  *
- * `Date` and `RegExp` keep their state in internal slots a mapped type cannot
- * describe, and a function's call signature is likewise not a property — the
- * `never[]` rest parameter is the contravariance-safe spelling of "any
- * function" (`unknown[]` rejects narrower parameter lists under
- * `strictFunctionTypes`). All three are left as they are, matching the
- * runtime freeze, which does not recurse into them either (see `freeze.ts`).
+ * `Date` keeps its timestamp in an internal slot a mapped type cannot
+ * describe; `RegExp` keeps `source` and its flags the same way, though its
+ * `lastIndex` *is* an ordinary mutable data property; and a function's call
+ * signature is likewise not a property — the `never[]` rest parameter is the
+ * contravariance-safe spelling of "any function" (`unknown[]` rejects
+ * narrower parameter lists under `strictFunctionTypes`).
+ *
+ * All three are therefore left unmapped *at the type level*. That is not the
+ * same as the runtime leaving them untouched, and the two halves deliberately
+ * do not line up: `freeze.ts` freezes a `Date` as a leaf (harmless — it has
+ * no own enumerable properties, and `setTime` still works, so it only stops
+ * properties being bolted on), while `RegExp` and functions are not frozen at
+ * all. Freezing a `RegExp` is actively destructive, not merely useless: a
+ * `/g` or `/y` pattern rewrites `lastIndex` on every `exec`, so on a frozen
+ * one `exec` itself throws — measured: `TypeError: Cannot assign to read only
+ * property 'lastIndex'`. See `freeze.ts` for the runtime rules.
  */
 type Immutable =
   | string
