@@ -33,12 +33,12 @@ const props = (s: z.ZodType, io: "input" | "output") => {
   ).toSorted();
 };
 
-test("encoded drives the full request schema", () => {
-  expect(props(ApiKey.encoded, "input")).toEqual(["createdAt", "id", "label", "orgId"]);
+test("input drives the full request schema", () => {
+  expect(props(ApiKey.input, "input")).toEqual(["createdAt", "id", "label", "orgId"]);
 });
 
-test("decoded drives the response schema", () => {
-  expect(props(ApiKey.decoded, "output")).toEqual([
+test("output drives the response schema", () => {
+  expect(props(ApiKey.output, "output")).toEqual([
     "createdAt",
     "id",
     "label",
@@ -58,7 +58,7 @@ test("updateInput is the update request schema", () => {
 });
 
 test("all four ZodObject members convert in both directions", () => {
-  for (const s of [ApiKey.encoded, ApiKey.decoded, ApiKey.createInput, ApiKey.updateInput]) {
+  for (const s of [ApiKey.input, ApiKey.output, ApiKey.createInput, ApiKey.updateInput]) {
     for (const io of ["input", "output"] as const) {
       expect(() => z.toJSONSchema(s as never, { io })).not.toThrow();
     }
@@ -70,19 +70,19 @@ test("the instance surface has no output representation, which is why it is sepa
 });
 
 test("no schema leaks the runtime tag", () => {
-  for (const s of [ApiKey.encoded, ApiKey.decoded, ApiKey.createInput, ApiKey.updateInput]) {
+  for (const s of [ApiKey.input, ApiKey.output, ApiKey.createInput, ApiKey.updateInput]) {
     expect(Object.keys((s as z.ZodObject<z.ZodRawShape>).shape)).not.toContain("_tag");
   }
 });
 
 test("readonly() surfaces as readOnly in the generated schema", () => {
-  const json = z.toJSONSchema(ApiKey.decoded, { io: "output" }) as unknown as {
+  const json = z.toJSONSchema(ApiKey.output, { io: "output" }) as unknown as {
     properties: { orgId: { readOnly?: boolean } };
   };
   expect(json.properties.orgId.readOnly).toBe(true);
 });
 
 test("contracts can still derive further views", () => {
-  const Summary = ApiKey.decoded.pick({ id: true, searchKey: true });
+  const Summary = ApiKey.output.pick({ id: true, searchKey: true });
   expect(Object.keys(Summary.shape).toSorted()).toEqual(["id", "searchKey"]);
 });

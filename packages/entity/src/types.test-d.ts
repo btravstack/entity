@@ -4,8 +4,8 @@ import { z } from "zod";
 import type {
   ComputedOf,
   CreateInputOf,
-  DecodedOf,
-  EncodedOf,
+  OutputOf,
+  InputOf,
   Fields,
   GeneratedOf,
   PatchOf,
@@ -33,8 +33,8 @@ test("the test fixtures satisfy the Fields constraint", () => {
   expectTypeOf<CheckA>().toEqualTypeOf<true>();
 });
 
-test("EncodedOf is the plain inferred object", () => {
-  expectTypeOf<EncodedOf<S>["slug"]>().toEqualTypeOf<z.infer<typeof Slug>>();
+test("InputOf is the plain inferred object", () => {
+  expectTypeOf<InputOf<S>["slug"]>().toEqualTypeOf<z.infer<typeof Slug>>();
 });
 
 test("ComputedOf of an empty shape has no keys and no index signature", () => {
@@ -43,16 +43,16 @@ test("ComputedOf of an empty shape has no keys and no index signature", () => {
   expectTypeOf<keyof ComputedOf<Record<never, never>>>().toEqualTypeOf<never>();
 });
 
-test("DecodedOf is the declared fields plus the computed ones, and carries no _tag", () => {
-  type D = DecodedOf<S, A>;
+test("OutputOf is the declared fields plus the computed ones, and carries no _tag", () => {
+  type D = OutputOf<S, A>;
   expectTypeOf<D["fingerprint"]>().toEqualTypeOf<z.infer<typeof Fingerprint>>();
   expectTypeOf<D["secret"]>().toEqualTypeOf<z.infer<typeof Secret>>();
   // the tag is a runtime-only instance property, never part of the data
   expectTypeOf<D>().not.toHaveProperty("_tag");
 });
 
-test("DecodedOf with no computed fields is the encoded object", () => {
-  type D = DecodedOf<S, Record<never, never>>;
+test("OutputOf with no computed fields is the encoded object", () => {
+  type D = OutputOf<S, Record<never, never>>;
   expectTypeOf<D["secret"]>().toEqualTypeOf<z.infer<typeof Secret>>();
 });
 
@@ -76,8 +76,8 @@ test("PatchOf is partial and drops the immutable fields", () => {
 });
 
 test("Sealed cannot be produced from outside the module", () => {
-  const plain = {} as unknown as EncodedOf<S>;
+  const plain = {} as unknown as InputOf<S>;
   // @ts-expect-error the construction key cannot be named outside types.ts
-  const sealed: Sealed<EncodedOf<S>> = plain;
+  const sealed: Sealed<InputOf<S>> = plain;
   void sealed;
 });

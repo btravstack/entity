@@ -23,25 +23,25 @@ class Person extends Entity("Person")(
 const raw = { id: "0199b1f4-1b1e-7000-8000-000000000000", first: "Ada", last: "Lovelace" };
 
 test("every computed field reaches the entity and its stored output", () => {
-  const p = Person.decode(raw).getOrThrow();
+  const p = Person.make(raw).getOrThrow();
   expect(p.fullName).toBe("Ada Lovelace");
   expect(p.initials).toBe("AL");
   expect(p.toJSON()).toMatchObject({ fullName: "Ada Lovelace", initials: "AL" });
 });
 
-test("computed fields are in decoded but not in encoded", () => {
-  expect(Object.keys(Person.decoded.shape).toSorted()).toEqual([
+test("computed fields are in output but not in input", () => {
+  expect(Object.keys(Person.output.shape).toSorted()).toEqual([
     "first",
     "fullName",
     "id",
     "initials",
     "last",
   ]);
-  expect(Person.encoded.shape).not.toHaveProperty("fullName");
+  expect(Person.input.shape).not.toHaveProperty("fullName");
 });
 
 test("update re-derives every computed field instead of leaving them stale", () => {
-  const p = Person.decode(raw).getOrThrow();
+  const p = Person.make(raw).getOrThrow();
   const renamed = p.update({ last: "Byron" as z.infer<typeof NamePart> }).getOrThrow();
   expect(renamed.fullName).toBe("Ada Byron");
   expect(renamed.initials).toBe("AB");
@@ -68,14 +68,13 @@ test("make heals a row written before the computed field existed", () => {
 
 test("computed fields are absent from updateInput and dropped if smuggled in", () => {
   expect(Object.keys(Person.updateInput.shape).toSorted()).toEqual(["first", "last"]);
-  const p = Person.decode(raw).getOrThrow();
+  const p = Person.make(raw).getOrThrow();
   const lied = p.update({ fullName: "LIES" } as never).getOrThrow();
   expect(lied.fullName).toBe("Ada Lovelace");
 });
 
-test("toJSON round-trips through both decode and make", () => {
-  const p = Person.decode(raw).getOrThrow();
-  expect(Person.decode(p.toJSON()).getOrThrow().fullName).toBe("Ada Lovelace");
+test("toJSON round-trips through make", () => {
+  const p = Person.make(raw).getOrThrow();
   expect(Person.make(p.toJSON()).getOrThrow().fullName).toBe("Ada Lovelace");
 });
 
@@ -89,11 +88,11 @@ test("invariants see the computed fields", () => {
       invariants: (d) => (d.fullName.length <= 20 ? [] : ["fullName must be at most 20 chars"]),
     },
   ) {}
-  expect(Checked.decode(raw).isOk()).toBe(true);
-  expect(Checked.decode({ ...raw, last: "Lovelace-Byron-Of-Somewhere" }).isErr()).toBe(true);
+  expect(Checked.make(raw).isOk()).toBe(true);
+  expect(Checked.make({ ...raw, last: "Lovelace-Byron-Of-Somewhere" }).isErr()).toBe(true);
 });
 
-const outcomeOf = (r: ReturnType<typeof Person.decode>) =>
+const outcomeOf = (r: ReturnType<typeof Person.make>) =>
   r.match({
     ok: () => "WRONGLY ACCEPTED",
     errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
@@ -110,7 +109,7 @@ test("computed output failing its own schema is a defect, not bad input", () => 
       },
     },
   ) {}
-  expect(outcomeOf(Broken.decode(raw) as never)).toBe("defect");
+  expect(outcomeOf(Broken.make(raw) as never)).toBe("defect");
 });
 
 test("a throwing derivation is a defect, not an escaped exception", () => {
@@ -126,7 +125,7 @@ test("a throwing derivation is a defect, not an escaped exception", () => {
     },
   ) {}
   // the point is that this does NOT throw out of decode()
-  expect(outcomeOf(Throws.decode(raw) as never)).toBe("defect");
+  expect(outcomeOf(Throws.make(raw) as never)).toBe("defect");
 });
 
 test("a defect names the field that produced it", () => {
@@ -140,7 +139,7 @@ test("a defect names the field that produced it", () => {
   ) {}
   let message = "";
   try {
-    Broken.decode(raw).getOrThrow();
+    Broken.make(raw).getOrThrow();
   } catch (e) {
     message = (e as Error).message;
   }
@@ -157,6 +156,6 @@ test("a field transform is applied exactly once, not once per validation pass", 
     })
     .brand("NamePart");
   class Once extends Entity("Once")({ id: PersonId, first: Counted }) {}
-  Once.decode({ id: raw.id, first: "Ada" }).getOrThrow();
+  Once.make({ id: raw.id, first: "Ada" }).getOrThrow();
   expect(calls).toBe(1);
 });

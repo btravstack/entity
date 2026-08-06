@@ -5,7 +5,7 @@ import type { InvalidEntity } from "./errors.js";
 import { keysOf } from "./issues.js";
 
 /**
- * The composable surface: encoded input decoded to a class instance.
+ * The composable surface: input data parsed into a class instance.
  *
  * Failures cross into zod's issue channel so a nested entity reports which
  * member failed — `z.object({ owner: Organization.instance })` yields
@@ -18,15 +18,15 @@ import { keysOf } from "./issues.js";
  * per invariant message and yielding `z.NEVER`), which empties the error
  * channel and leaves an unrecovered `Defect` as the only way `.get()` can
  * still fail — at which point it panics (rethrows the original cause)
- * instead of reporting an ordinary issue. An unexpected bug in `decode`
+ * instead of reporting an ordinary issue. An unexpected bug in `make`
  * must stay distinguishable from bad caller input, not surface as one.
  */
 function instanceSchema<T>(
-  encoded: z.ZodType,
-  decodeFrom: (d: unknown) => Result<T, InvalidEntity>,
+  input: z.ZodType,
+  makeFrom: (d: unknown) => Result<T, InvalidEntity>,
 ): z.ZodType<T> {
-  return encoded.transform((d, ctx) =>
-    decodeFrom(d)
+  return input.transform((d, ctx) =>
+    makeFrom(d)
       .recoverErrCases((m) =>
         m.with(P.tag("InvalidEntity"), (invalid) => {
           for (const issue of invalid.issues) {
@@ -68,13 +68,13 @@ function instanceSchema<T>(
  * ever reads it, and `Y.instance` then resolves to that inherited property:
  * `Y.instance.parse(...)` silently builds an `X`, not a `Y`, with no error.
  */
-export function attachInstance<T>(Base: object, encoded: z.ZodType): void {
+export function attachInstance<T>(Base: object, input: z.ZodType): void {
   Object.defineProperty(Base, "instance", {
     configurable: true,
     enumerable: false,
     get(this: object) {
-      const built = instanceSchema<T>(encoded, (d) =>
-        (this as unknown as { decode: (raw: unknown) => Result<T, InvalidEntity> }).decode(d),
+      const built = instanceSchema<T>(input, (d) =>
+        (this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> }).make(d),
       );
       Object.defineProperty(this, "instance", { value: built, enumerable: false });
       return built;

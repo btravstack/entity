@@ -46,10 +46,10 @@ Node is pinned in `.node-version` (24.16.0); pnpm 11.7.0 via `packageManager`
 Six source modules under `packages/entity/src`, split by what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
-  four `ZodObject`s (`encoded`, `decoded`, `createInput`, `updateInput`) from
+  four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
   one field map plus `generated` / `immutable` / `computed`,
   then returns a `Base` class carrying them as statics. `create` delegates to
-  `decode`; `update` delegates to `make`; every path funnels through
+  `make`; `update` delegates to `make`; every path funnels through
   `construct`, which runs `invariants` and seals the constructor call. Data
   fields are installed with `Object.defineProperty(..., { writable: false })`
   and `_tag` non-enumerably, which is why `_tag` never reaches `toJSON()`,
@@ -61,7 +61,7 @@ Six source modules under `packages/entity/src`, split by what they own:
   deliberately leaves `Map`/`Set`/class instances alone. The constructor
   passes one `WeakSet` across every field, so a subtree two fields share is
   walked once.
-- **`types.ts`** — the whole type-level derivation (`DecodedOf`,
+- **`types.ts`** — the whole type-level derivation (`OutputOf`,
   `CreateInputOf`, `PatchOf`, `UpdateInputShapeOf`, `EntityStatic`), plus
   `Sealed<D>`, the module-private `unique symbol` that makes `new X(...)` a
   compile error. Written independently of the builder's body-local values so

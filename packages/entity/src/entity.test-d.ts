@@ -5,8 +5,8 @@ import {
   Entity,
   computed,
   type CreateInput,
-  type Decoded,
-  type Encoded,
+  type Output,
+  type Input,
   type Patch,
 } from "./index.js";
 
@@ -22,7 +22,7 @@ test("construction outside decode/make is sealed", () => {
 });
 
 test("data fields are readonly at compile time", () => {
-  const org = Organization.decode({}).getOrThrow();
+  const org = Organization.make({}).getOrThrow();
   // @ts-expect-error data is immutable
   org.slug = "other";
 });
@@ -32,7 +32,7 @@ const Address = z.object({ city: z.string(), lines: z.array(z.string()) }).brand
 class Bag extends Entity("Bag")({ id: OrgId, tags: z.array(Tag), address: Address }) {}
 
 test("data is readonly all the way down, not just at the top level", () => {
-  const bag = Bag.decode({}).getOrThrow();
+  const bag = Bag.make({}).getOrThrow();
 
   // @ts-expect-error an array field is `readonly Tag[]`, so it has no `push`
   bag.tags.push("x" as z.infer<typeof Tag>);
@@ -51,7 +51,7 @@ test("data is readonly all the way down, not just at the top level", () => {
 });
 
 test("a branded field survives DeepReadonly with its brand intact", () => {
-  const org = Organization.decode({}).getOrThrow();
+  const org = Organization.make({}).getOrThrow();
   // a naive DeepReadonly maps over `string & $brand<…>` and loses the
   // primitive, so this assignment is the regression guard for that
   const slug: z.infer<typeof Slug> = org.slug;
@@ -62,15 +62,15 @@ test("a branded field survives DeepReadonly with its brand intact", () => {
 });
 
 test("toJSON() returns the plain, mutable decoded shape", () => {
-  const bag = Bag.decode({}).getOrThrow();
+  const bag = Bag.make({}).getOrThrow();
   // toJSON() builds a fresh object, so its own keys stay assignable —
   // DeepReadonly applies to the instance's fields, not to this projection
-  const state: Decoded<typeof Bag> = bag.toJSON();
+  const state: Output<typeof Bag> = bag.toJSON();
   state.tags = [];
 });
 
 test("toJSON() is the only projection — there is no second public spelling", () => {
-  const bag = Bag.decode({}).getOrThrow();
+  const bag = Bag.make({}).getOrThrow();
   // @ts-expect-error `encode()` was removed; `toJSON()` is the one projection
   bag.encode();
 });
@@ -89,7 +89,7 @@ test("unbranded fields are rejected", () => {
 });
 
 test("the tag is a literal, not a wide string", () => {
-  const tag: "Organization" = Organization.decode({}).getOrThrow()._tag;
+  const tag: "Organization" = Organization.make({}).getOrThrow()._tag;
   void tag;
 });
 
@@ -218,7 +218,7 @@ test("update() preserves the subclass type and its methods", () => {
       return this.slug.toUpperCase();
     }
   }
-  const org = UpdateTestOrg.decode({}).getOrThrow();
+  const org = UpdateTestOrg.make({}).getOrThrow();
   const updated = org.update({ slug: "new" as z.infer<typeof Slug> }).getOrThrow();
   // Both class-body method and _tag must be accessible on the result,
   // proving update() preserves the subclass type and not just the base shape
@@ -235,12 +235,12 @@ test("the helper types name each shape", () => {
     { generated: ["id", "createdAt"], immutable: ["id", "createdAt"] },
   ) {}
 
-  const wire: Encoded<typeof Org> = {
+  const wire: Input<typeof Org> = {
     id: "x" as z.infer<typeof OrgId>,
     slug: "s" as z.infer<typeof Slug>,
     createdAt: "t" as z.infer<typeof Instant>,
   };
-  const state: Decoded<typeof Org> = wire;
+  const state: Output<typeof Org> = wire;
   const created: CreateInput<typeof Org> = { slug: "s" as z.infer<typeof Slug> };
   const patch: Patch<typeof Org> = { slug: "s" as z.infer<typeof Slug> };
   void wire;
