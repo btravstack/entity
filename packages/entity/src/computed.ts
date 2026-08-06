@@ -1,31 +1,32 @@
-import type { OnlyNominal } from "./shape.js";
-import type { ComputedOf, Fields } from "./types.js";
+import type { z } from "zod";
 
-/** What `computed(fields, from)` produces: a field set and the function that fills it. */
-export type ComputedSpec<A extends Fields, D> = {
-  readonly fields: A;
-  readonly from: (d: D) => ComputedOf<A>;
+import type { OnlyNominal } from "./shape.js";
+
+/** One derived field: its schema, and the function that produces it. */
+export type ComputedField<T extends z.ZodTypeAny, D> = {
+  readonly schema: T;
+  readonly from: (d: D) => z.infer<T>;
 };
 
 /**
- * Declares derived fields and how to produce them:
+ * Declares one derived field:
  *
  * ```ts
- * computed({ fullName: Full }, (d) => ({ fullName: `${d.first} ${d.last}` }))
+ * computed: {
+ *   fullName: computed(FullName, (d) => `${d.first} ${d.last}`),
+ *   initials: computed(Initials, (d) => `${d.first[0]}${d.last[0]}`),
+ * }
  * ```
  *
- * `from` reads the *declared* fields and re-runs on every construction —
- * `decode`, `make` and `update` alike — so a derived value can never go stale
- * against the data it is derived from. That is what a getter would give you;
- * this carries a schema too, so the field reaches `decoded` and the JSON
- * Schema a getter cannot.
- *
- * `D` is fixed by the expected return type at the call site, which the options
- * object parameterises by the entity's declared shape.
+ * `from` reads the declared fields and re-runs on every construction, so a
+ * derived value cannot go stale against its sources. `D` is fixed by the
+ * expected type at the call site, so `d` needs no annotation, and the return
+ * type is checked against *this* field's schema — a wrong brand reports on the
+ * field that produced it rather than on the whole map.
  */
-export function computed<A extends Fields, D>(
-  fields: A & OnlyNominal<A>,
-  from: (d: D) => ComputedOf<A>,
-): ComputedSpec<A, D> {
-  return { fields: fields as A, from };
+export function computed<T extends z.ZodTypeAny, D>(
+  schema: T & OnlyNominal<{ value: T }>["value"],
+  from: (d: D) => z.infer<T>,
+): ComputedField<T, D> {
+  return { schema: schema as T, from };
 }

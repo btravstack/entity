@@ -113,24 +113,26 @@ test("computed's function is contextually typed and must return brands", () => {
   Entity("Probe2")(
     { id: OrgId, slug: Slug },
     {
-      computed: computed({ slugUpper: Upper }, (d) => {
-        // @ts-expect-error `nope` is not a field, so `d` is not `any`
-        void d.nope;
-        // the declared fields are what a computed value derives from
-        const s: z.infer<typeof Slug> = d.slug;
-        void s;
-        // @ts-expect-error a plain string is not Upper
-        const bad: { slugUpper: z.infer<typeof Upper> } = { slugUpper: "x" };
-        void bad;
-        return { slugUpper: "X" as z.infer<typeof Upper> };
-      }),
+      computed: {
+        slugUpper: computed(Upper, (d) => {
+          // @ts-expect-error `nope` is not a field, so `d` is not `any`
+          void d.nope;
+          // the declared fields are what a computed value derives from
+          const s: z.infer<typeof Slug> = d.slug;
+          void s;
+          // @ts-expect-error a plain string is not Upper
+          const bad: { slugUpper: z.infer<typeof Upper> } = { slugUpper: "x" };
+          void bad;
+          return "X" as z.infer<typeof Upper>;
+        }),
+      },
     },
   );
 });
 
 test("computed rejects an unbranded field", () => {
   // @ts-expect-error a bare string is not a domain field
-  computed({ label: z.string() }, () => ({ label: "x" }));
+  computed(z.string(), () => "x");
 });
 
 test("create rejects a generated field and update rejects an immutable one", () => {
@@ -181,14 +183,14 @@ test("factory generators are functions, and must cover exactly the generated fie
   Org.factoryAsync({ id: () => Promise.resolve(id), createdAt: () => Promise.resolve(at) });
 });
 
-test("an added field is immutable without being declared immutable", () => {
+test("a computed field is immutable without being declared immutable", () => {
   const Upper = z.string().brand("Upper");
   class Org extends Entity("Org")(
     { id: OrgId, slug: Slug },
     {
-      computed: computed({ slugUpper: Upper }, (d) => ({
-        slugUpper: d.slug.toUpperCase() as z.infer<typeof Upper>,
-      })),
+      computed: {
+        slugUpper: computed(Upper, (d) => d.slug.toUpperCase() as z.infer<typeof Upper>),
+      },
     },
   ) {}
 

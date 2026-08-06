@@ -9,7 +9,7 @@ export type Fields = Record<string, z.ZodTypeAny>;
 export type EncodedOf<S extends Fields> = z.infer<z.ZodObject<S>>;
 
 /**
- * The fields `add` contributes.
+ * The values the computed fields contribute.
  *
  * Zod's `$InferObjectOutput` special-cases an *empty* shape to
  * `Record<string, never>` — a real index signature, not `{}`. Unguarded, that
@@ -30,8 +30,8 @@ export type ComputedOf<A extends Fields> = [keyof A] extends [never]
   : z.infer<z.ZodObject<A>>;
 
 /**
- * What the entity stores and returns: encoded, minus the omitted fields, plus
- * the added ones. There is deliberately no `_tag` — the tag is a
+ * What the entity stores and returns: the declared fields plus the computed
+ * ones. There is deliberately no `_tag` — the tag is a
  * non-enumerable instance property and never part of the data.
  */
 export type DecodedOf<S extends Fields, A extends Fields> = EncodedOf<S> & ComputedOf<A>;
@@ -125,14 +125,9 @@ export type DeepReadonly<T> = T extends Immutable
 
 /**
  * What `update` accepts: a partial of the stored data, minus the immutable
- * fields — and minus `keyof A`, because an `add`-produced field is
- * *implicitly* immutable whether or not `immutable` names it. Nothing can
- * honestly recompute one on update: `add`'s input is the *encoded* object, and
- * `update` only has the decoded one, which no longer carries the omitted source
- * field the computation reads from (the same asymmetry that stops
- * `decode(x.encode())` round-tripping). Leaving a computed field patchable
- * would let a caller set it to a value its own source contradicts, so it is
- * excluded instead.
+ * fields — and minus `keyof A`, because a computed field is derived, not
+ * supplied. `update` re-runs every derivation like any other construction
+ * path, so a patched value would only be overwritten by the next one.
  */
 export type PatchOf<
   S extends Fields,
@@ -143,7 +138,7 @@ export type PatchOf<
 /**
  * The field *schemas* `updateInput` is built from: the decoded field map
  * (`S & A`, the same construction `EntityStatic["decoded"]`
- * uses), minus the immutable keys and minus `keyof A` — the added fields are
+ * uses), minus the immutable keys and minus `keyof A` — the computed fields are
  * implicitly immutable, see `PatchOf` — with every remaining schema wrapped in
  * `ZodOptional` — the type-level mirror of what `.omit(...).partial()`
  * produces at runtime. A mapped object type rather than the `Fields` index

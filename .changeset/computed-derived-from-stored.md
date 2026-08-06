@@ -21,12 +21,16 @@ decoded: {
   add: add({ fingerprint: Fingerprint })((e) => ({ fingerprint: hash(e.secret) })),
 }
 
-// after — derived from the declared fields, re-derived on every construction
-computed: computed({ fullName: FullName }, (d) => ({
-  fullName: `${d.first} ${d.last}`,
-}))
+// after — one entry per derived field, re-derived on every construction
+computed: {
+  fullName: computed(FullName, (d) => `${d.first} ${d.last}`),
+  initials: computed(Initials, (d) => `${d.first[0]}${d.last[0]}`),
+}
 ```
+
+`make` validates against the declared fields only, so a row heals whether its
+stored computed value drifted, is invalid, or predates the field.
 
 Computed fields remain absent from `updateInput` and `Patch`. `DecodedOf`,
 `PatchOf` and `UpdateInputShapeOf` lose their omit type parameter, and
-`AddedOf`/`AddSpec` are renamed `ComputedOf`/`ComputedSpec`.
+`AddedOf`/`AddSpec` are renamed `ComputedOf`/`ComputedField`.

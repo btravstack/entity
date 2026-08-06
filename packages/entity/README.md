@@ -115,13 +115,15 @@ test in `contract.spec.ts` pins that.
 `computed` declares fields derived from the declared ones:
 
 ```ts
-computed({ fullName: FullName }, (d) => ({
-  fullName: `${d.first} ${d.last}`,
-}));
+computed: {
+  fullName: computed(FullName, (d) => `${d.first} ${d.last}`),
+  initials: computed(Initials, (d) => `${d.first[0]}${d.last[0]}`),
+}
 ```
 
-`d` is the declared shape and the callback's return type is checked against the
-declared fields, so every value must already be branded.
+One entry per derived field. `d` is the declared shape, contextually typed, and
+each return value is checked against that field's own schema, so every value
+must already be branded.
 
 A computed field is **re-derived on every construction** — `decode`, `make` and
 `update` alike — so it cannot drift from the data it derives from, and `make`

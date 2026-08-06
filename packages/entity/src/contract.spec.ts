@@ -17,9 +17,9 @@ class ApiKey extends Entity("ApiKey")(
     immutable: ["id", "orgId", "createdAt"],
     // a denormalised field: stored so a query can index it, re-derived on
     // every construction so it cannot drift from `label`
-    computed: computed({ searchKey: SearchKey }, (d) => ({
-      searchKey: d.label.toLowerCase() as z.infer<typeof SearchKey>,
-    })),
+    computed: {
+      searchKey: computed(SearchKey, (d) => d.label.toLowerCase() as z.infer<typeof SearchKey>),
+    },
   },
 ) {}
 

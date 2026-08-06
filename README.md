@@ -261,30 +261,46 @@ A computed field is derived from the declared ones, carries a schema, and is
 **re-derived on every construction** — `decode`, `make` and `update` alike:
 
 ```ts
+import { z } from "zod";
 import { Entity, computed } from "@btravstack/entity";
 
+const PersonId = z.uuid().brand("PersonId");
 const NamePart = z.string().min(1).brand("NamePart");
 const FullName = z.string().min(1).brand("FullName");
+const Initials = z.string().min(1).brand("Initials");
 
 class Person extends Entity("Person")(
   { id: PersonId, first: NamePart, last: NamePart },
   {
     immutable: ["id"],
-    computed: computed({ fullName: FullName }, (d) => ({
-      fullName: `${d.first} ${d.last}` as z.infer<typeof FullName>,
-    })),
+    computed: {
+      fullName: computed(
+        FullName,
+        (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>,
+      ),
+      initials: computed(
+        Initials,
+        (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>,
+      ),
+    },
   },
 ) {}
 
-const p = Person.decode(raw).getOrThrow();
+const p = Person.decode({
+  id: "0199b1f4-1b1e-7000-8000-000000000000",
+  first: "Ada",
+  last: "Lovelace",
+}).getOrThrow();
+
 p.fullName; // "Ada Lovelace"
-p.update({ last: "Byron" }).getOrThrow().fullName; // "Ada Byron" — re-derived
+p.update({ last: "Byron" as z.infer<typeof NamePart> }).getOrThrow().fullName; // "Ada Byron"
 ```
 
-`computed(fields, from)` takes the fields' schemas and the function that fills
-them. `d` is the declared shape, contextually typed, and the return type is
-checked against the declared fields — so `fullName` must already be branded
-`FullName`, not a bare `string`.
+One entry per derived field, each pairing a schema with the function that
+produces it — the same shape as the field map itself. `d` is the declared
+shape, contextually typed so it needs no annotation, and each return value is
+checked against **that field's** schema, so a wrong brand reports on the field
+that produced it rather than on the whole map.
 
 **Why not a getter?** Because a getter carries no schema. It cannot appear in
 `decoded`, cannot generate JSON Schema, and is skipped by `toJSON()` — it lives
@@ -295,9 +311,9 @@ on the prototype, not in the data. The rule:
 | derived, needed in the response body / JSON Schema | `computed` |
 | derived, domain-only behaviour                     | a getter   |
 
-**Re-derived, not stored-and-trusted.** `make` recomputes rather than believing
-the value it was handed, so a row written before the derivation changed heals
-on read. That is what keeps a computed field from drifting out of step with its
+**Re-derived, not stored-and-trusted.** `make` validates against the _declared_
+fields and recomputes the rest, so a row heals whether its stored value merely
+drifted, is outright invalid, or predates the computed field entirely. That is what keeps a computed field from drifting out of step with its
 sources — the failure mode a compute-once design has, where renaming a person
 leaves `fullName` frozen at the old value.
 
