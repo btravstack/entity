@@ -21,10 +21,13 @@ class Organization extends Entity("Organization")(
   },
 ) {}
 
-const org = Organization.create(
-  { slug, name },
-  { id: ids.next(), createdAt: clock.now() },
-).getOrThrow();
+// effect sources bound once, at the composition root
+const orgs = Organization.factory({
+  id: () => ids.next(),
+  createdAt: () => clock.now(),
+});
+
+const org = orgs.create({ slug, name }).getOrThrow();
 
 org.update({ name: newName }); // a NEW entity; immutable fields rejected at compile time
 Organization.make(row); // row mappers and event folds
@@ -60,18 +63,19 @@ class name it labels, ahead of the field map.
 
 ## Statics
 
-| Static                     | Kind            | Purpose                                                                   |
-| -------------------------- | --------------- | ------------------------------------------------------------------------- |
-| `entityName`               | `string`        | the tag passed to `Entity(tag)`                                           |
-| `encoded`                  | `ZodObject`     | the full wire object                                                      |
-| `decoded`                  | `ZodObject`     | stored state and response body                                            |
-| `createInput`              | `ZodObject`     | create request — `encoded` minus `generated`                              |
-| `updateInput`              | `ZodObject`     | update request — `decoded` minus `immutable`, partial                     |
-| `instance`                 | `ZodType`       | decodes straight to a class instance, for nesting entities in domain code |
-| `~standard`                | Standard Schema | `instance`'s Standard Schema entry point                                  |
-| `decode(raw)`              | method          | a full untrusted encoded payload → entity                                 |
-| `make(state)`              | method          | already-stored state → entity, for row mappers and event folds            |
-| `create(input, generated)` | method          | caller input plus domain-generated values → entity                        |
+| Static               | Kind            | Purpose                                                                   |
+| -------------------- | --------------- | ------------------------------------------------------------------------- |
+| `entityName`         | `string`        | the tag passed to `Entity(tag)`                                           |
+| `encoded`            | `ZodObject`     | the full wire object                                                      |
+| `decoded`            | `ZodObject`     | stored state and response body                                            |
+| `createInput`        | `ZodObject`     | create request — `encoded` minus `generated`                              |
+| `updateInput`        | `ZodObject`     | update request — `decoded` minus `immutable`, partial                     |
+| `instance`           | `ZodType`       | decodes straight to a class instance, for nesting entities in domain code |
+| `~standard`          | Standard Schema | `instance`'s Standard Schema entry point                                  |
+| `decode(raw)`        | method          | a full untrusted encoded payload → entity                                 |
+| `make(state)`        | method          | already-stored state → entity, for row mappers and event folds            |
+| `factory(gens)`      | method          | binds the generated fields' sources → `{ create(input) }`                 |
+| `factoryAsync(gens)` | method          | same, for promise-returning generators → `{ create(input): AsyncResult }` |
 
 **Contracts compose the four `ZodObject`s (`encoded`, `decoded`, `createInput`,
 `updateInput`); domain code composes `instance`.** All four `ZodObject`s

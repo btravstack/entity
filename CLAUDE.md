@@ -103,8 +103,10 @@ design — `contract.spec.ts` pins that both ways.
   class body. This is runtime-only — TypeScript has no `final`, and
   `private`/`protected` constructors were measured to break the declaration
   form (TS2675) and the statics (TS2684) respectively.
-- **No I/O.** The package reads no clock and generates no id — `create` takes
-  domain-generated values as its second argument, by design.
+- **No I/O.** The package reads no clock and generates no id. `create` lives on
+  a factory (`Entity.factory(generators)` / `factoryAsync`), bound at the
+  composition root; generators are functions, called once per `create`. A
+  rejecting async generator is a Defect, not an `InvalidEntity`.
 - `zod`, `unthrown` and `@unthrown/standard-schema` are peer dependencies to
   avoid duplicate copies breaking `instanceof` / schema-composition identity.
   Keep them that way.

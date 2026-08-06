@@ -94,19 +94,20 @@ class Organization extends Entity("Organization")(
   },
 ) {}
 
-// A create use case: the caller supplies request fields, the domain supplies
-// identity and the timestamp from injected sources (never `Date.now()`/`crypto.randomUUID()`
-// inline — see "No I/O" below).
-const org = Organization.create(
-  {
+// Bind the effect sources once, at the composition root. The entity itself
+// never reads a clock or generates an id — see "No I/O" below.
+const orgs = Organization.factory({
+  id: () => ids.next(),
+  createdAt: () => clock.now(),
+});
+
+// A create use case: the caller supplies only request fields.
+const org = orgs
+  .create({
     slug: "acme" as z.infer<typeof Slug>,
     name: "Acme" as z.infer<typeof DisplayName>,
-  },
-  {
-    id: "0199b1f4-1b1e-7000-8000-000000000000" as z.infer<typeof OrgId>,
-    createdAt: "2026-08-06T09:00:00Z" as z.infer<typeof Instant>,
-  },
-).getOrThrow();
+  })
+  .getOrThrow();
 
 org.slug; // "acme" — typed, read-only
 org.update({ name: "Acme Inc" as z.infer<typeof DisplayName> }); // a NEW entity; Result<Organization, InvalidEntity>
@@ -185,29 +186,37 @@ a real `ZodType`, so nesting always goes through `Organization.instance`.
 
 ## The four entry points
 
-| Entry point                       | Input                                   | Use                                          |
-| --------------------------------- | --------------------------------------- | -------------------------------------------- |
-| `Entity.create(input, generated)` | caller fields + domain-generated fields | a create use case                            |
-| `entity.update(patch)`            | a partial of the mutable fields         | an update use case                           |
-| `Entity.make(state)`              | full stored state                       | row mappers, event folds                     |
-| `Entity.decode(raw)`              | full encoded payload                    | untrusted input already carrying every field |
+| Entry point                          | Input                           | Use                                          |
+| ------------------------------------ | ------------------------------- | -------------------------------------------- |
+| `Entity.factory(gens).create(input)` | caller fields only              | a create use case                            |
+| `entity.update(patch)`               | a partial of the mutable fields | an update use case                           |
+| `Entity.make(state)`                 | full stored state               | row mappers, event folds                     |
+| `Entity.decode(raw)`                 | full encoded payload            | untrusted input already carrying every field |
+
+`create` is the one entry point reached through a factory, because it is the
+only one that needs values the domain generates rather than receives.
 
 The types and the schemas are derived from the same declarations, so the
 rules are compile-time facts:
 
 ```ts
-Organization.create({ slug, name }, { id: ids.next(), createdAt: clock.now() });
-Organization.create({ slug, name, id }, generated); // ✗ id is generated
+const orgs = Organization.factory({
+  id: () => ids.next(),
+  createdAt: () => clock.now(),
+});
+
+orgs.create({ slug, name }); // ✓
+orgs.create({ slug, name, id }); // ✗ id is generated
 
 org.update({ name }); // ✓ Result<Organization, InvalidEntity>
 org.update({ id }); // ✗ id is immutable
 ```
 
-**Why `create` takes the generated values rather than producing them.**
+**Why `create` goes through a factory rather than producing the values itself.**
 Generating a uuid or reading the clock is I/O; this package does none of it.
-The use case supplies `id`/`createdAt` (or whatever else is `generated`) from
-an injected id source and clock, so the entity stays pure and a test passes
-fixed values instead of stubbing `crypto.randomUUID`/`Date.now`. What stays in
+The factory is built where your ports already live, so the entity stays pure
+and a test binds fixed generators instead of stubbing
+`crypto.randomUUID`/`Date.now`. What stays in
 the domain is the _rule_ — which fields the domain owns, and that a caller may
 never send them.
 
@@ -596,13 +605,34 @@ type OrgPatch = Patch<typeof Organization>; // what update() takes
 
 ## No I/O, by design
 
-This package reads no clock and generates no id. `create`'s `generated`
-parameter, not an internal `crypto.randomUUID()`/`Date.now()` call, is how a
-domain-generated value reaches the entity — the _rule_ (which fields the
-domain owns, and that a caller may never supply them) lives in the entity
-declaration; the _values_ come from whatever your application injects (a
-clock port, an id generator), which keeps the entity pure and your tests able
-to pass fixed values instead of stubbing globals.
+This package reads no clock and generates no id. A factory's generators, not
+an internal `crypto.randomUUID()`/`Date.now()` call, are how a domain-generated
+value reaches the entity — the _rule_ (which fields the domain owns, and that a
+caller may never supply them) lives in the entity declaration; the _sources_
+are bound once at your composition root, which keeps the entity pure and your
+tests able to bind fixed generators instead of stubbing globals.
+
+Generators are **functions, never values**, and each is called once per
+`create` — a factory built at startup still yields a fresh id per entity. Pass
+an arrow, not a bare method reference, or a port method loses its `this`:
+
+```ts
+Organization.factory({ id: ids.next }); // ✗ `this` is lost inside next()
+Organization.factory({ id: () => ids.next() }); // ✓
+```
+
+`factoryAsync` is the same thing for generators that return a promise — an id
+from a database sequence, say. Its `create` returns an `AsyncResult`, and a
+generator that _rejects_ surfaces as a `Defect`: infrastructure failing is not
+the same as bad domain input.
+
+```ts
+const orgs = Organization.factoryAsync({
+  id: () => ids.nextFromSequence(),
+  createdAt: () => clock.now(),
+});
+(await orgs.create({ slug, name })).getOrThrow();
+```
 
 ## Peer dependencies
 

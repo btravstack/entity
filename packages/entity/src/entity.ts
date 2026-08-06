@@ -1,5 +1,5 @@
 import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
-import { Err, Ok, P, fromThrowable, type Result } from "unthrown";
+import { Err, Ok, P, fromPromise, fromThrowable, type Result } from "unthrown";
 import type { z } from "zod";
 
 import type { AddSpec } from "./add.js";
@@ -10,17 +10,32 @@ import { renderIssue } from "./issues.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
   AddedOf,
-  CreateInputOf,
+  AsyncEntityFactory,
+  AsyncGenerators,
+  EntityFactory,
+  Generators,
   DecodedOf,
   DeepReadonly,
   EncodedOf,
   EntityStatic,
   Fields,
-  GeneratedOf,
   PatchOf,
   Sealed,
   UpdateInputShapeOf,
 } from "./types.js";
+
+/** Calls every generator once, in declaration order. */
+const callAll = (generators: Record<string, () => unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(generators).map(([k, gen]) => [k, gen()]));
+
+const resolveAll = async (
+  generators: Record<string, () => PromiseLike<unknown>>,
+): Promise<Record<string, unknown>> =>
+  Object.fromEntries(
+    await Promise.all(
+      Object.entries(generators).map(async ([k, gen]) => [k, await gen()] as const),
+    ),
+  );
 
 const maskOf = (keys: readonly PropertyKey[]) =>
   Object.fromEntries(keys.map((k) => [k, true as const]));
@@ -282,16 +297,31 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
 
       /** caller fields + domain-generated fields → entity */
-      static create<T>(
+      static factory<T>(
         this: new (d: Sealed<DecodedShape>) => T,
-        input: CreateInputOf<S, G>,
-        generated: GeneratedOf<S, G>,
-      ): Result<T, InvalidEntity> {
-        // generated spreads last, so a caller cannot override a domain-owned field
-        return (this as unknown as { decode: (raw: unknown) => Result<T, InvalidEntity> }).decode({
-          ...(input as object),
-          ...(generated as object),
-        });
+        generators: Generators<S, G>,
+      ): EntityFactory<T, S, G> {
+        const Ctor = this as unknown as { decode: (raw: unknown) => Result<T, InvalidEntity> };
+        return {
+          create: (input) =>
+            // generated spreads last, so a caller cannot override a domain-owned field
+            Ctor.decode({ ...(input as object), ...callAll(generators) }),
+        };
+      }
+
+      static factoryAsync<T>(
+        this: new (d: Sealed<DecodedShape>) => T,
+        generators: AsyncGenerators<S, G>,
+      ): AsyncEntityFactory<T, S, G> {
+        const Ctor = this as unknown as { decode: (raw: unknown) => Result<T, InvalidEntity> };
+        return {
+          create: (input) =>
+            // a generator that rejects is infrastructure failing, not bad domain
+            // input, so it stays a Defect rather than becoming an InvalidEntity
+            fromPromise(resolveAll(generators), (cause, defect) => defect(cause)).flatMap(
+              (generated) => Ctor.decode({ ...(input as object), ...generated }),
+            ),
+        };
       }
 
       /** a partial of the mutable fields → a NEW entity */

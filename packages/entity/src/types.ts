@@ -1,4 +1,4 @@
-import type { Result } from "unthrown";
+import type { AsyncResult, Result } from "unthrown";
 import type { z } from "zod";
 
 import type { InvalidEntity } from "./errors.js";
@@ -287,9 +287,35 @@ export type EntityStatic<
   readonly __patch: PatchOf<S, A, K, I>;
   decode<T>(this: new (d: Sealed<DecodedOf<S, A, K>>) => T, raw: unknown): Result<T, InvalidEntity>;
   make<T>(this: new (d: Sealed<DecodedOf<S, A, K>>) => T, state: unknown): Result<T, InvalidEntity>;
-  create<T>(
+  factory<T>(
     this: new (d: Sealed<DecodedOf<S, A, K>>) => T,
-    input: CreateInputOf<S, G>,
-    generated: GeneratedOf<S, G>,
-  ): Result<T, InvalidEntity>;
+    generators: Generators<S, G>,
+  ): EntityFactory<T, S, G>;
+  factoryAsync<T>(
+    this: new (d: Sealed<DecodedOf<S, A, K>>) => T,
+    generators: AsyncGenerators<S, G>,
+  ): AsyncEntityFactory<T, S, G>;
+};
+
+/**
+ * How a factory supplies each domain-generated field. Functions, never values:
+ * each is called once per `create`, so a factory built at the composition root
+ * yields a fresh id and timestamp every time.
+ */
+export type Generators<S extends Fields, G extends readonly (keyof S)[]> = {
+  [K in keyof GeneratedOf<S, G>]: () => GeneratedOf<S, G>[K];
+};
+
+export type AsyncGenerators<S extends Fields, G extends readonly (keyof S)[]> = {
+  [K in keyof GeneratedOf<S, G>]: () => PromiseLike<GeneratedOf<S, G>[K]>;
+};
+
+/** An entity bound to its effect sources. `create` is the only member: nothing
+ * else consumes generators, and `make`/`decode` stay on the class. */
+export type EntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = {
+  create(input: CreateInputOf<S, G>): Result<T, InvalidEntity>;
+};
+
+export type AsyncEntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = {
+  create(input: CreateInputOf<S, G>): AsyncResult<T, InvalidEntity>;
 };
