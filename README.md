@@ -232,14 +232,14 @@ hood, which is why nesting works).
 `invariants`, so a patch where every individual field is valid but the
 combination is not still fails.
 
-`toJSON()` returns the **stored** shape, not the wire shape, so it pairs with
-`make` rather than `decode`. For an entity with a `decoded` option (see below)
-the two genuinely differ — a consumed field like a raw secret is absent from
-the stored data by design:
+`toJSON()` returns the **stored** shape, so it pairs naturally with `make`.
+`decode` accepts it too: the stored shape is the wire shape plus the computed
+fields, and a computed field is re-derived rather than read, so the extra keys
+are simply ignored.
 
 ```ts
-ApiKey.make(apiKey.toJSON()); // ✓ Ok(ApiKey) — the pairing that holds
-ApiKey.decode(apiKey.toJSON()); // ✗ Err(InvalidEntity) — `secret` is required and absent
+Person.make(person.toJSON()); // ✓ the natural pairing
+Person.decode(person.toJSON()); // ✓ also fine — computed keys are re-derived
 ```
 
 ## `generated` and `immutable`
@@ -255,60 +255,65 @@ Both are **arrays of field names**, and both are keyed off `keyof S`
 (`generated`) or `keyof decoded` (`immutable`), so a typo — `immutable:
 ["slugg"]` — is a compile error, not a silently-mutable field.
 
-## The `decoded: { omit, add }` split
+## `computed`
 
-With no `decoded` option, the stored ("decoded") shape is identical to the
-wire ("encoded") shape. When they differ — a secret that's consumed but never
-kept, a value that's derived rather than stored — `decoded.omit` drops fields
-and `decoded.add`, via the curried `add` helper, declares computed ones:
+A computed field is derived from the declared ones, carries a schema, and is
+**re-derived on every construction** — `decode`, `make` and `update` alike:
 
 ```ts
-import { Entity, add } from "@btravstack/entity";
+import { Entity, computed } from "@btravstack/entity";
 
-const Secret = z.string().min(16).brand("Secret");
-const Fingerprint = z.string().length(12).brand("Fingerprint");
+const NamePart = z.string().min(1).brand("NamePart");
+const FullName = z.string().min(1).brand("FullName");
 
-class ApiKey extends Entity("ApiKey")(
-  { id: ApiKeyId, orgId: OrgId, secret: Secret, createdAt: Instant },
+class Person extends Entity("Person")(
+  { id: PersonId, first: NamePart, last: NamePart },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "orgId", "createdAt"],
-    decoded: {
-      omit: ["secret"],
-      add: add({ fingerprint: Fingerprint })((e) => ({
-        fingerprint: e.secret.slice(0, 12) as z.infer<typeof Fingerprint>,
-      })),
-    },
+    immutable: ["id"],
+    computed: computed({ fullName: FullName }, (d) => ({
+      fullName: `${d.first} ${d.last}` as z.infer<typeof FullName>,
+    })),
   },
 ) {}
+
+const p = Person.decode(raw).getOrThrow();
+p.fullName; // "Ada Lovelace"
+p.update({ last: "Byron" }).getOrThrow().fullName; // "Ada Byron" — re-derived
 ```
 
-`add(fields)(fn)` is two calls: the first fixes the added fields' schemas, the
-second declares how to produce them. `e`, the parameter of the second call, is
-the **encoded** shape — so an omitted field like `secret` is still visible to
-compute from, even though it never reaches `decoded` — and the callback's
-return type is checked against the declared fields, so `fingerprint` must
-already be branded `Fingerprint`, not a bare `string`.
+`computed(fields, from)` takes the fields' schemas and the function that fills
+them. `d` is the declared shape, contextually typed, and the return type is
+checked against the declared fields — so `fullName` must already be branded
+`FullName`, not a bare `string`.
 
-`create` and `decode` re-validate **only the fields `add` produced**, never
-the kept fields (those were already validated once, against `encoded`, and
-re-running a field schema that carries a non-idempotent `.transform()` would
-apply it twice). `add`'s function necessarily returns an unchecked `as Brand`
-cast — constructing a branded value has no other spelling — and re-validating
-its output is what makes that cast honest: if `add` ever produces data its own
-declared schema would reject, that is a **defect** (a bug in domain code), not
-ordinary bad input. See [Error handling](#error-handling).
+**Why not a getter?** Because a getter carries no schema. It cannot appear in
+`decoded`, cannot generate JSON Schema, and is skipped by `toJSON()` — it lives
+on the prototype, not in the data. The rule:
 
-**Added fields are implicitly immutable**, whether or not `immutable` names
-them: they are absent from `updateInput` and from the `Patch` type, and
-`update()` drops them even if smuggled in at runtime. They are also not
-recomputed. That is not an omission but the only honest option — `add` reads
-the **encoded** object, and by `update()` time only the decoded one is left,
-which no longer carries the omitted source field (`secret`) the computation
-needs; this is the same asymmetry as `decode(x.encode())` not round-tripping.
-Given the choice between a value that silently drifts out of step with its
-source and one a caller can contradict outright, the package offers neither: a
-derived value only changes by re-`decode`-ing a fresh encoded payload.
+|                                                    | use        |
+| -------------------------------------------------- | ---------- |
+| derived, needed in the response body / JSON Schema | `computed` |
+| derived, domain-only behaviour                     | a getter   |
+
+**Re-derived, not stored-and-trusted.** `make` recomputes rather than believing
+the value it was handed, so a row written before the derivation changed heals
+on read. That is what keeps a computed field from drifting out of step with its
+sources — the failure mode a compute-once design has, where renaming a person
+leaves `fullName` frozen at the old value.
+
+It follows that a computed field is **not patchable**: it is absent from
+`updateInput` and from the `Patch` type, and `update()` drops it even if
+smuggled in at runtime. Patching a derived value would only be overwritten by
+the next derivation.
+
+The computed output is re-validated against its own declared schemas — never
+the declared fields, which were already validated once, and re-running a field
+schema that carries a non-idempotent `.transform()` would apply it twice.
+`from` necessarily returns an unchecked `as Brand` cast, since constructing a
+branded value has no other spelling, and validating its output is what makes
+that cast honest: if `from` ever produces data its own schema would reject,
+that is a **defect** (a bug in domain code), not ordinary bad input. See
+[Error handling](#error-handling).
 
 ## `invariants`
 

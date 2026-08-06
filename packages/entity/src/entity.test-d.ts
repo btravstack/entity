@@ -1,7 +1,14 @@
 import { test } from "vitest";
 import { z } from "zod";
 
-import { Entity, add, type CreateInput, type Decoded, type Encoded, type Patch } from "./index.js";
+import {
+  Entity,
+  computed,
+  type CreateInput,
+  type Decoded,
+  type Encoded,
+  type Patch,
+} from "./index.js";
 
 const OrgId = z.uuid().brand("OrgId");
 const Slug = z.string().min(1).brand("Slug");
@@ -101,33 +108,29 @@ test("the invariants parameter is contextually typed and branded", () => {
   );
 });
 
-test("add's function is contextually typed and must return brands", () => {
-  const Secret = z.string().brand("Secret");
-  const Fingerprint = z.string().brand("Fingerprint");
+test("computed's function is contextually typed and must return brands", () => {
+  const Upper = z.string().brand("Upper");
   Entity("Probe2")(
-    { id: OrgId, secret: Secret },
+    { id: OrgId, slug: Slug },
     {
-      decoded: {
-        omit: ["secret"],
-        add: add({ fingerprint: Fingerprint })((e) => {
-          // @ts-expect-error `nope` is not a field, so `e` is not `any`
-          void e.nope;
-          // an omitted field is still visible here — it is input-only, not absent
-          const s: z.infer<typeof Secret> = e.secret;
-          void s;
-          // @ts-expect-error a plain string is not Fingerprint
-          const bad: { fingerprint: z.infer<typeof Fingerprint> } = { fingerprint: "x" };
-          void bad;
-          return { fingerprint: "x" as z.infer<typeof Fingerprint> };
-        }),
-      },
+      computed: computed({ slugUpper: Upper }, (d) => {
+        // @ts-expect-error `nope` is not a field, so `d` is not `any`
+        void d.nope;
+        // the declared fields are what a computed value derives from
+        const s: z.infer<typeof Slug> = d.slug;
+        void s;
+        // @ts-expect-error a plain string is not Upper
+        const bad: { slugUpper: z.infer<typeof Upper> } = { slugUpper: "x" };
+        void bad;
+        return { slugUpper: "X" as z.infer<typeof Upper> };
+      }),
     },
   );
 });
 
-test("add rejects an unbranded computed field", () => {
+test("computed rejects an unbranded field", () => {
   // @ts-expect-error a bare string is not a domain field
-  add({ label: z.string() })(() => ({ label: "x" }));
+  computed({ label: z.string() }, () => ({ label: "x" }));
 });
 
 test("create rejects a generated field and update rejects an immutable one", () => {
@@ -183,16 +186,14 @@ test("an added field is immutable without being declared immutable", () => {
   class Org extends Entity("Org")(
     { id: OrgId, slug: Slug },
     {
-      decoded: {
-        add: add({ slugUpper: Upper })((e) => ({
-          slugUpper: e.slug.toUpperCase() as z.infer<typeof Upper>,
-        })),
-      },
+      computed: computed({ slugUpper: Upper }, (d) => ({
+        slugUpper: d.slug.toUpperCase() as z.infer<typeof Upper>,
+      })),
     },
   ) {}
 
   const org = Org.make({}).getOrThrow();
-  // @ts-expect-error `slugUpper` is computed by `add`, so it is implicitly
+  // @ts-expect-error `slugUpper` is computed, so it is implicitly
   // immutable — patching it would let a caller contradict its own source
   org.update({ slugUpper: "LIES" as never });
   org.update({ slug: "ok" as never });
