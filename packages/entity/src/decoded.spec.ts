@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import { z } from "zod";
 
 import { Entity, add } from "./index.js";
+import { keysOf } from "./issues.js";
 
 const ApiKeyId = z.uuid().brand("ApiKeyId");
 const OrgId = z.uuid().brand("OrgId");
@@ -48,6 +49,18 @@ test("decode does not round-trip through encode for a split entity", () => {
   expect(ApiKey.make(key.encode()).isOk()).toBe(true);
 });
 
+type Flat = { readonly path: readonly PropertyKey[]; readonly message: string };
+
+const issuesOf = (r: ReturnType<typeof ApiKey.decode>): readonly Flat[] =>
+  r.match({
+    ok: () => [{ path: [], message: "WRONGLY ACCEPTED" }],
+    errCases: (m) =>
+      m.with(P.tag("InvalidEntity"), (e) =>
+        e.issues.map((i) => ({ path: keysOf(i), message: i.message })),
+      ),
+    defect: () => [{ path: [], message: "DEFECT" }],
+  });
+
 test("bad caller input is InvalidEntity, never a defect", () => {
   const outcome = ApiKey.decode({ ...raw, secret: "short" }).match({
     ok: () => "WRONGLY ACCEPTED",
@@ -55,6 +68,24 @@ test("bad caller input is InvalidEntity, never a defect", () => {
     defect: () => "DEFECT",
   });
   expect(outcome).toBe("invalid");
+});
+
+test("a single bad field is named by its path", () => {
+  expect(issuesOf(ApiKey.decode({ ...raw, secret: "short" }))).toEqual([
+    { path: ["secret"], message: "Too small: expected string to have >=16 characters" },
+  ]);
+});
+
+test("each bad field is named when several fail at once", () => {
+  expect(issuesOf(ApiKey.decode({ ...raw, orgId: "nope", secret: "short" }))).toEqual([
+    { path: ["orgId"], message: "Invalid UUID" },
+    { path: ["secret"], message: "Too small: expected string to have >=16 characters" },
+  ]);
+});
+
+test("an omitted field still reports under its wire name", () => {
+  // `secret` never reaches `decoded`, but `decode` validates `encoded`
+  expect(issuesOf(ApiKey.decode({ ...raw, secret: "short" }))[0]?.path).toEqual(["secret"]);
 });
 
 test("add producing data its own schema rejects is a defect", () => {
@@ -73,9 +104,13 @@ test("add producing data its own schema rejects is a defect", () => {
   const outcome = Broken.decode({ id: raw.id, secret: raw.secret }).match({
     ok: () => "WRONGLY ACCEPTED",
     errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
-    defect: () => "defect",
+    defect: (cause) => (cause instanceof Error ? cause.message : "defect"),
   });
-  expect(outcome).toBe("defect");
+  // the defect message carries the same path prefix, so a bug in `add` says
+  // which computed field its own schema rejected
+  expect(outcome).toBe(
+    "Broken.add produced data its own schema rejects: fingerprint: Too small: expected string to have >=12 characters",
+  );
 });
 
 test("a field transform is applied exactly once, not once per validation pass", () => {

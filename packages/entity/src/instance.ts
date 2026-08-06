@@ -2,6 +2,7 @@ import { P, type Result } from "unthrown";
 import { z } from "zod";
 
 import type { InvalidEntity } from "./errors.js";
+import { keysOf } from "./issues.js";
 
 /**
  * The composable surface: encoded input decoded to a class instance.
@@ -28,8 +29,10 @@ function instanceSchema<T>(
     decodeFrom(d)
       .recoverErrCases((m) =>
         m.with(P.tag("InvalidEntity"), (invalid) => {
-          for (const message of invalid.issues) {
-            ctx.addIssue({ code: "custom", message });
+          for (const issue of invalid.issues) {
+            // zod prefixes this schema's position, so forwarding the issue's
+            // own path yields the full `["owner", "secret"]`.
+            ctx.addIssue({ code: "custom", message: issue.message, path: keysOf(issue) });
           }
           return z.NEVER;
         }),

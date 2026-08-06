@@ -6,6 +6,7 @@ import type { AddSpec } from "./add.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
 import { attachInstance } from "./instance.js";
+import { renderIssue } from "./issues.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
   AddedOf,
@@ -87,8 +88,7 @@ export function Entity<Tag extends string>(tag: Tag) {
     // `DecodedShape` is hand-rolled alias of the same values for better error clarity
     const parseDecoded = fromSchema(decoded) as (d: unknown) => Result<DecodedShape, SchemaIssues>;
 
-    const toInvalidEntity = (issues: SchemaIssues) =>
-      new InvalidEntity({ entity: tag, issues: issues.map((i) => i.message) });
+    const toInvalidEntity = (issues: SchemaIssues) => new InvalidEntity({ entity: tag, issues });
 
     /**
      * Validates ONLY what `add` returned, never the kept fields: `decode`
@@ -118,8 +118,9 @@ export function Entity<Tag extends string>(tag: Tag) {
       d: DecodedShape,
     ): Result<T, InvalidEntity> => {
       const broken = invariants?.(d) ?? [];
+      // no `path` — an invariant spans the entity, not one field
       return broken.length > 0
-        ? Err(new InvalidEntity({ entity: tag, issues: broken }))
+        ? Err(new InvalidEntity({ entity: tag, issues: broken.map((message) => ({ message })) }))
         : Ok(new Ctor(d as Sealed<DecodedShape>));
     };
 
@@ -198,7 +199,7 @@ export function Entity<Tag extends string>(tag: Tag) {
                       defect(
                         new Error(
                           `${tag}.add produced data its own schema rejects: ${issues
-                            .map((i) => i.message)
+                            .map(renderIssue)
                             .join("; ")}`,
                         ),
                       ),
