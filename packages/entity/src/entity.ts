@@ -70,15 +70,29 @@ export function Entity<Tag extends string>(tag: Tag) {
     const generatedKeys = options?.generated ?? [];
     const immutableKeys = options?.immutable ?? [];
 
+    /**
+     * Every key `update` refuses: the declared immutable ones, plus the keys
+     * `add` contributed. An added field is *implicitly* immutable — `add`
+     * reads the **encoded** object, and `update` only ever holds the decoded
+     * one, which no longer carries an omitted source field like `secret`, so
+     * there is nothing to recompute from. Freezing them is the only answer
+     * that keeps a computed field consistent with its source; see `PatchOf`.
+     * Typed at the widened runtime element type so both uses below — the
+     * `.omit()` mask and `update`'s drop-list — take it without a cast.
+     */
+    const frozenKeys: readonly PropertyKey[] = [
+      ...immutableKeys,
+      ...(addSpec ? Object.keys(addSpec.fields) : []),
+    ];
+
     /** what a caller may send to create */
     const createInput = omitBy(encoded as z.ZodObject<Fields>, generatedKeys) as z.ZodObject<
       Omit<S, G[number]>
     >;
     /** what a caller may send to update */
-    const updateInput = omitBy(
-      decoded as z.ZodObject<Fields>,
-      immutableKeys,
-    ).partial() as z.ZodObject<UpdateInputShapeOf<S, A, K, I>>;
+    const updateInput = omitBy(decoded as z.ZodObject<Fields>, frozenKeys).partial() as z.ZodObject<
+      UpdateInputShapeOf<S, A, K, I>
+    >;
 
     type DecodedShape = DecodedOf<S, A, K>;
     type EncodedShape = EncodedOf<S>;
@@ -244,10 +258,11 @@ export function Entity<Tag extends string>(tag: Tag) {
         const current = this.encode() as Record<PropertyKey, unknown>;
         const applied = { ...current };
         for (const [k, v] of Object.entries(patch as object)) {
-          // immutable keys are a compile error already; drop them at runtime
-          // too — `immutableKeys` is generic `I`, so `.includes` narrows its
-          // parameter, hence the cast to the widened runtime element type.
-          if (!(immutableKeys as readonly PropertyKey[]).includes(k)) applied[k] = v;
+          // frozen keys — declared immutable, or contributed by `add` — are a
+          // compile error already; drop them at runtime too, so a patch that
+          // reached here as `unknown` cannot desynchronise a computed field
+          // from the source it was derived from.
+          if (!frozenKeys.includes(k)) applied[k] = v;
         }
         const Ctor = this.constructor as unknown as {
           make: (state: unknown) => Result<Base, InvalidEntity>;

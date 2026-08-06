@@ -143,6 +143,31 @@ test("create rejects a generated field and update rejects an immutable one", () 
   org.update({ slug: "ok" as never });
 });
 
+test("an added field is immutable without being declared immutable", () => {
+  const Upper = z.string().brand("Upper");
+  class Org extends Entity("Org")(
+    { id: OrgId, slug: Slug },
+    {
+      decoded: {
+        add: add({ slugUpper: Upper })((e) => ({
+          slugUpper: e.slug.toUpperCase() as z.infer<typeof Upper>,
+        })),
+      },
+    },
+  ) {}
+
+  const org = Org.make({}).getOrThrow();
+  // @ts-expect-error `slugUpper` is computed by `add`, so it is implicitly
+  // immutable — patching it would let a caller contradict its own source
+  org.update({ slugUpper: "LIES" as never });
+  org.update({ slug: "ok" as never });
+
+  // and it is gone from `updateInput` too, so the request schema agrees with
+  // the patch type; reading the key back is a compile error (TS2339)
+  // @ts-expect-error `slugUpper` is not part of the update request schema
+  void Org.updateInput.shape.slugUpper;
+});
+
 test("a misspelled immutable key is a compile error, not a silently-mutable field", () => {
   // @ts-expect-error "slugg" is not a key of the decoded shape — a typo here
   // must not compile, or the misspelled field is mutable by accident

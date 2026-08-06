@@ -55,7 +55,7 @@ class name it labels, ahead of the field map.
 | `generated`    | keys the domain supplies, not the caller — omitted from `createInput`                                                 |
 | `immutable`    | keys that never change after creation — omitted from `updateInput`                                                    |
 | `decoded.omit` | keys present on the wire but not stored (e.g. a raw secret)                                                           |
-| `decoded.add`  | computed fields, declared with the `add` helper (see below)                                                           |
+| `decoded.add`  | computed fields, declared with the `add` helper — implicitly immutable (see below)                                    |
 | `invariants`   | `(decoded) => readonly string[]` — non-empty means rejected, checked on every `decode`, `make`, `create` and `update` |
 
 ## Statics
@@ -121,6 +121,13 @@ add({ fingerprint: Fingerprint })((e) => ({
 `e` is the encoded shape (so an omitted field, like a raw secret, is still
 visible to compute from) and the callback's return type is checked against
 the declared fields, so every value must already be branded.
+
+Added fields are **implicitly immutable**: they are absent from `updateInput`
+and from `Patch`, and `update()` ignores them even if smuggled in at runtime.
+They are not recomputed either, because `add` reads the encoded shape and
+`update()` only holds the decoded one — the omitted source field is already
+gone by then. A derived value therefore changes only by decoding a fresh
+encoded payload.
 
 ## Helper types
 

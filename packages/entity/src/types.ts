@@ -127,18 +127,29 @@ export type DeepReadonly<T> = T extends Immutable
   ? T
   : { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
-/** What `update` accepts: a partial of the stored data, minus the immutable fields. */
+/**
+ * What `update` accepts: a partial of the stored data, minus the immutable
+ * fields — and minus `keyof A`, because an `add`-produced field is
+ * *implicitly* immutable whether or not `immutable` names it. Nothing can
+ * honestly recompute one on update: `add`'s input is the *encoded* object, and
+ * `update` only has the decoded one, which no longer carries the omitted source
+ * field the computation reads from (the same asymmetry that stops
+ * `decode(x.encode())` round-tripping). Leaving a computed field patchable
+ * would let a caller set it to a value its own source contradicts, so it is
+ * excluded instead.
+ */
 export type PatchOf<
   S extends Fields,
   A extends Fields,
   K extends readonly (keyof S)[],
   I extends readonly (keyof DecodedOf<S, A, K>)[],
-> = Partial<Omit<DecodedOf<S, A, K>, I[number]>>;
+> = Partial<Omit<DecodedOf<S, A, K>, I[number] | keyof A>>;
 
 /**
  * The field *schemas* `updateInput` is built from: the decoded field map
  * (`Omit<S, K[number]> & A`, the same construction `EntityStatic["decoded"]`
- * uses), minus the immutable keys, with every remaining schema wrapped in
+ * uses), minus the immutable keys and minus `keyof A` — the added fields are
+ * implicitly immutable, see `PatchOf` — with every remaining schema wrapped in
  * `ZodOptional` — the type-level mirror of what `.omit(...).partial()`
  * produces at runtime. A mapped object type rather than the `Fields` index
  * signature, so `Organization.updateInput.shape.name` is a named property
@@ -150,7 +161,7 @@ export type UpdateInputShapeOf<
   K extends readonly (keyof S)[],
   I extends readonly (keyof DecodedOf<S, A, K>)[],
 > = {
-  [Key in Exclude<keyof (Omit<S, K[number]> & A), I[number]>]: z.ZodOptional<
+  [Key in Exclude<keyof (Omit<S, K[number]> & A), I[number] | keyof A>]: z.ZodOptional<
     (Omit<S, K[number]> & A)[Key]
   >;
 };
