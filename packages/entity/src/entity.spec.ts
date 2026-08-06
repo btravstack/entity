@@ -52,13 +52,58 @@ test("JSON.stringify emits data only, because methods live on the prototype", ()
   expect(JSON.parse(JSON.stringify(Organization.decode(raw).getOrThrow()))).toEqual(raw);
 });
 
+const orgIssuesOf = (r: ReturnType<typeof Organization.decode>) =>
+  r.match({
+    ok: () => ["WRONGLY ACCEPTED"] as readonly string[],
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
+    defect: () => ["DEFECT"],
+  });
+
 test("schema validation failure surfaces as InvalidEntity, not a defect", () => {
-  const message = Organization.decode({ ...raw, slug: "" }).match({
+  const failure = Organization.decode({ ...raw, slug: "" }).match({
     ok: () => "WRONGLY ACCEPTED",
-    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => `${e.entity}:${e.issues.length}`),
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => `${e.entity}:${e.issues.join("|")}`),
     defect: () => "DEFECT",
   });
-  expect(message).toBe("Organization:1");
+  expect(failure).toBe("Organization:slug: Too small: expected string to have >=1 characters");
+});
+
+test("a schema issue names the field that failed", () => {
+  expect(orgIssuesOf(Organization.decode({ ...raw, slug: "" }))).toEqual([
+    "slug: Too small: expected string to have >=1 characters",
+  ]);
+});
+
+test("every failing field is named, not just the first", () => {
+  expect(orgIssuesOf(Organization.decode({ ...raw, slug: "", name: "" }))).toEqual([
+    "slug: Too small: expected string to have >=1 characters",
+    "name: Too small: expected string to have >=1 characters",
+  ]);
+});
+
+test("a whole-object issue has no path, so it stays unprefixed", () => {
+  expect(orgIssuesOf(Organization.decode("not an object"))).toEqual([
+    "Invalid input: expected object, received string",
+  ]);
+});
+
+test("a nested path renders dotted, with array indices as segments", () => {
+  const Tag = z.string().min(2).brand("Tag");
+  const Address = z.object({ city: z.string().min(2) }).brand("Address");
+  class Profile extends Entity("Profile")({
+    id: OrgId,
+    tags: z.array(Tag).brand("Tags"),
+    address: Address,
+  }) {}
+  const issues = Profile.decode({ id: raw.id, tags: ["ok", "x"], address: { city: "y" } }).match({
+    ok: () => [] as readonly string[],
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
+    defect: () => ["DEFECT"],
+  });
+  expect(issues).toEqual([
+    "tags.1: Too small: expected string to have >=2 characters",
+    "address.city: Too small: expected string to have >=2 characters",
+  ]);
 });
 
 test("make accepts already-stored state", () => {
@@ -147,6 +192,14 @@ test("every broken rule is reported, not just the first", () => {
   expect(
     issuesOf(Trial.decode({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z", seatsUsed: 9 })),
   ).toHaveLength(2);
+});
+
+test("an invariant message is never path-prefixed", () => {
+  // invariants are domain sentences about the whole entity, not field-level
+  // schema issues, so nothing is prepended even when they name a field
+  const [issue] = issuesOf(Trial.decode({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }));
+  expect(issue).toBe("trialEndsAt must be after createdAt");
+  expect(issue).not.toContain(": ");
 });
 
 test("invariants also run on make", () => {
