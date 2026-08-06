@@ -56,9 +56,9 @@ That one declaration gives you:
   straight to a class instance;
 - **behaviour** — the class body (`greeting` above) plus built-in
   `update`/`encode`/`toJSON`/`equals`;
-- **composability** — `Organization.instance` nests inside `z.object({...})`
-  or `z.array(...)` and parses to a real `Organization`, so an aggregate can
-  hold other entities without losing their behaviour.
+- **composability** — `Organization.instance` is a field like any other, so an
+  aggregate is itself an entity rather than a bare schema, and the entities
+  inside it keep their behaviour.
 
 Every fallible operation returns an
 [`unthrown`](https://github.com/btravstack/unthrown) `Result<T, InvalidEntity>`
@@ -159,13 +159,30 @@ const ResponseBody = Organization.output;
 ```
 
 `instance` is the composable surface for domain code — the only member that
-produces real class instances:
+produces real class instances. It is a valid **field**, so an aggregate is an
+entity in its own right, with the invariants, immutability and entry points
+that implies:
 
 ```ts
-const Aggregate = z.object({
-  organization: Organization.instance,
-  members: z.array(Member.instance),
-});
+class Order extends Entity("Order")({
+  id: OrderId,
+  customer: Customer.instance,
+  watchers: z.array(Customer.instance),
+}) {}
+
+const order = Order.make(row).getOrThrow();
+order.customer instanceof Customer; // true
+order.customer.shout; // the nested entity keeps its computed fields
+order.customer._tag; // and its tag, for `P.tag(...)` matching
+```
+
+An invariant can span the outer entity and a nested one, a nested failure
+reports the full path (`["customer", "name"]`), and `JSON.stringify` walks the
+whole tree down to plain data. It still composes into a plain `z.object(...)`
+too, when what you want is a schema rather than an entity:
+
+```ts
+const Aggregate = z.object({ organization: Organization.instance });
 Aggregate.parse(raw).organization instanceof Organization; // true
 ```
 

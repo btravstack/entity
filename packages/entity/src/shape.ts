@@ -27,7 +27,30 @@ type IsNarrowLiteral<T> = T extends string
 
 type StripUndefined<T> = T extends undefined ? never : T;
 
-type IsNominalScalar<T> = T extends Nominal ? true : IsNarrowLiteral<T> extends true ? true : false;
+/**
+ * Another entity, reached through its `.instance` schema.
+ *
+ * Checked structurally rather than against `BaseInstance` itself: that
+ * interface is generic in the entity's own shape, and there is no argument
+ * that matches every entity — `never` is too narrow to match any, and the
+ * field map has no way to name the specific one. These three members are what
+ * every entity instance has and nothing else in a field map does.
+ */
+type IsEntity<T> = T extends {
+  readonly toJSON: () => unknown;
+  readonly equals: (other: unknown) => boolean;
+  readonly update: (patch: never) => unknown;
+}
+  ? true
+  : false;
+
+type IsNominalScalar<T> = T extends Nominal
+  ? true
+  : IsEntity<T> extends true
+    ? true
+    : IsNarrowLiteral<T> extends true
+      ? true
+      : false;
 
 /** Strips `undefined` (for `.optional()`) and unwraps one array level before checking. */
 type IsNominalField<T> =
@@ -35,10 +58,19 @@ type IsNominalField<T> =
     ? IsNominalScalar<StripUndefined<Element>>
     : IsNominalScalar<StripUndefined<T>>;
 
+/**
+ * The rejection type. A named interface rather than a tuple of strings: a
+ * tuple prints as `& [...]` once TypeScript truncates, hiding the advice,
+ * whereas a name survives truncation and *is* the message.
+ */
+type DomainFieldMustBeBrandedOrAnEntity = {
+  readonly __domainFieldMustBeBrandedOrAnEntity: never;
+};
+
 type OnlyNominal<T extends Record<string, z.ZodTypeAny>> = {
   [K in keyof T]: IsNominalField<z.infer<T[K]>> extends true
     ? T[K]
-    : ["ERROR: domain fields must be branded", K];
+    : DomainFieldMustBeBrandedOrAnEntity;
 };
 
 /** The only sanctioned way to declare a domain shape. */
