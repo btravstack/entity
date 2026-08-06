@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import { z } from "zod";
 
 import { Entity, add } from "./index.js";
+import { keysOf } from "./issues.js";
 
 const ApiKeyId = z.uuid().brand("ApiKeyId");
 const OrgId = z.uuid().brand("OrgId");
@@ -48,11 +49,16 @@ test("decode does not round-trip through encode for a split entity", () => {
   expect(ApiKey.make(key.encode()).isOk()).toBe(true);
 });
 
-const issuesOf = (r: ReturnType<typeof ApiKey.decode>) =>
+type Flat = { readonly path: readonly PropertyKey[]; readonly message: string };
+
+const issuesOf = (r: ReturnType<typeof ApiKey.decode>): readonly Flat[] =>
   r.match({
-    ok: () => ["WRONGLY ACCEPTED"] as readonly string[],
-    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
-    defect: () => ["DEFECT"],
+    ok: () => [{ path: [], message: "WRONGLY ACCEPTED" }],
+    errCases: (m) =>
+      m.with(P.tag("InvalidEntity"), (e) =>
+        e.issues.map((i) => ({ path: keysOf(i), message: i.message })),
+      ),
+    defect: () => [{ path: [], message: "DEFECT" }],
   });
 
 test("bad caller input is InvalidEntity, never a defect", () => {
@@ -64,23 +70,22 @@ test("bad caller input is InvalidEntity, never a defect", () => {
   expect(outcome).toBe("invalid");
 });
 
-test("a single bad field is named in the issue", () => {
+test("a single bad field is named by its path", () => {
   expect(issuesOf(ApiKey.decode({ ...raw, secret: "short" }))).toEqual([
-    "secret: Too small: expected string to have >=16 characters",
+    { path: ["secret"], message: "Too small: expected string to have >=16 characters" },
   ]);
 });
 
 test("each bad field is named when several fail at once", () => {
   expect(issuesOf(ApiKey.decode({ ...raw, orgId: "nope", secret: "short" }))).toEqual([
-    "orgId: Invalid UUID",
-    "secret: Too small: expected string to have >=16 characters",
+    { path: ["orgId"], message: "Invalid UUID" },
+    { path: ["secret"], message: "Too small: expected string to have >=16 characters" },
   ]);
 });
 
 test("an omitted field still reports under its wire name", () => {
-  // `secret` never reaches `decoded`, but `decode` validates `encoded`, so the
-  // path is the one the caller sent
-  expect(issuesOf(ApiKey.decode({ ...raw, secret: "short" }))[0]).toMatch(/^secret: /);
+  // `secret` never reaches `decoded`, but `decode` validates `encoded`
+  expect(issuesOf(ApiKey.decode({ ...raw, secret: "short" }))[0]?.path).toEqual(["secret"]);
 });
 
 test("add producing data its own schema rejects is a defect", () => {

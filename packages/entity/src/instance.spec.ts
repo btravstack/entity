@@ -66,3 +66,24 @@ test("a defect during decode propagates instead of becoming a validation issue",
   ) {}
   expect(() => Buggy.instance.parse({ id: raw.id })).toThrow("boom");
 });
+
+test("a nested entity's field failure reports the full path, not just the member", () => {
+  const result = z
+    .object({ owner: Organization.instance })
+    .safeParse({ owner: { id: raw.id, slug: "" } });
+  expect(result.success).toBe(false);
+  if (!result.success) {
+    expect(result.error.issues[0]?.path).toEqual(["owner", "slug"]);
+  }
+});
+
+test("a nested invariant failure lands on the member itself, having no path", () => {
+  const result = z
+    .object({ owner: Organization.instance })
+    .safeParse({ owner: { ...raw, slug: "reserved" } });
+  expect(result.success).toBe(false);
+  if (!result.success) {
+    expect(result.error.issues[0]?.path).toEqual(["owner"]);
+    expect(result.error.issues[0]?.message).toBe("slug must not be reserved");
+  }
+});

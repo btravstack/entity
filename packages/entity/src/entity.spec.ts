@@ -1,8 +1,10 @@
+import type { SchemaIssues } from "@unthrown/standard-schema";
 import { P } from "unthrown";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
 import { Entity } from "./index.js";
+import { keysOf } from "./issues.js";
 
 const OrgId = z.uuid().brand("OrgId");
 const Slug = z.string().min(1).brand("Slug");
@@ -52,42 +54,47 @@ test("JSON.stringify emits data only, because methods live on the prototype", ()
   expect(JSON.parse(JSON.stringify(Organization.decode(raw).getOrThrow()))).toEqual(raw);
 });
 
-const orgIssuesOf = (r: ReturnType<typeof Organization.decode>) =>
+type Flat = { readonly path: readonly PropertyKey[]; readonly message: string };
+const flatten = (issues: SchemaIssues): readonly Flat[] =>
+  issues.map((i) => ({ path: keysOf(i), message: i.message }));
+
+const orgIssuesOf = (r: ReturnType<typeof Organization.decode>): readonly Flat[] =>
   r.match({
-    ok: () => ["WRONGLY ACCEPTED"] as readonly string[],
-    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
-    defect: () => ["DEFECT"],
+    ok: () => [{ path: [], message: "WRONGLY ACCEPTED" }],
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => flatten(e.issues)),
+    defect: () => [{ path: [], message: "DEFECT" }],
   });
 
 test("schema validation failure surfaces as InvalidEntity, not a defect", () => {
   const failure = Organization.decode({ ...raw, slug: "" }).match({
     ok: () => "WRONGLY ACCEPTED",
-    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => `${e.entity}:${e.issues.join("|")}`),
+    errCases: (m) =>
+      m.with(P.tag("InvalidEntity"), (e) => `${e.entity}:${flatten(e.issues)[0]?.path.join(".")}`),
     defect: () => "DEFECT",
   });
-  expect(failure).toBe("Organization:slug: Too small: expected string to have >=1 characters");
+  expect(failure).toBe("Organization:slug");
 });
 
-test("a schema issue names the field that failed", () => {
+test("a schema issue carries the path of the field that failed", () => {
   expect(orgIssuesOf(Organization.decode({ ...raw, slug: "" }))).toEqual([
-    "slug: Too small: expected string to have >=1 characters",
+    { path: ["slug"], message: "Too small: expected string to have >=1 characters" },
   ]);
 });
 
-test("every failing field is named, not just the first", () => {
+test("every failing field is reported, not just the first", () => {
   expect(orgIssuesOf(Organization.decode({ ...raw, slug: "", name: "" }))).toEqual([
-    "slug: Too small: expected string to have >=1 characters",
-    "name: Too small: expected string to have >=1 characters",
+    { path: ["slug"], message: "Too small: expected string to have >=1 characters" },
+    { path: ["name"], message: "Too small: expected string to have >=1 characters" },
   ]);
 });
 
-test("a whole-object issue has no path, so it stays unprefixed", () => {
+test("a whole-object issue has an empty path", () => {
   expect(orgIssuesOf(Organization.decode("not an object"))).toEqual([
-    "Invalid input: expected object, received string",
+    { path: [], message: "Invalid input: expected object, received string" },
   ]);
 });
 
-test("a nested path renders dotted, with array indices as segments", () => {
+test("a nested path keeps its segments, array indices included", () => {
   const Tag = z.string().min(2).brand("Tag");
   const Address = z.object({ city: z.string().min(2) }).brand("Address");
   class Profile extends Entity("Profile")({
@@ -96,13 +103,13 @@ test("a nested path renders dotted, with array indices as segments", () => {
     address: Address,
   }) {}
   const issues = Profile.decode({ id: raw.id, tags: ["ok", "x"], address: { city: "y" } }).match({
-    ok: () => [] as readonly string[],
-    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
-    defect: () => ["DEFECT"],
+    ok: () => [] as readonly Flat[],
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => flatten(e.issues)),
+    defect: () => [{ path: [], message: "DEFECT" }],
   });
   expect(issues).toEqual([
-    "tags.1: Too small: expected string to have >=2 characters",
-    "address.city: Too small: expected string to have >=2 characters",
+    { path: ["tags", 1], message: "Too small: expected string to have >=2 characters" },
+    { path: ["address", "city"], message: "Too small: expected string to have >=2 characters" },
   ]);
 });
 
@@ -171,11 +178,11 @@ const trialRaw = {
   seatsUsed: 2,
 };
 
-const issuesOf = (r: ReturnType<typeof Trial.decode>) =>
+const issuesOf = (r: ReturnType<typeof Trial.decode>): readonly Flat[] =>
   r.match({
-    ok: () => [] as readonly string[],
-    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
-    defect: () => ["DEFECT"],
+    ok: () => [] as readonly Flat[],
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => flatten(e.issues)),
+    defect: () => [{ path: [], message: "DEFECT" }],
   });
 
 test("a satisfied invariant lets the entity through", () => {
@@ -184,7 +191,7 @@ test("a satisfied invariant lets the entity through", () => {
 
 test("a broken invariant surfaces as InvalidEntity", () => {
   expect(issuesOf(Trial.decode({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }))).toEqual([
-    "trialEndsAt must be after createdAt",
+    { path: [], message: "trialEndsAt must be after createdAt" },
   ]);
 });
 
@@ -194,12 +201,10 @@ test("every broken rule is reported, not just the first", () => {
   ).toHaveLength(2);
 });
 
-test("an invariant message is never path-prefixed", () => {
-  // invariants are domain sentences about the whole entity, not field-level
-  // schema issues, so nothing is prepended even when they name a field
+test("an invariant issue has no path, unlike a schema issue", () => {
   const [issue] = issuesOf(Trial.decode({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }));
-  expect(issue).toBe("trialEndsAt must be after createdAt");
-  expect(issue).not.toContain(": ");
+  expect(issue?.path).toEqual([]);
+  expect(issue?.message).toBe("trialEndsAt must be after createdAt");
 });
 
 test("invariants also run on make", () => {

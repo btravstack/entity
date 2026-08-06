@@ -35,11 +35,9 @@ org.equals(other); // equal encoded data
 Every fallible entry point (`decode`, `make`, `create`, `update`) returns an
 `unthrown` `Result<T, InvalidEntity>` — call `.getOrThrow()`, `.match()`, or
 any other `Result` combinator on it, per this library's error-as-values
-convention. `InvalidEntity.issues` is a `readonly string[]`; a **schema** issue
-is prefixed with the failing field's dotted path, as in
-`"secret: Too small: expected string to have >=16 characters"` or
-`"tags.0: …"`, while an `invariants` message — a sentence about the whole
-entity — is not. See the [root README](../../README.md) for the full guide,
+convention. `InvalidEntity.issues` is `SchemaIssues` — Standard Schema issues,
+kept structured: a **schema** issue carries the failing field's `path`, an
+`invariants` message has none. See the [root README](../../README.md) for the full guide,
 including the `decoded: { omit, add }` split, unions, and the lifecycle in a
 hexagonal architecture.
 

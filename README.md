@@ -411,38 +411,39 @@ Every fallible entry point returns `Result<T, InvalidEntity>`:
 ```ts
 class InvalidEntity extends TaggedError("InvalidEntity")<{
   readonly entity: string;
-  readonly issues: readonly string[];
+  readonly issues: SchemaIssues; // readonly StandardSchemaV1.Issue[]
 }> {}
 ```
 
-| Failure                                             | Channel                        | Why                                                                                         |
-| --------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
-| schema validation (a field fails its own zod check) | `InvalidEntity`, path-prefixed | bad input, expected — the issue string names the field that failed                          |
-| a broken `invariants` rule                          | `InvalidEntity`                | bad input, expected                                                                         |
-| `add`'s output failing its own declared schema      | **defect**                     | `add` is pure, total, and typed — a violation is a bug in domain code, not bad caller input |
-| any of the above, reached through `instance`        | zod issues, path-prefixed      | so a nested entity's failure names the member that failed                                   |
+| Failure                                             | Channel                              | Why                                                                                         |
+| --------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| schema validation (a field fails its own zod check) | `InvalidEntity`, issue has a `path`  | bad input, expected                                                                         |
+| a broken `invariants` rule                          | `InvalidEntity`, issue has no `path` | bad input, expected — the rule spans the entity, not one field                              |
+| `add`'s output failing its own declared schema      | **defect**                           | `add` is pure, total, and typed — a violation is a bug in domain code, not bad caller input |
+| any of the above, reached through `instance`        | zod issues, paths composed           | a nested field failure reports the full path                                                |
 
-A **schema** issue carries the failing field's path, rendered into the string
-as `"<path>: <message>"` — dotted for nesting, with array indices as ordinary
-segments (`"tags.0: …"`, `"address.city: …"`). Splitting on the first `": "`
-recovers the path, so a caller can key a field-level error response by it. An
-issue with no path — a whole-object failure, such as a non-object input —
-stays unprefixed, and so do `invariants` messages: those are domain sentences
-about the entity, not field-level complaints.
+`issues` is carried **structured**, exactly as the validator produced it, not
+rendered into prose — so keying a field-level error response is a `path`
+lookup rather than a string parse. A schema issue has the failing field's
+path (`["tags", 0]`, `["address", "city"]`); an `invariants` violation has
+none, which is what distinguishes a whole-entity rule from a field complaint.
 
 ```ts
 ApiKey.decode({ ...raw, secret: "short" });
 // Err(InvalidEntity {
 //   entity: "ApiKey",
-//   issues: ["secret: Too small: expected string to have >=16 characters"],
+//   issues: [{ path: ["secret"], message: "Too small: expected string to have >=16 characters" }],
 // })
 
 Trial.decode(brokenRow);
 // Err(InvalidEntity {
 //   entity: "Trial",
-//   issues: ["trialEndsAt must be after createdAt"], // an invariant: no prefix
+//   issues: [{ message: "trialEndsAt must be after createdAt" }], // an invariant: no path
 // })
 
+// through `instance`, paths compose with the position of the nested entity:
+z.object({ owner: Organization.instance }).safeParse({ owner: { slug: "" } });
+// issues: [{ path: ["owner", "slug"], message: "Too small: …" }]
 z.object({ owner: Organization.instance }).safeParse({ owner: brokenRow });
 // issues: [{ path: ["owner"], message: "trialEndsAt must be after createdAt" }]
 ```

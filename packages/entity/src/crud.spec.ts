@@ -83,7 +83,7 @@ test("update re-runs invariants", () => {
   const org = Organization.create(input, generated).getOrThrow();
   const issues = org.update({ trialEndsAt: "2026-01-01T09:00:00Z" as never }).match({
     ok: () => [] as readonly string[],
-    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues.map((i) => i.message)),
     defect: () => ["DEFECT"],
   });
   expect(issues).toEqual(["trialEndsAt must be after createdAt"]);

@@ -6,6 +6,7 @@ import type { AddSpec } from "./add.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
 import { attachInstance } from "./instance.js";
+import { renderIssue } from "./issues.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
   AddedOf,
@@ -23,40 +24,6 @@ import type {
 
 const maskOf = (keys: readonly PropertyKey[]) =>
   Object.fromEntries(keys.map((k) => [k, true as const]));
-
-type IssuePath = NonNullable<SchemaIssues[number]["path"]>;
-
-/**
- * A path segment is either a bare `PropertyKey` or a `{ key }` wrapper —
- * Standard Schema permits both, and zod v4 emits the bare form. `typeof`
- * separates them without a property probe: only the wrapper is an object.
- */
-const keyOf = (segment: IssuePath[number]): PropertyKey =>
-  typeof segment === "object" ? segment.key : segment;
-
-/**
- * Renders a schema issue as `"<path>: <message>"`, so a caller can tell which
- * field failed: `"secret: Too small: …"`, `"tags.0: …"` for an array element,
- * `"nested.deep: …"` for a nested object. An empty path — a whole-object
- * issue, which is what zod reports for `path: []` on e.g. a non-object input
- * — stays unprefixed rather than growing a meaningless `": "`.
- *
- * The path goes *into the string* instead of alongside it: `issues` stays a
- * `readonly string[]`, so nothing about `InvalidEntity` breaks and there is
- * still one representation of an issue rather than two parallel ones. The
- * separator is `": "`, so splitting on the first occurrence recovers the
- * path when a caller wants to key a field-level error response by it.
- *
- * Only schema issues pass through here. `invariants` messages are already
- * plain domain sentences about the whole entity, and `construct` puts them on
- * `InvalidEntity` untouched.
- */
-const describeIssue = (issue: SchemaIssues[number]): string => {
-  const path = issue.path ?? [];
-  return path.length === 0
-    ? issue.message
-    : `${path.map((s) => String(keyOf(s))).join(".")}: ${issue.message}`;
-};
 
 /**
  * `class X extends Entity("X")({ …fields }) {}`
@@ -121,8 +88,7 @@ export function Entity<Tag extends string>(tag: Tag) {
     // `DecodedShape` is hand-rolled alias of the same values for better error clarity
     const parseDecoded = fromSchema(decoded) as (d: unknown) => Result<DecodedShape, SchemaIssues>;
 
-    const toInvalidEntity = (issues: SchemaIssues) =>
-      new InvalidEntity({ entity: tag, issues: issues.map(describeIssue) });
+    const toInvalidEntity = (issues: SchemaIssues) => new InvalidEntity({ entity: tag, issues });
 
     /**
      * Validates ONLY what `add` returned, never the kept fields: `decode`
@@ -152,8 +118,9 @@ export function Entity<Tag extends string>(tag: Tag) {
       d: DecodedShape,
     ): Result<T, InvalidEntity> => {
       const broken = invariants?.(d) ?? [];
+      // no `path` — an invariant spans the entity, not one field
       return broken.length > 0
-        ? Err(new InvalidEntity({ entity: tag, issues: broken }))
+        ? Err(new InvalidEntity({ entity: tag, issues: broken.map((message) => ({ message })) }))
         : Ok(new Ctor(d as Sealed<DecodedShape>));
     };
 
@@ -232,7 +199,7 @@ export function Entity<Tag extends string>(tag: Tag) {
                       defect(
                         new Error(
                           `${tag}.add produced data its own schema rejects: ${issues
-                            .map(describeIssue)
+                            .map(renderIssue)
                             .join("; ")}`,
                         ),
                       ),
