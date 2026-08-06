@@ -29,8 +29,8 @@ test("decode produces an instance with typed data and working methods", () => {
   expect(org.shout()).toBe("ACME");
 });
 
-test("encode returns the stored data", () => {
-  expect(Organization.decode(raw).getOrThrow().encode()).toEqual(raw);
+test("toJSON returns the stored data", () => {
+  expect(Organization.decode(raw).getOrThrow().toJSON()).toEqual(raw);
 });
 
 test("with no options, decoded and encoded describe the same fields", () => {
@@ -43,7 +43,7 @@ test("the tag is readable but never part of the data", () => {
   const org = Organization.decode(raw).getOrThrow();
   expect(org._tag).toBe("Organization");
   expect(Object.keys(org)).not.toContain("_tag");
-  expect(org.encode()).not.toHaveProperty("_tag");
+  expect(org.toJSON()).not.toHaveProperty("_tag");
   expect(JSON.stringify(org)).not.toContain("_tag");
   expect({ ...org }).not.toHaveProperty("_tag");
   expect(Organization.encoded.shape).not.toHaveProperty("_tag");
@@ -143,11 +143,11 @@ test("locking data fields leaves subclass instance fields writable", () => {
   expect(org.slug).toBe("acme");
 });
 
-test("encode does not leak subclass instance fields", () => {
+test("toJSON does not leak subclass instance fields", () => {
   class OrgWithCache extends Organization {
     cachedSummary = "leak me";
   }
-  expect(OrgWithCache.decode(raw).getOrThrow().encode()).not.toHaveProperty("cachedSummary");
+  expect(OrgWithCache.decode(raw).getOrThrow().toJSON()).not.toHaveProperty("cachedSummary");
 });
 
 const Instant = z.iso.datetime().brand("Instant");
@@ -236,7 +236,7 @@ test("an array field cannot be mutated in place", () => {
   expect(() => {
     asMutableArray(bag.tags)[0] = "hacked";
   }).toThrow(TypeError);
-  expect(bag.encode().tags).toEqual(["a"]);
+  expect(bag.toJSON().tags).toEqual(["a"]);
 });
 
 test("a nested object field, and the array inside it, are frozen too", () => {
@@ -245,7 +245,7 @@ test("a nested object field, and the array inside it, are frozen too", () => {
     asMutableRecord(bag.address)["city"] = "Paris";
   }).toThrow(TypeError);
   expect(() => asMutableArray(bag.address.lines).push("floor 2")).toThrow(TypeError);
-  expect(bag.encode().address).toEqual({ city: "Lyon", lines: ["1 rue de la Paix"] });
+  expect(bag.toJSON().address).toEqual({ city: "Lyon", lines: ["1 rue de la Paix"] });
 });
 
 test("a construction-time invariant cannot be defeated after construction", () => {
@@ -260,8 +260,8 @@ test("a construction-time invariant cannot be defeated after construction", () =
 test("update still produces a new entity from frozen data", () => {
   const bag = Bag.decode(bagRaw).getOrThrow();
   const updated = bag.update({ tags: ["x", "y"] as unknown as z.infer<typeof Tag>[] }).getOrThrow();
-  expect(updated.encode().tags).toEqual(["x", "y"]);
-  expect(bag.encode().tags).toEqual(["a"]);
+  expect(updated.toJSON().tags).toEqual(["x", "y"]);
+  expect(bag.toJSON().tags).toEqual(["a"]);
 });
 
 test("update cannot smuggle a mutation in through the patch it was handed", () => {
@@ -269,5 +269,5 @@ test("update cannot smuggle a mutation in through the patch it was handed", () =
   const patch = { tags: ["x"] as unknown as z.infer<typeof Tag>[] };
   const updated = bag.update(patch).getOrThrow();
   asMutableArray(patch.tags).push("y");
-  expect(updated.encode().tags).toEqual(["x"]);
+  expect(updated.toJSON().tags).toEqual(["x"]);
 });

@@ -43,7 +43,7 @@ Node is pinned in `.node-version` (24.16.0); pnpm 11.7.0 via `packageManager`
 
 ## Architecture
 
-Five source modules under `packages/entity/src`, split by what they own:
+Six source modules under `packages/entity/src`, split by what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`encoded`, `decoded`, `createInput`, `updateInput`) from
@@ -52,8 +52,15 @@ Five source modules under `packages/entity/src`, split by what they own:
   `decode`; `update` delegates to `make`; every path funnels through
   `construct`, which runs `invariants` and seals the constructor call. Data
   fields are installed with `Object.defineProperty(..., { writable: false })`
-  and `_tag` non-enumerably, which is why `_tag` never reaches `encode()`,
-  `JSON.stringify`, or spread.
+  and `_tag` non-enumerably, which is why `_tag` never reaches `toJSON()`,
+  `JSON.stringify`, or spread. `toJSON()` is the **only** public projection —
+  it, `equals` and `update` all route through a module-private `project`, so
+  there is no second public spelling of the same data.
+- **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
+  and recurses into arrays and plain objects, freezes `Date` as a leaf, and
+  deliberately leaves `Map`/`Set`/class instances alone. The constructor
+  passes one `WeakSet` across every field, so a subtree two fields share is
+  walked once.
 - **`types.ts`** — the whole type-level derivation (`DecodedOf`,
   `CreateInputOf`, `PatchOf`, `UpdateInputShapeOf`, `EntityStatic`), plus
   `Sealed<D>`, the module-private `unique symbol` that makes `new X(...)` a

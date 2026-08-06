@@ -4,7 +4,7 @@
  * The entity constructor installs each data field with
  * `Object.defineProperty(…, { writable: false })`, which locks the *binding*
  * and nothing else: `org.tags = []` throws, but `org.tags.push(…)` succeeds,
- * shows up in `encode()`, and can push an entity into a state its own
+ * shows up in `toJSON()`, and can push an entity into a state its own
  * `invariants` already rejected. Freezing the values as they are installed is
  * what makes "a rule that holds at construction holds for the instance's
  * lifetime" true rather than aspirational.

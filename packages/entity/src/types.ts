@@ -204,7 +204,6 @@ interface BaseInstance<
   K extends readonly (keyof S)[],
   I extends readonly (keyof DecodedOf<S, A, K>)[],
 > {
-  encode(): DecodedOf<S, A, K>;
   toJSON(): DecodedOf<S, A, K>;
   equals(other: unknown): boolean;
   update(patch: PatchOf<S, A, K, I>): Result<this, InvalidEntity>;
@@ -222,9 +221,9 @@ interface BaseInstance<
  * The data half is `DeepReadonly`, not `Readonly`: a shallow `Readonly` would
  * type an array field as a mutable `Tag[]`, so `entity.tags.push(…)` would
  * compile and — before the constructor started deep-freezing — mutate stored
- * data, defeating an invariant that had already been checked. `encode()` and
- * `toJSON()` keep returning the plain `DecodedOf` shape: they build a fresh
- * object, so its own keys really are assignable.
+ * data, defeating an invariant that had already been checked. `toJSON()` keeps
+ * returning the plain `DecodedOf` shape: it builds a fresh object, so its own
+ * keys really are assignable.
  */
 type ConstructedInstance<
   Tag extends string,
