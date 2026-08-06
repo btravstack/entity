@@ -1,0 +1,23 @@
+name: CI
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: btravstack/config/.github/workflows/ci-reusable.yml@workflows-v1
+    with:
+      # "" uses .node-version (the dev/primary version). 22.19 is the root
+      # package's engines floor, i.e. the oldest Node this repo is developed on.
+      # Note the published package declares engines >=20, which no job covers —
+      # see the note in CONTRIBUTING before widening or narrowing either.
+      node-versions: '["", "22.19"]'

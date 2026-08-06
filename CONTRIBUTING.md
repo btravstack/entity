@@ -56,6 +56,22 @@ before "simplifying" it away.
   path). Genuine exceptions carry a targeted `oxlint-disable` with a reason.
 - **One name per concept.** Resist convenience aliases.
 
+## Node versions
+
+Three numbers, and they mean different things:
+
+| Where                         | Value                  | Meaning                                                   |
+| ----------------------------- | ---------------------- | --------------------------------------------------------- |
+| `.node-version`               | the pinned dev version | what contributors and the primary CI job run              |
+| root `package.json` `engines` | `>=22.19`              | the oldest Node this repo is _developed_ on               |
+| `packages/entity` `engines`   | `>=20`                 | the oldest Node the _published package_ claims to support |
+
+CI runs the test job on the pinned version and on `22.19`. **It does not
+currently run on Node 20**, so the published floor is declared but untested.
+Before relying on it, either add `20` to `node-versions` in
+`.github/workflows/ci.yml` or raise the package's `engines` to match what CI
+actually proves.
+
 ## Commit convention
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/) and

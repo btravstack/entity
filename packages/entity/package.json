@@ -57,6 +57,7 @@
     "@types/node": "catalog:",
     "@unthrown/standard-schema": "catalog:",
     "@unthrown/vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "unthrown": "catalog:",

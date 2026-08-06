@@ -36,6 +36,7 @@ catalog:
   # `types.d.ts`). Kept in step with that measurement rather than trailing it.
   typescript: 7.0.2
   unthrown: 5.1.0
+  "@vitest/coverage-v8": 4.1.10
   vitest: 4.1.10
   zod: 4.4.3
 
