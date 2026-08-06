@@ -535,18 +535,50 @@ field whose schema yields a live mutable object is outside the guarantee.
 so assigning to _its_ keys is fine and mappers keep working unchanged (the
 values inside it are the entity's own, and stay frozen).
 
-`Object.freeze(this)` is **not** used, and cannot be: a subclass's field
+`Object.freeze(this)` is **not** used, and cannot be: a class body's field
 initialisers run after `super()` returns, so the instance itself has to stay
 extensible. Freezing the field values individually leaves that intact:
 
 ```ts
-class OrgWithCache extends Organization {
+class OrgWithCache extends Entity("OrgWithCache")({ id: OrgId, slug: Slug }) {
   cachedSummary = "";
 }
 const org = OrgWithCache.decode(raw).getOrThrow();
 org.cachedSummary = "computed"; // ✓ still writable — it isn't declared data
 org.toJSON(); // does NOT include cachedSummary — toJSON() projects only the declared schema's keys
 ```
+
+## Entities are not subclassable
+
+One `extends` is the declaration form. Subclassing the result is not
+supported, and fails at construction with a `Defect`:
+
+```ts
+class Sub extends Organization {}
+Sub.decode(raw); // Defect — not an InvalidEntity: this is a bug in domain code
+```
+
+Put the behaviour in the entity's own class body, which is what it is for:
+
+```ts
+class Organization extends Entity("Organization")({ ...fields }) {
+  get greeting(): string {
+    return `Welcome, ${this.name}`;
+  }
+}
+```
+
+A subclass buys nothing the body does not, and it adds a second place to look
+for an entity's methods. Redeclaring a data field is doubly blocked — the
+compiler reports TS4114 (`must have an 'override' modifier`), and the field is
+installed non-writable and non-configurable, so construction fails with
+`TypeError: Cannot redefine property`.
+
+The prohibition is a **runtime** one: TypeScript has no `final`, and a
+`private`/`protected` constructor cannot express "extendable once" — measured,
+`TS2675` for `private` (the declaration form stops compiling) and `TS2684` for
+`protected` (the statics stop returning the subclass). So `class Sub extends
+Organization {}` compiles, and reports on first construction.
 
 ## Helper types
 
