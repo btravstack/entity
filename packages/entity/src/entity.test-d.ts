@@ -20,6 +20,50 @@ test("data fields are readonly at compile time", () => {
   org.slug = "other";
 });
 
+const Tag = z.string().min(1).brand("Tag");
+const Address = z.object({ city: z.string(), lines: z.array(z.string()) }).brand("Address");
+class Bag extends Entity("Bag")({ id: OrgId, tags: z.array(Tag), address: Address }) {}
+
+test("data is readonly all the way down, not just at the top level", () => {
+  const bag = Bag.decode({}).getOrThrow();
+
+  // @ts-expect-error an array field is `readonly Tag[]`, so it has no `push`
+  bag.tags.push("x" as z.infer<typeof Tag>);
+  // @ts-expect-error nor an index it can be assigned through
+  bag.tags[0] = "x" as z.infer<typeof Tag>;
+  // @ts-expect-error a nested object's properties are readonly too
+  bag.address.city = "Paris";
+  // @ts-expect-error including an array nested inside that object
+  bag.address.lines.push("floor 2");
+
+  // reading is untouched
+  const first: z.infer<typeof Tag> | undefined = bag.tags[0];
+  const city: string = bag.address.city;
+  void first;
+  void city;
+});
+
+test("a branded field survives DeepReadonly with its brand intact", () => {
+  const org = Organization.decode({}).getOrThrow();
+  // a naive DeepReadonly maps over `string & $brand<…>` and loses the
+  // primitive, so this assignment is the regression guard for that
+  const slug: z.infer<typeof Slug> = org.slug;
+  // @ts-expect-error and it is still nominal — a bare string is not a Slug
+  const wrong: z.infer<typeof Slug> = "acme";
+  void slug;
+  void wrong;
+});
+
+test("encode() and toJSON() still return the plain, mutable decoded shape", () => {
+  const bag = Bag.decode({}).getOrThrow();
+  // encode() builds a fresh object, so its own keys stay assignable —
+  // DeepReadonly applies to the instance's fields, not to this projection
+  const state: Decoded<typeof Bag> = bag.encode();
+  const json: Decoded<typeof Bag> = bag.toJSON();
+  state.tags = [];
+  void json;
+});
+
 test("updateInput.shape is a precise mapped type, not an index signature", () => {
   // under this repo's `noPropertyAccessFromIndexSignature`, this would be a
   // compile error (TS4111) if `updateInput`'s shape were the generic

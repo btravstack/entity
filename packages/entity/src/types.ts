@@ -59,6 +59,74 @@ export type GeneratedOf<S extends Fields, G extends readonly (keyof S)[]> = {
   [K in keyof EncodedOf<S> as K extends G[number] ? K : never]: EncodedOf<S>[K];
 };
 
+/**
+ * The types `DeepReadonly` hands back untouched.
+ *
+ * Primitives have no properties to lock. The load-bearing case is the
+ * *branded* primitive every field of this package carries: `z.infer` of
+ * `z.string().brand("Slug")` is `string & z.core.$brand<"Slug">`, an
+ * intersection whose object constituent makes it satisfy `extends object`.
+ * Mapping over it was measured to destroy it: `{ readonly [K in keyof Slug]:
+ * … }` keeps `String`'s members and the brand key but drops the primitive
+ * itself, so the result no longer assigns back to `Slug` — TS2322, "Type
+ * '{ readonly [x: number]: string; readonly toString: {}; … readonly
+ * [$brand]: {…}; }' is not assignable to type 'string'". Testing against the
+ * bare primitives first short-circuits every branded scalar with its brand
+ * intact, because an intersection is assignable to any of its constituents.
+ *
+ * `Date` keeps its timestamp in an internal slot a mapped type cannot
+ * describe; `RegExp` keeps `source` and its flags the same way, though its
+ * `lastIndex` *is* an ordinary mutable data property; and a function's call
+ * signature is likewise not a property — the `never[]` rest parameter is the
+ * contravariance-safe spelling of "any function" (`unknown[]` rejects
+ * narrower parameter lists under `strictFunctionTypes`).
+ *
+ * All three are therefore left unmapped *at the type level*. That is not the
+ * same as the runtime leaving them untouched, and the two halves deliberately
+ * do not line up: `freeze.ts` freezes a `Date` as a leaf (harmless — it has
+ * no own enumerable properties, and `setTime` still works, so it only stops
+ * properties being bolted on), while `RegExp` and functions are not frozen at
+ * all. Freezing a `RegExp` is actively destructive, not merely useless: a
+ * `/g` or `/y` pattern rewrites `lastIndex` on every `exec`, so on a frozen
+ * one `exec` itself throws — measured: `TypeError: Cannot assign to read only
+ * property 'lastIndex'`. See `freeze.ts` for the runtime rules.
+ */
+type Immutable =
+  | string
+  | number
+  | bigint
+  | boolean
+  | symbol
+  | null
+  | undefined
+  | Date
+  | RegExp
+  | ((...args: never[]) => unknown);
+
+/**
+ * `Readonly`, applied all the way down.
+ *
+ * A shallow `Readonly<D>` only stops `org.tags = […]`; it leaves
+ * `org.tags.push(…)` a legal expression, because `z.infer` of
+ * `z.array(Tag)` is `Tag[]`, not `readonly Tag[]`. That is the type-level
+ * half of the immutability hole this closes — the runtime half is the deep
+ * freeze in `freeze.ts`.
+ *
+ * The mapped type is homomorphic (`[K in keyof T]` over a naked `T`), which
+ * is what makes it preserve optional keys (`k?: T` stays optional rather than
+ * widening to `k: T | undefined`) and array/tuple-ness: mapping an array type
+ * yields `readonly U[]`, and a tuple stays a tuple.
+ *
+ * The conditional distributes over unions, deliberately and unlike the
+ * tuple-wrapped tests elsewhere in this module: a `A | B` field must become
+ * `DeepReadonly<A> | DeepReadonly<B>`, since testing the union as a whole
+ * would send a mixed `string | { … }` down the mapped-type branch and mangle
+ * the string.
+ */
+export type DeepReadonly<T> = T extends Immutable
+  ? T
+  : { readonly [K in keyof T]: DeepReadonly<T[K]> };
+
 /** What `update` accepts: a partial of the stored data, minus the immutable fields. */
 export type PatchOf<
   S extends Fields,
@@ -139,6 +207,13 @@ interface BaseInstance<
  * interface" to attach to: TypeScript rejects a polymorphic `this` inside an
  * anonymous type literal (TS2526), even one used as a construct signature's
  * return type.
+ *
+ * The data half is `DeepReadonly`, not `Readonly`: a shallow `Readonly` would
+ * type an array field as a mutable `Tag[]`, so `entity.tags.push(…)` would
+ * compile and — before the constructor started deep-freezing — mutate stored
+ * data, defeating an invariant that had already been checked. `encode()` and
+ * `toJSON()` keep returning the plain `DecodedOf` shape: they build a fresh
+ * object, so its own keys really are assignable.
  */
 type ConstructedInstance<
   Tag extends string,
@@ -147,7 +222,7 @@ type ConstructedInstance<
   K extends readonly (keyof S)[],
   I extends readonly (keyof DecodedOf<S, A, K>)[],
 > = BaseInstance<S, A, K, I> &
-  Readonly<DecodedOf<S, A, K>> & {
+  DeepReadonly<DecodedOf<S, A, K>> & {
     readonly _tag: Tag;
   };
 
@@ -191,9 +266,9 @@ export type EntityStatic<
    * needs the subclass's own members back must narrow explicitly (e.g.
    * `instanceof`) after parsing.
    */
-  readonly instance: z.ZodType<BaseInstance<S, A, K, I> & Readonly<DecodedOf<S, A, K>>>;
+  readonly instance: z.ZodType<BaseInstance<S, A, K, I> & DeepReadonly<DecodedOf<S, A, K>>>;
   readonly "~standard": z.ZodType<
-    BaseInstance<S, A, K, I> & Readonly<DecodedOf<S, A, K>>
+    BaseInstance<S, A, K, I> & DeepReadonly<DecodedOf<S, A, K>>
   >["~standard"];
   /** phantom carriers, so consumers can recover the shapes for annotations */
   readonly __encoded: EncodedOf<S>;

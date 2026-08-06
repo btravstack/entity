@@ -324,8 +324,11 @@ invariants: (d) => [
 ```
 
 It runs before the instance exists, on **every** entry point — `create`,
-`update`, `make` and `decode`. Because data is immutable once constructed, a
-rule that holds at construction holds for the instance's entire lifetime.
+`update`, `make` and `decode`. Because data is _deeply_ immutable once
+constructed — frozen values, not just locked bindings, see
+[Immutability](#immutability) — a rule that holds at construction holds for
+the instance's entire lifetime: an entity that rejects three tags cannot be
+pushed into holding three tags afterwards.
 
 ## `equals`
 
@@ -453,18 +456,45 @@ the compiled package, not just the source.
 
 ## Immutability
 
-Data fields are locked with `Object.defineProperty(..., { writable: false })`
-per key at construction, and typed `Readonly<...>` on the instance type, so
-mutation is a compile error first and a `TypeError` only if a consumer casts
-around the type system:
+Immutability is **deep**, and enforced twice. Each data field is installed
+with `Object.defineProperty(..., { writable: false })` at construction _and_
+its value is deep-frozen; the instance type is `DeepReadonly<...>`, not a
+shallow `Readonly<...>`. So mutation is a compile error first, and a
+`TypeError` only if a consumer casts around the type system:
 
 ```ts
 org.slug = otherSlug; // ✗ compile error — read-only property
 (org as never as Record<string, unknown>).slug = "hacked"; // TypeError: Cannot assign to read only property 'slug'
+
+// on a `Team` declared with `tags: z.array(Tag)` and `address: Address`
+team.tags.push(tag); // ✗ compile error — tags is `readonly Tag[]`
+(team.tags as never as string[]).push("hacked"); // TypeError: object is not extensible
+team.address.city = "Paris"; // ✗ compile error — nested objects are readonly too
 ```
 
-A subclass can still declare its own instance fields (they're set by field
-initialisers that run after the locked fields are installed):
+Locking the binding alone would not be enough: `writable: false` stops
+`team.tags = [...]` but not `team.tags.push(...)`, and a shallow `Readonly<D>`
+types an array field as a mutable `Tag[]`, because `z.infer` of
+`z.array(Tag)` is `Tag[]`. Both halves matter, because the second one is what
+lets `invariants` mean anything after construction: an entity that rejects
+three tags at every entry point cannot be pushed into holding three tags
+afterwards.
+
+The deep freeze covers the plain data zod produces — arrays, objects,
+records, tuples, all the way down — and freezes a `Date` (a partial
+guarantee: its timestamp lives in an internal slot, so `setTime` still
+works). It deliberately leaves `Map`, `Set` and anything a `z.custom(...)` or
+`z.instanceof(...)` field hands through untouched, since freezing those is
+either ineffective (a frozen `Map` still accepts `.set`) or destructive. A
+field whose schema yields a live mutable object is outside the guarantee.
+
+`encode()` and `toJSON()` still return the plain `decoded` shape: they build
+a fresh object, so assigning to _its_ keys is fine and mappers keep working
+unchanged (the values inside it are the entity's own, and stay frozen).
+
+`Object.freeze(this)` is **not** used, and cannot be: a subclass's field
+initialisers run after `super()` returns, so the instance itself has to stay
+extensible. Freezing the field values individually leaves that intact:
 
 ```ts
 class OrgWithCache extends Organization {
