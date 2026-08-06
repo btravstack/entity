@@ -548,6 +548,16 @@ org.cachedSummary = "computed"; // ✓ still writable — it isn't declared data
 org.toJSON(); // does NOT include cachedSummary — toJSON() projects only the declared schema's keys
 ```
 
+Subclassing an entity works, but **prefer not to**. Put the behaviour in the
+entity's own class body instead: that is what the body is for, and it keeps one
+name for one concept. A subclass buys nothing the body does not, and it adds a
+second place to look for an entity's methods. Where it is genuinely useful — a
+transient cache, a per-request decoration — keep it to fields and methods, and
+never redeclare a data field. Two things stop you: TypeScript reports TS4114
+(`must have an 'override' modifier`), and if you write `override` anyway the
+constructor installed that field non-writable and non-configurable, so
+construction fails with `TypeError: Cannot redefine property`.
+
 ## Helper types
 
 Four generic type-level helpers name each schema by reading it off an entity

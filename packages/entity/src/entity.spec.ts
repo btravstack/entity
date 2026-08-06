@@ -271,3 +271,10 @@ test("update cannot smuggle a mutation in through the patch it was handed", () =
   asMutableArray(patch.tags).push("y");
   expect(updated.toJSON().tags).toEqual(["x"]);
 });
+
+test("a subclass redeclaring a data field fails at construction", () => {
+  class Hijack extends Organization {
+    override slug = "hijacked" as z.infer<typeof Slug>;
+  }
+  expect(() => Hijack.decode(raw).getOrThrow()).toThrow(/Cannot redefine property/);
+});
