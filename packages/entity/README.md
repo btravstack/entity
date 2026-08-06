@@ -94,7 +94,10 @@ test in `contract.spec.ts` pins that.
 - `toJSON()` — delegates to `encode()`, so `JSON.stringify(entity)` matches
   `decoded`
 - `equals(other)` — true when both are the same entity type and their
-  encoded data is deep-equal
+  encoded data is deep-equal. "Same entity" means the entity the class was
+  built from, not the class itself: two subclasses of a single `Entity(...)`
+  call compare equal when their stored data matches, while two separate
+  `Entity(...)` calls never do, even with identical fields
 
 ## Computed fields: `add`
 

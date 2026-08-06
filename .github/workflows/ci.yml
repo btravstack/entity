@@ -16,8 +16,12 @@ jobs:
   ci:
     uses: btravstack/config/.github/workflows/ci-reusable.yml@workflows-v1
     with:
-      # "" uses .node-version (the dev/primary version). 22.19 is the root
-      # package's engines floor, i.e. the oldest Node this repo is developed on.
-      # Note the published package declares engines >=20, which no job covers —
-      # see the note in CONTRIBUTING before widening or narrowing either.
-      node-versions: '["", "22.19"]'
+      # "" uses .node-version (the dev/primary version, currently 24.16.0).
+      # 20 is the published package's engines floor and 22.19 the root
+      # package's — both are here so those floors are proven rather than
+      # merely declared. 24 and 26 cover the current LTS and the live release
+      # line, so a consumer on either is exercised rather than assumed. Note
+      # 24 overlaps "" while .node-version stays on 24.x; it is listed
+      # explicitly so bumping .node-version does not silently drop 24
+      # coverage. See the note in CONTRIBUTING before changing any of these.
+      node-versions: '["", "20", "22.19", "24", "26"]'
