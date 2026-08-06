@@ -131,23 +131,44 @@ test("data fields are locked against mutation at runtime", () => {
   expect(org.slug).toBe("acme");
 });
 
-test("locking data fields leaves subclass instance fields writable", () => {
-  // Object.freeze(this) would break this: subclass field initialisers run
+// The entity's own class body — the supported place for behaviour and extra
+// fields, now that subclassing an entity is not.
+class OrgWithCache extends Entity("OrgWithCache")({
+  id: OrgId,
+  slug: Slug,
+  name: DisplayName,
+}) {
+  cachedSummary = "";
+}
+
+test("locking data fields leaves class-body instance fields writable", () => {
+  // Object.freeze(this) would break this: class-body field initialisers run
   // after super() returns, so the object must stay extensible.
-  class OrgWithCache extends Organization {
-    cachedSummary = "";
-  }
   const org = OrgWithCache.decode(raw).getOrThrow();
   org.cachedSummary = "computed";
   expect(org.cachedSummary).toBe("computed");
   expect(org.slug).toBe("acme");
 });
 
-test("toJSON does not leak subclass instance fields", () => {
-  class OrgWithCache extends Organization {
-    cachedSummary = "leak me";
-  }
-  expect(OrgWithCache.decode(raw).getOrThrow().toJSON()).not.toHaveProperty("cachedSummary");
+test("toJSON does not leak class-body instance fields", () => {
+  const org = OrgWithCache.decode(raw).getOrThrow();
+  org.cachedSummary = "leak me";
+  expect(org.toJSON()).not.toHaveProperty("cachedSummary");
+});
+
+test("subclassing an entity is a defect, not a silent success", () => {
+  class Sub extends Organization {}
+  const outcome = Sub.decode(raw).match({
+    ok: () => "WRONGLY ACCEPTED",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
+    defect: () => "defect",
+  });
+  expect(outcome).toBe("defect");
+});
+
+test("using the builder's return directly, without extends, still works", () => {
+  const Anon = Entity("Anon")({ id: OrgId, slug: Slug, name: DisplayName });
+  expect(Anon.decode(raw).getOrThrow().slug).toBe("acme");
 });
 
 const Instant = z.iso.datetime().brand("Instant");

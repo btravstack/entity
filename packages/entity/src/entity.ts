@@ -1,5 +1,5 @@
 import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
-import { Err, Ok, P, type Result } from "unthrown";
+import { Err, Ok, P, fromThrowable, type Result } from "unthrown";
 import type { z } from "zod";
 
 import type { AddSpec } from "./add.js";
@@ -147,9 +147,27 @@ export function Entity<Tag extends string>(tag: Tag) {
     ): Result<T, InvalidEntity> => {
       const broken = invariants?.(d) ?? [];
       // no `path` — an invariant spans the entity, not one field
-      return broken.length > 0
-        ? Err(new InvalidEntity({ entity: tag, issues: broken.map((message) => ({ message })) }))
-        : Ok(new Ctor(d as Sealed<DecodedShape>));
+      if (broken.length > 0) {
+        return Err(
+          new InvalidEntity({ entity: tag, issues: broken.map((message) => ({ message })) }),
+        );
+      }
+      // A defect, not an `InvalidEntity`: subclassing is a bug in domain code,
+      // not bad caller input. `fromThrowable` is what keeps it inside the
+      // Result channel — a bare throw would escape `decode()` entirely.
+      return fromThrowable(
+        () => {
+          const ctor = Ctor as unknown as object;
+          if (ctor !== Base && (Object.getPrototypeOf(ctor) as unknown) !== Base) {
+            // oxlint-disable-next-line unthrown/no-throw
+            throw new Error(
+              `${tag}: subclassing an entity class is not supported — put the behaviour in the entity's own class body.`,
+            );
+          }
+          return new Ctor(d as Sealed<DecodedShape>);
+        },
+        (cause, defect) => defect(cause),
+      )() as Result<T, InvalidEntity>;
     };
 
     class Base {

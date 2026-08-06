@@ -98,6 +98,11 @@ design — `contract.spec.ts` pins that both ways.
   updating the matching `@ts-expect-error` assertion.
 - **One concept, one name.** The surface is meant to stay small enough that the
   library can be "done". Resist convenience aliases.
+- **Entities are not subclassable.** One `extends` is the declaration form;
+  `construct` defects on anything deeper. Behaviour goes in the entity's own
+  class body. This is runtime-only — TypeScript has no `final`, and
+  `private`/`protected` constructors were measured to break the declaration
+  form (TS2675) and the statics (TS2684) respectively.
 - **No I/O.** The package reads no clock and generates no id — `create` takes
   domain-generated values as its second argument, by design.
 - `zod`, `unthrown` and `@unthrown/standard-schema` are peer dependencies to

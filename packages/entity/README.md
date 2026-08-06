@@ -98,16 +98,14 @@ test in `contract.spec.ts` pins that.
   re-running the invariants; immutable fields are dropped even if smuggled
   in at runtime past the type check
 - `toJSON()` — the stored data, projected to exactly the `decoded` schema's
-  keys, even from a subclass with extra fields. This is the **only** public
+  keys, even when the class body declares extra fields. This is the **only** public
   projection: it is the hook `JSON.stringify` looks for, so it has to exist,
   and a second method returning the same value under a domain name would be
   the alias this package resists. A repository write is
   `db.insert(org.toJSON())`
 - `equals(other)` — true when both are the same entity type and their
-  stored data is deep-equal. "Same entity" means the entity the class was
-  built from, not the class itself: two subclasses of a single `Entity(...)`
-  call compare equal when their stored data matches, while two separate
-  `Entity(...)` calls never do, even with identical fields
+  stored data is deep-equal. Two separate `Entity(...)` calls never compare
+  equal, even with identical fields
 
 ## Computed fields: `add`
 

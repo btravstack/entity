@@ -41,14 +41,6 @@ test("different entity types with identical data are unequal", () => {
   expect(Organization.decode(raw).getOrThrow().equals(Team.decode(raw).getOrThrow())).toBe(false);
 });
 
-test("sibling subclasses of one entity with the same data are equal", () => {
-  // Identity is the entity a class was built from, not the class itself: both
-  // sides are still an `Organization`, so equal stored data means equal entity.
-  class Vendor extends Organization {}
-  class Customer extends Organization {}
-  expect(Vendor.decode(raw).getOrThrow().equals(Customer.decode(raw).getOrThrow())).toBe(true);
-});
-
 test("comparing against a non-entity is false, not a throw", () => {
   const org = Organization.decode(raw).getOrThrow();
   expect(org.equals(raw)).toBe(false);
