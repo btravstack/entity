@@ -33,7 +33,7 @@ test("entities holding equal arrays are equal", () => {
   // This is the case a shallow, reference-comparing rule got wrong.
   const a = Organization.decode({ ...raw, tags: ["x", "y"] }).getOrThrow();
   const b = Organization.decode({ ...raw, tags: ["x", "y"] }).getOrThrow();
-  expect(a.encode().tags === b.encode().tags).toBe(false);
+  expect(a.toJSON().tags === b.toJSON().tags).toBe(false);
   expect(a.equals(b)).toBe(true);
 });
 

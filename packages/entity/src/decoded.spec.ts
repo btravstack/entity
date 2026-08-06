@@ -29,23 +29,23 @@ const raw = {
   secret: "sk_live_9f3c2a7b41d8",
 };
 
-test("a computed field reaches the entity and its encoded output", () => {
+test("a computed field reaches the entity and its stored output", () => {
   const key = ApiKey.decode(raw).getOrThrow();
   expect(key.fingerprint).toBe("sk_live_9f3c");
-  expect(key.encode().fingerprint).toBe("sk_live_9f3c");
+  expect(key.toJSON().fingerprint).toBe("sk_live_9f3c");
 });
 
 test("an omitted field is consumed and never stored", () => {
   const key = ApiKey.decode(raw).getOrThrow();
-  expect(key.encode()).not.toHaveProperty("secret");
+  expect(key.toJSON()).not.toHaveProperty("secret");
   expect(ApiKey.decoded.shape).not.toHaveProperty("secret");
   expect(ApiKey.encoded.shape).toHaveProperty("secret");
 });
 
-test("decode does not round-trip through encode for a split entity", () => {
+test("decode does not round-trip through toJSON for a split entity", () => {
   const key = ApiKey.decode(raw).getOrThrow();
-  expect(ApiKey.decode(key.encode()).isErr()).toBe(true);
-  expect(ApiKey.make(key.encode()).isOk()).toBe(true);
+  expect(ApiKey.decode(key.toJSON()).isErr()).toBe(true);
+  expect(ApiKey.make(key.toJSON()).isOk()).toBe(true);
 });
 
 test("bad caller input is InvalidEntity, never a defect", () => {

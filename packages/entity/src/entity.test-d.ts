@@ -54,14 +54,18 @@ test("a branded field survives DeepReadonly with its brand intact", () => {
   void wrong;
 });
 
-test("encode() and toJSON() still return the plain, mutable decoded shape", () => {
+test("toJSON() returns the plain, mutable decoded shape", () => {
   const bag = Bag.decode({}).getOrThrow();
-  // encode() builds a fresh object, so its own keys stay assignable —
+  // toJSON() builds a fresh object, so its own keys stay assignable —
   // DeepReadonly applies to the instance's fields, not to this projection
-  const state: Decoded<typeof Bag> = bag.encode();
-  const json: Decoded<typeof Bag> = bag.toJSON();
+  const state: Decoded<typeof Bag> = bag.toJSON();
   state.tags = [];
-  void json;
+});
+
+test("toJSON() is the only projection — there is no second public spelling", () => {
+  const bag = Bag.decode({}).getOrThrow();
+  // @ts-expect-error `encode()` was removed; `toJSON()` is the one projection
+  bag.encode();
 });
 
 test("updateInput.shape is a precise mapped type, not an index signature", () => {

@@ -28,8 +28,8 @@ const org = Organization.create(
 
 org.update({ name: newName }); // a NEW entity; immutable fields rejected at compile time
 Organization.make(row); // row mappers and event folds
-org.encode(); // stored data — never carries _tag
-org.equals(other); // equal encoded data
+org.toJSON(); // stored data — never carries _tag
+org.equals(other); // equal stored data
 ```
 
 Every fallible entry point (`decode`, `make`, `create`, `update`) returns an
@@ -89,18 +89,20 @@ test in `contract.spec.ts` pins that.
   why `Object.freeze(this)` is not used
 - `_tag` — a **non-enumerable, runtime-only** literal, matchable with
   `P.tag(...)`. It never reaches the wire: it is absent from every schema, and
-  from `encode()`, `toJSON()`, `Object.keys(...)` and `{ ...entity }`. A union
+  from `toJSON()`, `Object.keys(...)` and `{ ...entity }`. A union
   that must survive JSON round-tripping discriminates on a declared domain
   field, not on `_tag` — see `union.spec.ts`.
 - `update(patch)` — a partial of the mutable fields → a **new** entity,
   re-running the invariants; immutable fields are dropped even if smuggled
   in at runtime past the type check
-- `encode()` — the stored data, projected to exactly the `decoded` schema's
-  keys, even from a subclass with extra fields
-- `toJSON()` — delegates to `encode()`, so `JSON.stringify(entity)` matches
-  `decoded`
+- `toJSON()` — the stored data, projected to exactly the `decoded` schema's
+  keys, even from a subclass with extra fields. This is the **only** public
+  projection: it is the hook `JSON.stringify` looks for, so it has to exist,
+  and a second method returning the same value under a domain name would be
+  the alias this package resists. A repository write is
+  `db.insert(org.toJSON())`
 - `equals(other)` — true when both are the same entity type and their
-  encoded data is deep-equal. "Same entity" means the entity the class was
+  stored data is deep-equal. "Same entity" means the entity the class was
   built from, not the class itself: two subclasses of a single `Entity(...)`
   call compare equal when their stored data matches, while two separate
   `Entity(...)` calls never do, even with identical fields

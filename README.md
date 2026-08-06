@@ -110,8 +110,8 @@ const org = Organization.create(
 
 org.slug; // "acme" — typed, read-only
 org.update({ name: "Acme Inc" as z.infer<typeof DisplayName> }); // a NEW entity; Result<Organization, InvalidEntity>
-org.encode(); // the stored data — never carries `_tag`
-org.equals(otherOrg); // true when both are `Organization` and their encoded data is equal
+org.toJSON(); // the stored data — never carries `_tag`
+org.equals(otherOrg); // true when both are `Organization` and their stored data is equal
 
 // A row mapper, or an event fold's final step:
 Organization.make(rowFromDatabase);
@@ -223,13 +223,14 @@ hood, which is why nesting works).
 `invariants`, so a patch where every individual field is valid but the
 combination is not still fails.
 
-`decode(x.encode())` does **not** round-trip for an entity with a `decoded`
-option (see below) — a consumed field like a raw secret is absent from
-`encode()` by design:
+`toJSON()` returns the **stored** shape, not the wire shape, so it pairs with
+`make` rather than `decode`. For an entity with a `decoded` option (see below)
+the two genuinely differ — a consumed field like a raw secret is absent from
+the stored data by design:
 
 ```ts
-ApiKey.decode(apiKey.encode()); // ✗ Err(InvalidEntity) — `secret` is required and absent
-ApiKey.make(apiKey.encode()); // ✓ Ok(ApiKey)
+ApiKey.make(apiKey.toJSON()); // ✓ Ok(ApiKey) — the pairing that holds
+ApiKey.decode(apiKey.toJSON()); // ✗ Err(InvalidEntity) — `secret` is required and absent
 ```
 
 ## `generated` and `immutable`
@@ -345,7 +346,7 @@ a.equals(a.update({ name: other }).getOrThrow()); // false — data differs
 someOrg.equals(someApiKey); // false — different entities, even with identical field values
 ```
 
-The comparison serialises both sides' `encode()` output, which is what makes
+The comparison serialises both sides' `toJSON()` output, which is what makes
 two entities holding **equal arrays** compare equal — a naive
 reference-equality check gets this wrong, because arrays compare by
 reference even when their contents match.
@@ -365,7 +366,7 @@ match(member)
 ```
 
 **It never reaches the wire.** It is absent from every schema, from
-`encode()`, `toJSON()`, `JSON.stringify(entity)`, `Object.keys(entity)` and
+`toJSON()`, `JSON.stringify(entity)`, `Object.keys(entity)` and
 `{ ...entity }`. That has a direct consequence for unions: **a union that must
 survive a JSON round-trip cannot discriminate on `_tag`** — it isn't there
 after serialisation. Declare the discriminant as an ordinary domain field
@@ -403,6 +404,19 @@ and `_tag` still serves in domain code, exactly as in the `match` example
 above — the two mechanisms solve different problems. A brand is _per field_
 and _type-only_ (it disappears at runtime); the tag is _per entity_ and
 _runtime-present_, which is what makes it matchable.
+
+The same string is also readable from the class itself, as `entityName`:
+
+```ts
+Organization.entityName; // "Organization" — typed as the literal, not `string`
+```
+
+`_tag` and `entityName` are one concept with two access paths, not two names
+for it: `_tag` exists on an **instance** and is what `P.tag(...)` matches on,
+while `entityName` is the only way to read the tag from code holding the
+**class** and no instance — a registry keyed by entity, or an error message
+naming the entity a repository failed to load. Neither substitutes for the
+other, and both derive from the single `Entity(tag)` declaration.
 
 ## Error handling
 
@@ -488,9 +502,9 @@ works). It deliberately leaves `Map`, `Set` and anything a `z.custom(...)` or
 either ineffective (a frozen `Map` still accepts `.set`) or destructive. A
 field whose schema yields a live mutable object is outside the guarantee.
 
-`encode()` and `toJSON()` still return the plain `decoded` shape: they build
-a fresh object, so assigning to _its_ keys is fine and mappers keep working
-unchanged (the values inside it are the entity's own, and stay frozen).
+`toJSON()` still returns the plain `decoded` shape: it builds a fresh object,
+so assigning to _its_ keys is fine and mappers keep working unchanged (the
+values inside it are the entity's own, and stay frozen).
 
 `Object.freeze(this)` is **not** used, and cannot be: a subclass's field
 initialisers run after `super()` returns, so the instance itself has to stay
@@ -502,7 +516,7 @@ class OrgWithCache extends Organization {
 }
 const org = OrgWithCache.decode(raw).getOrThrow();
 org.cachedSummary = "computed"; // ✓ still writable — it isn't declared data
-org.encode(); // does NOT include cachedSummary — encode() projects only the declared schema's keys
+org.toJSON(); // does NOT include cachedSummary — toJSON() projects only the declared schema's keys
 ```
 
 ## Helper types

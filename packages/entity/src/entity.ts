@@ -83,6 +83,20 @@ export function Entity<Tag extends string>(tag: Tag) {
     type EncodedShape = EncodedOf<S>;
 
     const dataKeys = Object.keys(decoded.shape) as unknown as readonly (keyof DecodedShape)[];
+
+    /**
+     * Projects an instance down to exactly the `decoded` schema's keys.
+     *
+     * Module-private on purpose. `toJSON`, `equals` and `update` all need this
+     * projection, but only `toJSON` is a public surface — routing the other
+     * two through a shared function rather than through `toJSON` keeps them
+     * from depending on a serialization hook a subclass is free to override.
+     */
+    const project = (self: object): DecodedShape => {
+      const source = self as Record<keyof DecodedShape, unknown>;
+      return Object.fromEntries(dataKeys.map((k) => [k, source[k]])) as DecodedShape;
+    };
+
     const parseEncoded = fromSchema(encoded);
     // `DecodedShape` is hand-rolled alias of the same values for better error clarity
     const parseDecoded = fromSchema(decoded) as (d: unknown) => Result<DecodedShape, SchemaIssues>;
@@ -155,25 +169,34 @@ export function Entity<Tag extends string>(tag: Tag) {
           });
         }
         // non-enumerable, so it is absent from Object.keys, spread,
-        // JSON.stringify and encode() — but still readable by P.tag
+        // JSON.stringify and toJSON() — but still readable by P.tag
         Object.defineProperty(this, "_tag", { value: tag, enumerable: false });
       }
 
-      /** projects only the stored schema's keys, so subclass fields never leak */
-      encode(): DecodedShape {
-        const self = this as unknown as Record<keyof DecodedShape, unknown>;
-        return Object.fromEntries(dataKeys.map((k) => [k, self[k]])) as DecodedShape;
-      }
-
+      /**
+       * The stored data, projected to exactly the `decoded` schema's keys.
+       *
+       * This is the *only* public projection. `toJSON` is not a name this
+       * package chose — it is the hook `JSON.stringify` looks for — and it has
+       * to exist regardless: without it, `JSON.stringify(entity)` walks own
+       * enumerable properties, which includes a subclass's own instance
+       * fields, and leaks them. Projecting `dataKeys` is what excludes both
+       * those and `_tag`.
+       *
+       * There is deliberately no second method returning the same value under
+       * a domain name. One that existed here was removed: two public spellings
+       * of one projection is the alias CONTRIBUTING tells us to resist, and a
+       * repository write reads perfectly well as `db.insert(org.toJSON())`.
+       */
       toJSON(): DecodedShape {
-        return this.encode();
+        return project(this);
       }
 
-      /** Equal encoded data means equal entity. Compares JSON-serialized form to
+      /** Equal stored data means equal entity. Compares JSON-serialized form to
        * handle arrays correctly and ignore construction order. */
       equals(other: unknown): boolean {
         if (!(other instanceof Base)) return false;
-        return JSON.stringify(this.encode()) === JSON.stringify(other.encode());
+        return JSON.stringify(project(this)) === JSON.stringify(project(other));
       }
 
       /** a full untrusted encoded payload → entity */
@@ -240,7 +263,7 @@ export function Entity<Tag extends string>(tag: Tag) {
 
       /** a partial of the mutable fields → a NEW entity */
       update(this: Base, patch: PatchOf<S, A, K, I>): Result<Base, InvalidEntity> {
-        const current = this.encode() as Record<PropertyKey, unknown>;
+        const current = project(this) as Record<PropertyKey, unknown>;
         const applied = { ...current };
         for (const [k, v] of Object.entries(patch as object)) {
           // immutable keys are a compile error already; drop them at runtime
