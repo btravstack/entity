@@ -18,6 +18,7 @@ jobs:
     with:
       # "" uses .node-version (the dev/primary version). 22.19 is the root
       # package's engines floor, i.e. the oldest Node this repo is developed on.
-      # Note the published package declares engines >=20, which no job covers —
-      # see the note in CONTRIBUTING before widening or narrowing either.
-      node-versions: '["", "22.19"]'
+      # 20 is the published package's engines floor — it is here so that floor
+      # is proven rather than merely declared. See the note in CONTRIBUTING
+      # before widening or narrowing any of the three.
+      node-versions: '["", "22.19", "20"]'

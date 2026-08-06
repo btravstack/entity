@@ -66,11 +66,10 @@ Three numbers, and they mean different things:
 | root `package.json` `engines` | `>=22.19`              | the oldest Node this repo is _developed_ on               |
 | `packages/entity` `engines`   | `>=20`                 | the oldest Node the _published package_ claims to support |
 
-CI runs the test job on the pinned version and on `22.19`. **It does not
-currently run on Node 20**, so the published floor is declared but untested.
-Before relying on it, either add `20` to `node-versions` in
-`.github/workflows/ci.yml` or raise the package's `engines` to match what CI
-actually proves.
+CI runs the test job on all three: the pinned version, `22.19`, and `20`. The
+published floor is therefore checked, not just declared. If you raise
+`packages/entity`'s `engines`, raise the matching entry in `node-versions` in
+`.github/workflows/ci.yml` too — the matrix is what proves the claim.
 
 ## Commit convention
 
