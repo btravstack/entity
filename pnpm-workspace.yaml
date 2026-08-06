@@ -1,0 +1,47 @@
+autoInstallPeers: false
+dedupePeerDependents: true
+engineStrict: true
+saveExact: true
+strictPeerDependencies: true
+
+packages:
+  - packages/*
+
+catalog:
+  "@btravstack/commitlint": 0.1.0
+  "@btravstack/lefthook": 0.1.1
+  "@btravstack/oxlint": 0.2.1
+  "@btravstack/tsconfig": 0.2.0
+  "@changesets/cli": 2.31.1
+  "@commitlint/cli": 21.2.1
+  # Pinned to the exact prerelease the package's design doc measured
+  # `ZodToJsonSchemaConverter`'s behaviour against (dual-direction JSON Schema
+  # generation, the `[jsonSchema, optional]` return shape with no "unsupported"
+  # flag). `@orpc/zod`'s stable "latest" line (1.x) predates the v2 API this
+  # package's contract tests exercise.
+  "@orpc/zod": 2.0.0-beta.24
+  "@types/node": 26.1.2
+  "@unthrown/oxlint": 5.1.0
+  "@unthrown/standard-schema": 5.1.0
+  "@unthrown/vitest": 5.1.0
+  knip: 6.32.0
+  lefthook: 2.1.10
+  oxfmt: 0.62.0
+  oxlint: 1.77.0
+  tsdown: 0.22.14
+  turbo: 2.10.8
+  # 7.0.2 is the exact release the package's design doc measured the
+  # construction-seal declaration-emit behaviour against (zero TS4020, `declare
+  # const CtorKey: unique symbol` carried module-local into the emitted
+  # `types.d.ts`). Kept in step with that measurement rather than trailing it.
+  typescript: 7.0.2
+  unthrown: 5.1.0
+  vitest: 4.1.10
+  zod: 4.4.3
+
+minimumReleaseAgeExclude:
+  - knip@6.32.0
+
+allowBuilds:
+  esbuild: true
+  lefthook: true

@@ -1,0 +1,39 @@
+{
+  "name": "@btravstack/entity-root",
+  "private": true,
+  "description": "A domain-entity builder on zod v4: branded fields, immutable data, sealed construction, and Result instead of throws",
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "changeset": "changeset",
+    "dev": "turbo run dev",
+    "format": "oxfmt .",
+    "knip": "knip",
+    "lint": "oxlint .",
+    "prepare": "lefthook install",
+    "release": "pnpm build && changeset publish",
+    "test": "turbo run test",
+    "test:types": "turbo run test:types",
+    "typecheck": "turbo run typecheck",
+    "version": "changeset version"
+  },
+  "devDependencies": {
+    "@btravstack/commitlint": "catalog:",
+    "@btravstack/lefthook": "catalog:",
+    "@btravstack/oxlint": "catalog:",
+    "@changesets/cli": "catalog:",
+    "@commitlint/cli": "catalog:",
+    "@unthrown/oxlint": "catalog:",
+    "knip": "catalog:",
+    "lefthook": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "turbo": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "packageManager": "pnpm@11.7.0"
+}

@@ -1,0 +1,144 @@
+# @btravstack/entity
+
+Domain entities on zod v4: branded fields, immutable data, sealed
+construction, and `Result` instead of throws.
+
+```ts
+import { z } from "zod";
+import { Entity } from "@btravstack/entity";
+
+const OrgId = z.uuid().brand("OrgId");
+const Slug = z.string().min(1).brand("Slug");
+const DisplayName = z.string().min(1).brand("DisplayName");
+const Instant = z.iso.datetime().brand("Instant");
+
+class Organization extends Entity("Organization")(
+  { id: OrgId, slug: Slug, name: DisplayName, createdAt: Instant },
+  {
+    generated: ["id", "createdAt"],
+    immutable: ["id", "createdAt", "slug"],
+    invariants: (d) => (d.name.length > 0 ? [] : ["name must not be empty"]),
+  },
+) {}
+
+const org = Organization.create(
+  { slug, name },
+  { id: ids.next(), createdAt: clock.now() },
+).getOrThrow();
+
+org.update({ name: newName }); // a NEW entity; immutable fields rejected at compile time
+Organization.make(row); // row mappers and event folds
+org.encode(); // stored data — never carries _tag
+org.equals(other); // equal encoded data
+```
+
+Every fallible entry point (`decode`, `make`, `create`, `update`) returns an
+`unthrown` `Result<T, InvalidEntity>` — call `.getOrThrow()`, `.match()`, or
+any other `Result` combinator on it, per this library's error-as-values
+convention. See the [root README](../../README.md) for the full guide,
+including the `decoded: { omit, add }` split, unions, and the lifecycle in a
+hexagonal architecture.
+
+## `Entity(tag)(fields, options?)`
+
+`fields` is a map of field name to a **branded** zod schema — an unbranded
+field is a compile error, so every field carries a nominal type from the
+start. `tag` is curried separately from `fields` so it reads next to the
+class name it labels, ahead of the field map.
+
+`options` are all optional:
+
+| Option         | Meaning                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `generated`    | keys the domain supplies, not the caller — omitted from `createInput`                                                 |
+| `immutable`    | keys that never change after creation — omitted from `updateInput`                                                    |
+| `decoded.omit` | keys present on the wire but not stored (e.g. a raw secret)                                                           |
+| `decoded.add`  | computed fields, declared with the `add` helper (see below)                                                           |
+| `invariants`   | `(decoded) => readonly string[]` — non-empty means rejected, checked on every `decode`, `make`, `create` and `update` |
+
+## Statics
+
+| Static                     | Kind            | Purpose                                                                   |
+| -------------------------- | --------------- | ------------------------------------------------------------------------- |
+| `entityName`               | `string`        | the tag passed to `Entity(tag)`                                           |
+| `encoded`                  | `ZodObject`     | the full wire object                                                      |
+| `decoded`                  | `ZodObject`     | stored state and response body                                            |
+| `createInput`              | `ZodObject`     | create request — `encoded` minus `generated`                              |
+| `updateInput`              | `ZodObject`     | update request — `decoded` minus `immutable`, partial                     |
+| `instance`                 | `ZodType`       | decodes straight to a class instance, for nesting entities in domain code |
+| `~standard`                | Standard Schema | `instance`'s Standard Schema entry point                                  |
+| `decode(raw)`              | method          | a full untrusted encoded payload → entity                                 |
+| `make(state)`              | method          | already-stored state → entity, for row mappers and event folds            |
+| `create(input, generated)` | method          | caller input plus domain-generated values → entity                        |
+
+**Contracts compose the four `ZodObject`s (`encoded`, `decoded`, `createInput`,
+`updateInput`); domain code composes `instance`.** All four `ZodObject`s
+generate JSON Schema in both `"input"` and `"output"` directions. `instance`
+carries a transform, so it has no _output_ representation —
+`z.toJSONSchema(SomeEntity.instance, { io: "output" })` throws by design, and a
+test in `contract.spec.ts` pins that.
+
+## Instance members
+
+- the declared data fields, read-only at the type level
+- `_tag` — a **non-enumerable, runtime-only** literal, matchable with
+  `P.tag(...)`. It never reaches the wire: it is absent from every schema, and
+  from `encode()`, `toJSON()`, `Object.keys(...)` and `{ ...entity }`. A union
+  that must survive JSON round-tripping discriminates on a declared domain
+  field, not on `_tag` — see `union.spec.ts`.
+- `update(patch)` — a partial of the mutable fields → a **new** entity,
+  re-running the invariants; immutable fields are dropped even if smuggled
+  in at runtime past the type check
+- `encode()` — the stored data, projected to exactly the `decoded` schema's
+  keys, even from a subclass with extra fields
+- `toJSON()` — delegates to `encode()`, so `JSON.stringify(entity)` matches
+  `decoded`
+- `equals(other)` — true when both are the same entity type and their
+  encoded data is deep-equal
+
+## Computed fields: `add`
+
+`decoded.add` declares fields that are derived rather than stored, using the
+curried `add` helper:
+
+```ts
+add({ fingerprint: Fingerprint })((e) => ({
+  fingerprint: fingerprintOf(e.secret),
+}));
+```
+
+`e` is the encoded shape (so an omitted field, like a raw secret, is still
+visible to compute from) and the callback's return type is checked against
+the declared fields, so every value must already be branded.
+
+## Helper types
+
+Four generic type-level helpers name each shape by reading it off an entity
+class, instead of re-declaring it:
+
+```ts
+import type { CreateInput, Decoded, Encoded, Patch } from "@btravstack/entity";
+
+type OrgWire = Encoded<typeof Organization>; // for mapper and request signatures
+type OrgState = Decoded<typeof Organization>; // for `make` and repository signatures
+type OrgCreate = CreateInput<typeof Organization>; // what `create` accepts from a caller
+type OrgPatch = Patch<typeof Organization>; // what `update` accepts
+```
+
+## Peer dependencies
+
+This package peer-depends on `zod` (`^4.4.0`), `unthrown` (`^5.0.0`) and
+`@unthrown/standard-schema` (`^5.0.0`) rather than bundling its own copies. It
+hands back real `ZodObject`s and real `Result`s from those exact packages, so
+a consumer's own `z.toJSONSchema`, `instanceof` checks against `unthrown`
+constructs, and `P.tag` matching all operate on one shared runtime — a second
+copy of `zod` or `unthrown` in the dependency tree would silently break
+identity checks like `result instanceof Result` or a discriminated schema
+built by mixing this package's output with the consumer's own.
+
+See the [root README](../../README.md) for the full guide and design
+rationale.
+
+## License
+
+[MIT](./LICENSE) © Benoit TRAVERS

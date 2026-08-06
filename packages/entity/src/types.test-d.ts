@@ -1,0 +1,80 @@
+import { expectTypeOf, test } from "vitest";
+import { z } from "zod";
+
+import type {
+  AddedOf,
+  CreateInputOf,
+  DecodedOf,
+  EncodedOf,
+  Fields,
+  GeneratedOf,
+  PatchOf,
+  Sealed,
+} from "./types.js";
+
+const OrgId = z.uuid().brand("OrgId");
+const Slug = z.string().brand("Slug");
+const Secret = z.string().brand("Secret");
+const Fingerprint = z.string().brand("Fingerprint");
+const Instant = z.iso.datetime().brand("Instant");
+
+type S = {
+  id: typeof OrgId;
+  slug: typeof Slug;
+  secret: typeof Secret;
+  createdAt: typeof Instant;
+};
+type A = { fingerprint: typeof Fingerprint };
+
+test("the test fixtures satisfy the Fields constraint", () => {
+  type CheckS = S extends Fields ? true : false;
+  type CheckA = A extends Fields ? true : false;
+  expectTypeOf<CheckS>().toEqualTypeOf<true>();
+  expectTypeOf<CheckA>().toEqualTypeOf<true>();
+});
+
+test("EncodedOf is the plain inferred object", () => {
+  expectTypeOf<EncodedOf<S>["slug"]>().toEqualTypeOf<z.infer<typeof Slug>>();
+});
+
+test("AddedOf of an empty shape has no keys and no index signature", () => {
+  // zod infers an EMPTY shape as Record<string, never>, a real index signature.
+  // Unguarded, that poisons every option-less entity's decoded type.
+  expectTypeOf<keyof AddedOf<Record<never, never>>>().toEqualTypeOf<never>();
+});
+
+test("DecodedOf omits and adds, and carries no _tag", () => {
+  type D = DecodedOf<S, A, ["secret"]>;
+  expectTypeOf<D["fingerprint"]>().toEqualTypeOf<z.infer<typeof Fingerprint>>();
+  expectTypeOf<D>().not.toHaveProperty("secret");
+  // the tag is a runtime-only instance property, never part of the data
+  expectTypeOf<D>().not.toHaveProperty("_tag");
+});
+
+test("DecodedOf with no options is the encoded object", () => {
+  type D = DecodedOf<S, Record<never, never>, []>;
+  expectTypeOf<D["secret"]>().toEqualTypeOf<z.infer<typeof Secret>>();
+});
+
+test("CreateInputOf drops the generated fields, GeneratedOf keeps exactly them", () => {
+  type C = CreateInputOf<S, ["id", "createdAt"]>;
+  expectTypeOf<C>().not.toHaveProperty("id");
+  expectTypeOf<C["slug"]>().toEqualTypeOf<z.infer<typeof Slug>>();
+
+  type G = GeneratedOf<S, ["id", "createdAt"]>;
+  expectTypeOf<G["id"]>().toEqualTypeOf<z.infer<typeof OrgId>>();
+  expectTypeOf<G>().not.toHaveProperty("slug");
+});
+
+test("PatchOf is partial and drops the immutable fields", () => {
+  type P = PatchOf<S, A, ["secret"], ["id", "createdAt"]>;
+  expectTypeOf<P>().not.toHaveProperty("id");
+  expectTypeOf<P["slug"]>().toEqualTypeOf<z.infer<typeof Slug> | undefined>();
+});
+
+test("Sealed cannot be produced from outside the module", () => {
+  const plain = {} as unknown as EncodedOf<S>;
+  // @ts-expect-error the construction key cannot be named outside types.ts
+  const sealed: Sealed<EncodedOf<S>> = plain;
+  void sealed;
+});
