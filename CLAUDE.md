@@ -43,7 +43,7 @@ Node is pinned in `.node-version` (24.16.0); pnpm 11.7.0 via `packageManager`
 
 ## Architecture
 
-Six source modules under `packages/entity/src`, split by what they own:
+Eight source modules under `packages/entity/src`, split by what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
@@ -72,7 +72,11 @@ Six source modules under `packages/entity/src`, split by what they own:
   since the subclass does not exist when the builder runs.
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
   fields, and `shape()`, the only sanctioned way to build a domain object.
-- **`computed.ts`** / **`errors.ts`** — the `computed(fields, from)` helper and
+- **`issues.ts`** — `keysOf` and `renderIssue`. Standard Schema permits a path
+  segment to be a bare `PropertyKey` or a `{ key }` wrapper; zod emits the
+  bare form, and `keysOf` normalises it wherever a path meets an API wanting
+  plain keys.
+- **`computed.ts`** / **`errors.ts`** — the `computed(schema, from)` helper and
   the `InvalidEntity` tagged error. Computed fields are re-derived on every
   construction path, so they cannot drift from their sources.
 
