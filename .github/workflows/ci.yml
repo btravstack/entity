@@ -17,11 +17,17 @@ jobs:
     uses: btravstack/config/.github/workflows/ci-reusable.yml@workflows-v1
     with:
       # "" uses .node-version (the dev/primary version, currently 24.16.0).
-      # 20 is the published package's engines floor and 22.19 the root
-      # package's — both are here so those floors are proven rather than
-      # merely declared. 24 and 26 cover the current LTS and the live release
-      # line, so a consumer on either is exercised rather than assumed. Note
-      # 24 overlaps "" while .node-version stays on 24.x; it is listed
+      # 22.19 is the ROOT package's engines floor — the oldest Node this repo
+      # is developed on. 24 and 26 cover the current LTS and the live release
+      # line. 24 overlaps "" while .node-version stays on 24.x; it is listed
       # explicitly so bumping .node-version does not silently drop 24
-      # coverage. See the note in CONTRIBUTING before changing any of these.
-      node-versions: '["", "20", "22.19", "24", "26"]'
+      # coverage.
+      #
+      # The PUBLISHED package's floor (`engines: ">=20"`) is NOT covered here,
+      # and cannot be by this matrix: these jobs run the dev toolchain, and
+      # pnpm 11 requires `node:sqlite`, so Node 20 dies at setup-node before
+      # installing anything — measured: `ERR_UNKNOWN_BUILTIN_MODULE: No such
+      # built-in module: node:sqlite`. Proving that floor needs a consumer-side
+      # check (install the packed tarball with npm, import it); until one
+      # exists the floor is declared, not proven. See CONTRIBUTING.
+      node-versions: '["", "22.19", "24", "26"]'

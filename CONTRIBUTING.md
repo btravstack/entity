@@ -66,12 +66,21 @@ Three numbers, and they mean different things:
 | root `package.json` `engines` | `>=22.19`              | the oldest Node this repo is _developed_ on               |
 | `packages/entity` `engines`   | `>=20`                 | the oldest Node the _published package_ claims to support |
 
-CI runs the test job on all three, plus the two current release lines:
-`["", "20", "22.19", "24", "26"]`. Both declared floors are therefore checked
-rather than merely claimed, and a consumer on current LTS or the live release
-line is exercised rather than assumed. If you raise `packages/entity`'s
-`engines`, raise the matching entry in `node-versions` in
-`.github/workflows/ci.yml` too — the matrix is what proves the claim.
+CI runs the test job on `["", "22.19", "24", "26"]` — the pinned version, the
+repo's own development floor, and the two current release lines.
+
+**The published package's floor is not covered, and this matrix cannot cover
+it.** These jobs run the development toolchain, and pnpm 11 requires
+`node:sqlite`, so a Node 20 row dies at `setup-node` before installing
+anything: `ERR_UNKNOWN_BUILTIN_MODULE: No such built-in module: node:sqlite`.
+That would test the toolchain, not the package — and it contradicts the root
+`engines` above, which already says development needs `>=22.19`.
+
+`engines` on `packages/entity` is a claim about **consumers**, who install the
+published tarball with their own package manager and import it. Proving it
+needs a consumer-side job: pack, `npm install` the tarball on the floor
+version, import it. Until that exists the floor is declared, not proven — so
+treat `>=20` as an intention rather than a guarantee.
 
 `24` overlaps `""` for as long as `.node-version` stays on 24.x. It is listed
 explicitly anyway, so that bumping `.node-version` to 26 does not silently
