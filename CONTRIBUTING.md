@@ -66,10 +66,16 @@ Three numbers, and they mean different things:
 | root `package.json` `engines` | `>=22.19`              | the oldest Node this repo is _developed_ on               |
 | `packages/entity` `engines`   | `>=20`                 | the oldest Node the _published package_ claims to support |
 
-CI runs the test job on all three: the pinned version, `22.19`, and `20`. The
-published floor is therefore checked, not just declared. If you raise
-`packages/entity`'s `engines`, raise the matching entry in `node-versions` in
+CI runs the test job on all three, plus the two current release lines:
+`["", "20", "22.19", "24", "26"]`. Both declared floors are therefore checked
+rather than merely claimed, and a consumer on current LTS or the live release
+line is exercised rather than assumed. If you raise `packages/entity`'s
+`engines`, raise the matching entry in `node-versions` in
 `.github/workflows/ci.yml` too — the matrix is what proves the claim.
+
+`24` overlaps `""` for as long as `.node-version` stays on 24.x. It is listed
+explicitly anyway, so that bumping `.node-version` to 26 does not silently
+drop 24 from the matrix.
 
 ## Commit convention
 
