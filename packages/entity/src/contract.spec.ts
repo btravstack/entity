@@ -9,9 +9,10 @@ const OrgId = z.uuid().brand("OrgId");
 const Secret = z.string().min(16).brand("Secret");
 const Fingerprint = z.string().length(12).brand("Fingerprint");
 const Instant = z.iso.datetime().brand("Instant");
+const Label = z.string().min(1).brand("Label");
 
 class ApiKey extends Entity("ApiKey")(
-  { id: ApiKeyId, orgId: OrgId.readonly(), secret: Secret, createdAt: Instant },
+  { id: ApiKeyId, orgId: OrgId.readonly(), secret: Secret, label: Label, createdAt: Instant },
   {
     generated: ["id", "createdAt"],
     immutable: ["id", "orgId", "createdAt"],
@@ -35,19 +36,27 @@ const props = (s: z.ZodType, io: "input" | "output") => {
 };
 
 test("encoded drives the full request schema", () => {
-  expect(props(ApiKey.encoded, "input")).toEqual(["createdAt", "id", "orgId", "secret"]);
+  expect(props(ApiKey.encoded, "input")).toEqual(["createdAt", "id", "label", "orgId", "secret"]);
 });
 
 test("decoded drives the response schema", () => {
-  expect(props(ApiKey.decoded, "output")).toEqual(["createdAt", "fingerprint", "id", "orgId"]);
+  expect(props(ApiKey.decoded, "output")).toEqual([
+    "createdAt",
+    "fingerprint",
+    "id",
+    "label",
+    "orgId",
+  ]);
 });
 
 test("createInput is the create request schema", () => {
-  expect(props(ApiKey.createInput, "input")).toEqual(["orgId", "secret"]);
+  expect(props(ApiKey.createInput, "input")).toEqual(["label", "orgId", "secret"]);
 });
 
 test("updateInput is the update request schema", () => {
-  expect(props(ApiKey.updateInput, "input")).toEqual(["fingerprint"]);
+  // `fingerprint` is on the response schema but not this one: `add` fields are
+  // implicitly immutable, so they are never part of an update request.
+  expect(props(ApiKey.updateInput, "input")).toEqual(["label"]);
 });
 
 test("all four ZodObject members convert in both directions", () => {

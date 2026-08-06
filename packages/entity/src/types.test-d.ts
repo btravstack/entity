@@ -70,6 +70,9 @@ test("PatchOf is partial and drops the immutable fields", () => {
   type P = PatchOf<S, A, ["secret"], ["id", "createdAt"]>;
   expectTypeOf<P>().not.toHaveProperty("id");
   expectTypeOf<P["slug"]>().toEqualTypeOf<z.infer<typeof Slug> | undefined>();
+  // `fingerprint` is not in the immutable list, yet it is still gone: an
+  // `add`-produced field is implicitly immutable
+  expectTypeOf<P>().not.toHaveProperty("fingerprint");
 });
 
 test("Sealed cannot be produced from outside the module", () => {

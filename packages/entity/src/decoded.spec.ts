@@ -9,6 +9,8 @@ const ApiKeyId = z.uuid().brand("ApiKeyId");
 const OrgId = z.uuid().brand("OrgId");
 const Secret = z.string().min(16).brand("Secret");
 const Fingerprint = z.string().length(12).brand("Fingerprint");
+const Slug = z.string().min(1).brand("Slug");
+const Upper = z.string().min(1).brand("Upper");
 
 const fingerprintOf = (s: string) => s.slice(0, 12) as z.infer<typeof Fingerprint>;
 
@@ -60,6 +62,41 @@ const issuesOf = (r: ReturnType<typeof ApiKey.decode>): readonly Flat[] =>
       ),
     defect: () => [{ path: [], message: "DEFECT" }],
   });
+
+test("a computed field is absent from updateInput", () => {
+  // `add` fields are implicitly immutable: nothing declares `fingerprint` in
+  // `immutable`, yet it must not appear in the update request schema.
+  expect(Object.keys(ApiKey.updateInput.shape)).toEqual(["id", "orgId"]);
+  expect(ApiKey.decoded.shape).toHaveProperty("fingerprint");
+});
+
+test("updating a source field leaves the entity consistent", () => {
+  class Org extends Entity("Org")(
+    { id: OrgId, slug: Slug },
+    {
+      decoded: {
+        add: add({ slugUpper: Upper })((e) => ({
+          slugUpper: e.slug.toUpperCase() as z.infer<typeof Upper>,
+        })),
+      },
+    },
+  ) {}
+  const org = Org.decode({ id: raw.orgId, slug: "acme" }).getOrThrow();
+  const renamed = org.update({ slug: "beta" as z.infer<typeof Slug> }).getOrThrow();
+  // `slugUpper` is carried over, not recomputed — the encoded object `add`
+  // reads from is gone by `update` time. It stays pinned to the value the
+  // entity was decoded with, so the pair is never internally contradictory in
+  // the way a silently stale recomputation would be.
+  expect(renamed.slug).toBe("beta");
+  expect(renamed.slugUpper).toBe("ACME");
+  expect(Org.decode({ id: raw.orgId, slug: renamed.slug }).getOrThrow().slugUpper).toBe("BETA");
+});
+
+test("update ignores a computed field smuggled in at runtime", () => {
+  const key = ApiKey.decode(raw).getOrThrow();
+  const updated = key.update({ fingerprint: "LIESLIESLIES" } as never).getOrThrow();
+  expect(updated.fingerprint).toBe("sk_live_9f3c");
+});
 
 test("bad caller input is InvalidEntity, never a defect", () => {
   const outcome = ApiKey.decode({ ...raw, secret: "short" }).match({

@@ -289,6 +289,17 @@ its output is what makes that cast honest: if `add` ever produces data its own
 declared schema would reject, that is a **defect** (a bug in domain code), not
 ordinary bad input. See [Error handling](#error-handling).
 
+**Added fields are implicitly immutable**, whether or not `immutable` names
+them: they are absent from `updateInput` and from the `Patch` type, and
+`update()` drops them even if smuggled in at runtime. They are also not
+recomputed. That is not an omission but the only honest option — `add` reads
+the **encoded** object, and by `update()` time only the decoded one is left,
+which no longer carries the omitted source field (`secret`) the computation
+needs; this is the same asymmetry as `decode(x.encode())` not round-tripping.
+Given the choice between a value that silently drifts out of step with its
+source and one a caller can contradict outright, the package offers neither: a
+derived value only changes by re-`decode`-ing a fresh encoded payload.
+
 ## `invariants`
 
 An invariant is a rule spanning two or more fields that no single field's
