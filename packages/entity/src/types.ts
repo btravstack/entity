@@ -154,21 +154,34 @@ export type UpdateInputShapeOf<
 };
 
 /**
- * A type-level construction lock. `CtorKey` never leaves this module, so no
- * outside code can name it and therefore cannot produce a value assignable to
- * `Sealed<D>`. This closes the constructor without a runtime check, which
- * `unthrown/no-throw` forbids.
+ * A type-level construction lock: no outside code can produce a value
+ * assignable to `Sealed<D>`, so `new SomeEntity(...)` does not compile. It
+ * closes the constructor without a runtime check, which `unthrown/no-throw`
+ * forbids.
  *
- * A literal `protected constructor` was measured and does not work: TypeScript
- * refuses to assign a protected-constructor class to any construct signature,
- * so the statics could only return the base class rather than the subclass.
+ * `ConstructionKey` is **exported but unconstructable** — a private
+ * constructor and a private field make it unforgeable structurally, and it has
+ * no runtime existence at all. Exporting it is what lets a *consumer* compile:
  *
- * Depends on `declaration: false` in the shared tsconfig: with declaration
- * emit on, TS4020 rejects an exported class whose `extends` clause uses this
- * private name.
+ * A `declare const CtorKey: unique symbol` kept module-private was measured to
+ * break every downstream library that emits declarations —
+ * `TS4020: 'extends' clause of exported class 'Organization' has or is using
+ * private name 'CtorKey'` — because a `unique symbol` in computed-key position
+ * cannot be named across a module boundary even when exported. An ordinary
+ * named property whose *type* is an exported class can, so the emitted `.d.ts`
+ * references it as `import("@btravstack/entity").Sealed<…>`.
+ *
+ * A literal `protected constructor` was measured and does not work either:
+ * TypeScript refuses to assign a protected-constructor class to any construct
+ * signature (TS2684), so the statics could only return the base class rather
+ * than the subclass. `private` is worse still — TS2675, the declaration form
+ * `class X extends Entity("X")(...)` stops compiling outright.
  */
-declare const CtorKey: unique symbol;
-export type Sealed<D> = D & { readonly [CtorKey]: true };
+export declare class ConstructionKey {
+  private constructor();
+  private readonly seal: never;
+}
+export type Sealed<D> = D & { readonly __constructionKey: ConstructionKey };
 
 /**
  * The instance-side shape every entity's `Base` class structurally has: the
@@ -185,7 +198,7 @@ export type Sealed<D> = D & { readonly [CtorKey]: true };
 // converting this one to a `type` reintroduces exactly the TS2526 this
 // package's other `interface`-avoidance already worked around elsewhere.
 // oxlint-disable-next-line typescript/consistent-type-definitions
-interface BaseInstance<
+export interface BaseInstance<
   S extends Fields,
   A extends Fields,
   I extends readonly (keyof OutputOf<S, A>)[],
