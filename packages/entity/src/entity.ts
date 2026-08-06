@@ -4,12 +4,14 @@ import type { z } from "zod";
 
 import type { AddSpec } from "./add.js";
 import { InvalidEntity } from "./errors.js";
+import { deepFreeze } from "./freeze.js";
 import { attachInstance } from "./instance.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
   AddedOf,
   CreateInputOf,
   DecodedOf,
+  DeepReadonly,
   EncodedOf,
   EntityStatic,
   Fields,
@@ -136,7 +138,14 @@ export function Entity<Tag extends string>(tag: Tag) {
         const source = d as unknown as Record<PropertyKey, unknown>;
         for (const k of dataKeys) {
           Object.defineProperty(this, k, {
-            value: source[k as PropertyKey],
+            // `writable: false` locks the binding; `deepFreeze` locks the
+            // value behind it, so an array or nested object field cannot be
+            // mutated out from under the invariants that just passed.
+            // Deliberately NOT `Object.freeze(this)`: subclass field
+            // initialisers run after `super()` returns, so the instance
+            // itself must stay extensible (pinned by a test in
+            // `entity.spec.ts`).
+            value: deepFreeze(source[k as PropertyKey]),
             writable: false,
             enumerable: true,
           });
@@ -242,7 +251,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
     }
 
-    attachInstance<Base & Readonly<DecodedShape>>(Base, encoded);
+    attachInstance<Base & DeepReadonly<DecodedShape>>(Base, encoded);
 
     return Base as unknown as EntityStatic<Tag, S, A, K, G, I>;
   };

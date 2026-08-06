@@ -80,7 +80,13 @@ test in `contract.spec.ts` pins that.
 
 ## Instance members
 
-- the declared data fields, read-only at the type level
+- the declared data fields, **deeply** read-only: each is installed
+  non-writable _and_ deep-frozen at construction, and typed
+  `DeepReadonly<...>`, so `entity.tags.push(...)` and
+  `entity.address.city = ...` are compile errors and `TypeError`s, not silent
+  mutations of validated state — see
+  [Immutability](../../README.md#immutability) for what the freeze covers and
+  why `Object.freeze(this)` is not used
 - `_tag` — a **non-enumerable, runtime-only** literal, matchable with
   `P.tag(...)`. It never reaches the wire: it is absent from every schema, and
   from `encode()`, `toJSON()`, `Object.keys(...)` and `{ ...entity }`. A union

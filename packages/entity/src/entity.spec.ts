@@ -152,3 +152,64 @@ test("every broken rule is reported, not just the first", () => {
 test("invariants also run on make", () => {
   expect(Trial.make({ ...trialRaw, trialEndsAt: "2026-07-01T09:00:00Z" }).isErr()).toBe(true);
 });
+
+const Tag = z.string().min(1).brand("Tag");
+const Address = z.object({ city: z.string(), lines: z.array(z.string()) }).brand("Address");
+
+/** at most two tags — the rule a post-construction `push` used to defeat */
+class Bag extends Entity("Bag")(
+  { id: OrgId, tags: z.array(Tag), address: Address },
+  { invariants: (d) => (d.tags.length <= 2 ? [] : ["at most 2 tags"]) },
+) {}
+
+const bagRaw = {
+  id: "0199b1f4-1b1e-7000-8000-000000000000",
+  tags: ["a"],
+  address: { city: "Lyon", lines: ["1 rue de la Paix"] },
+};
+
+/** the casts are the point: this is what a consumer who defeats the types gets */
+const asMutableArray = (value: unknown) => value as string[];
+const asMutableRecord = (value: unknown) => value as Record<string, unknown>;
+
+test("an array field cannot be mutated in place", () => {
+  const bag = Bag.decode(bagRaw).getOrThrow();
+  expect(() => asMutableArray(bag.tags).push("b")).toThrow(TypeError);
+  expect(() => {
+    asMutableArray(bag.tags)[0] = "hacked";
+  }).toThrow(TypeError);
+  expect(bag.encode().tags).toEqual(["a"]);
+});
+
+test("a nested object field, and the array inside it, are frozen too", () => {
+  const bag = Bag.decode(bagRaw).getOrThrow();
+  expect(() => {
+    asMutableRecord(bag.address)["city"] = "Paris";
+  }).toThrow(TypeError);
+  expect(() => asMutableArray(bag.address.lines).push("floor 2")).toThrow(TypeError);
+  expect(bag.encode().address).toEqual({ city: "Lyon", lines: ["1 rue de la Paix"] });
+});
+
+test("a construction-time invariant cannot be defeated after construction", () => {
+  // decoding straight into the forbidden state is rejected …
+  expect(Bag.decode({ ...bagRaw, tags: ["a", "b", "c"] }).isErr()).toBe(true);
+  // … and so is reaching it one push at a time
+  const bag = Bag.decode({ ...bagRaw, tags: ["a", "b"] }).getOrThrow();
+  expect(() => asMutableArray(bag.tags).push("c")).toThrow(TypeError);
+  expect(bag.tags).toHaveLength(2);
+});
+
+test("update still produces a new entity from frozen data", () => {
+  const bag = Bag.decode(bagRaw).getOrThrow();
+  const updated = bag.update({ tags: ["x", "y"] as unknown as z.infer<typeof Tag>[] }).getOrThrow();
+  expect(updated.encode().tags).toEqual(["x", "y"]);
+  expect(bag.encode().tags).toEqual(["a"]);
+});
+
+test("update cannot smuggle a mutation in through the patch it was handed", () => {
+  const bag = Bag.decode(bagRaw).getOrThrow();
+  const patch = { tags: ["x"] as unknown as z.infer<typeof Tag>[] };
+  const updated = bag.update(patch).getOrThrow();
+  asMutableArray(patch.tags).push("y");
+  expect(updated.encode().tags).toEqual(["x"]);
+});
