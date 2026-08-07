@@ -41,7 +41,9 @@ Need distinct ids across a test? Generators are called once per create:
 let n = 0;
 const createOrg = Organization.factory({
   id: () =>
-    `0199b1f4-1b1e-7000-8000-00000000000${(n += 1)}` as z.infer<typeof OrgId>,
+    `0199b1f4-1b1e-7000-8000-${String((n += 1)).padStart(12, "0")}` as z.infer<
+      typeof OrgId
+    >,
   createdAt: () => FIXED_AT,
 });
 ```

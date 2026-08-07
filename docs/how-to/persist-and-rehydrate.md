@@ -78,7 +78,7 @@ type OrganizationRow = Output<typeof Organization>;
 
 interface OrganizationRepository {
   save(org: Organization): Promise<void>;
-  findById(id: OrgId): Promise<Organization | undefined>;
+  findById(id: z.infer<typeof OrgId>): Promise<Organization | undefined>;
 }
 
 const repository: OrganizationRepository = {

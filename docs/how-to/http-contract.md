@@ -32,8 +32,8 @@ All four convert in **both** directions:
 import { ZodToJsonSchemaConverter } from "@orpc/zod";
 
 const converter = new ZodToJsonSchemaConverter();
-converter.convert(Organization.createInput, { strategy: "input" });
-converter.convert(Organization.output, { strategy: "output" });
+const [createSchema] = converter.convert(Organization.createInput, "input");
+const [responseSchema] = converter.convert(Organization.output, "output");
 ```
 
 Or with zod directly:

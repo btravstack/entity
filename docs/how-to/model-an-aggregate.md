@@ -17,7 +17,17 @@ entity rather than a bare schema.
 An entity class is itself a zod schema, so it is a field like any other:
 
 ```ts
-class Customer extends Entity("Customer")({ id: CustomerId, name: Name }) {}
+class Customer extends Entity("Customer")(
+  { id: CustomerId, name: Name },
+  {
+    computed: {
+      shout: computed(
+        Upper,
+        (d) => d.name.toUpperCase() as z.infer<typeof Upper>,
+      ),
+    },
+  },
+) {}
 
 class Order extends Entity("Order")({
   id: OrderId,
