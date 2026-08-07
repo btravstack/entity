@@ -1,11 +1,16 @@
+import { P } from "unthrown";
 import { expect, test } from "vitest";
 
 import {
+  BillingDocument,
+  CreditNote,
   DisplayName,
   Invoice,
+  InvoiceId,
   Money,
   Organization,
   Slug,
+  createCreditNote,
   createInvoice,
   createOrganization,
 } from "./index.js";
@@ -88,4 +93,49 @@ test("a branded object field keeps its members", () => {
 
 test("a malformed row comes back as an error, not an exception", () => {
   expect(Organization.make({ slug: "", name: "" }).isErr()).toBe(true);
+});
+
+/* ── The union dispatches on a DECLARED field, never on `_tag` ──────────
+   These four are the tests whose absence let a broken union ship: the first
+   version of this file discriminated on "_tag", which is non-enumerable and
+   therefore missing from every row, so `make` rejected everything with an
+   empty "expected one of " set. Nothing noticed, because nothing called it. */
+
+test("the union makes the right class from a row", async () => {
+  const invoiceRow = invoice().toJSON();
+  const made = BillingDocument.make(invoiceRow).getOrThrow();
+
+  expect(made).toBeInstanceOf(Invoice);
+  expect(made).not.toBeInstanceOf(CreditNote);
+});
+
+test("the union dispatches to the other member on the other value", () => {
+  const note = createCreditNote({
+    issuedTo: org(),
+    against: InvoiceId.parse("33333333-3333-4333-8333-333333333333"),
+    total: money(500, "EUR"),
+  }).getOrThrow();
+
+  const made = BillingDocument.make(note.toJSON()).getOrThrow();
+  expect(made).toBeInstanceOf(CreditNote);
+});
+
+test("the discriminant survives toJSON, which is why it is a declared field", () => {
+  const row = invoice().toJSON();
+
+  expect(row.kind).toBe("INVOICE");
+  // `_tag` does NOT survive — a union built on it could never match a row.
+  expect("_tag" in row).toBe(false);
+});
+
+test("an unknown discriminant is a reported error, not a silent miss", async () => {
+  const message = await BillingDocument.make({ kind: "PROFORMA" }).match({
+    ok: () => "ok",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues[0]?.message ?? ""),
+    defect: () => "defect",
+  });
+
+  expect(message).toContain("Invalid discriminant");
+  expect(message).toContain('"INVOICE"');
+  expect(message).toContain('"CREDIT_NOTE"');
 });

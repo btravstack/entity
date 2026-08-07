@@ -25,8 +25,12 @@ pnpm --filter @btravstack/entity-example-billing-domain typecheck
   `Result`, never an exception.
 - **Nesting.** `Invoice.issuedTo` is an `Organization` — the class is itself a
   zod schema, so it parses back to a real instance with its behaviour intact.
-- **A union**, dispatching on the declared discriminant so a failing member
-  reports its own issues.
+- **A union** over `Invoice` and `CreditNote`, dispatching on `kind` — a
+  _declared_ field, never `_tag`. `_tag` is non-enumerable and absent from
+  `toJSON()`, so a union built on it matches nothing and says so with an empty
+  `expected one of` set. This package shipped that bug for exactly one commit;
+  the specs now call `make()` through the union, which is what would have caught
+  it.
 - **Factories.** The package reads no clock and generates no id; a factory is
   where those come in, bound once. That is what leaves the entities trivially
   testable.

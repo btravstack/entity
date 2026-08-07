@@ -17,6 +17,7 @@ import { z } from "zod";
 
 export const OrganizationId = z.uuid().brand("OrganizationId");
 export const InvoiceId = z.uuid().brand("InvoiceId");
+export const CreditNoteId = z.uuid().brand("CreditNoteId");
 export const Slug = z.string().min(1).max(40).brand("Slug");
 export const DisplayName = z.string().min(1).brand("DisplayName");
 export const DisplayLabel = z.string().min(1).brand("DisplayLabel");
@@ -123,6 +124,7 @@ export class Organization extends Entity("Organization")(
 export class Invoice extends Entity("Invoice")(
   {
     id: InvoiceId,
+    kind: z.literal("INVOICE"),
     issuedTo: Organization,
     lines: z.array(LineItem),
     total: Money,
@@ -132,8 +134,8 @@ export class Invoice extends Entity("Invoice")(
     issuedAt: Instant,
   },
   {
-    generated: ["id", "issuedAt"],
-    immutable: ["id", "issuedAt", "issuedTo"],
+    generated: ["id", "issuedAt", "kind"],
+    immutable: ["id", "issuedAt", "issuedTo", "kind"],
     invariants: [
       Entity.invariant((d) => d.total.amount >= 0, "total must not be negative"),
       Entity.invariant(
@@ -148,8 +150,39 @@ export class Invoice extends Entity("Invoice")(
   }
 }
 
-/** Dispatches on the declared discriminant, so a failing member reports its own issues. */
-export const BillingRecord = Entity.union("_tag", [Organization, Invoice] as const);
+/**
+ * A credit note is an invoice's sibling, not its subtype: same counterparty and
+ * money, opposite direction, its own identity. Modelling it as a second entity
+ * sharing the `kind` discriminant is what lets both travel down one channel and
+ * come back as the right class.
+ */
+export class CreditNote extends Entity("CreditNote")(
+  {
+    id: CreditNoteId,
+    kind: z.literal("CREDIT_NOTE"),
+    issuedTo: Organization,
+    against: InvoiceId,
+    total: Money,
+    issuedAt: Instant,
+  },
+  {
+    generated: ["id", "issuedAt", "kind"],
+    immutable: ["id", "issuedAt", "issuedTo", "against", "kind"],
+    invariants: [Entity.invariant((d) => d.total.amount >= 0, "total must not be negative")],
+  },
+) {}
+
+/**
+ * Dispatches on `kind` — a **declared domain field**, never the entity's
+ * `_tag`. That distinction is the whole design: `_tag` is non-enumerable, so it
+ * is absent from `toJSON()` and from anything that has been through JSON, and a
+ * union built on it would register no members and reject every payload with
+ * "expected one of " — an empty set.
+ *
+ * The two mechanisms are not redundant. This field discriminates **data** on
+ * the way in; `P.tag(...)` matches an **instance** you already hold.
+ */
+export const BillingDocument = Entity.union("kind", [Invoice, CreditNote] as const);
 
 /* ── Binding the effect sources ────────────────────────────────────────
    The package reads no clock and generates no id. A factory is where those
@@ -166,4 +199,14 @@ export const createOrganization = Organization.factory({
 export const createInvoice = Invoice.factory({
   id: () => crypto.randomUUID() as z.infer<typeof InvoiceId>,
   issuedAt: now,
+  // The discriminant is domain-generated, not caller-supplied: an invoice that
+  // could be created claiming `kind: "CREDIT_NOTE"` would be a bug waiting to
+  // happen, and `generated` keeps it out of `createInput` entirely.
+  kind: () => "INVOICE" as const,
+});
+
+export const createCreditNote = CreditNote.factory({
+  id: () => crypto.randomUUID() as z.infer<typeof CreditNoteId>,
+  issuedAt: now,
+  kind: () => "CREDIT_NOTE" as const,
 });

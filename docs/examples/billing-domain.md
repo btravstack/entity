@@ -113,4 +113,37 @@ declaration emit walks it. An **unused** `@ts-expect-error` in that file is a
 failure rather than noise, because a namespace member emitted as a circular
 self-alias still compiles and simply degenerates.
 
+## The union discriminates data, not instances
+
+```ts
+export const BillingDocument = Entity.union("kind", [
+  Invoice,
+  CreditNote,
+] as const);
+```
+
+`kind` is a **declared domain field** — `z.literal("INVOICE")` on one member and
+`z.literal("CREDIT_NOTE")` on the other, both `generated` so no caller can supply
+the wrong one.
+
+It is tempting to reach for `_tag` here, since every entity has one. That does
+not work, and fails quietly rather than loudly: `_tag` is non-enumerable, so it
+is absent from `toJSON()` and from anything that has been through JSON. A union
+built on it registers no members and rejects every payload with
+
+```
+Invalid discriminant undefined; expected one of
+```
+
+— an empty set. This example shipped that exact bug for one commit, because the
+spec never called `make()` through the union. The specs now do, which is the
+only reason it is not still there.
+
+The two mechanisms are complementary, not alternatives:
+
+|                  | Discriminates                          | Use                       |
+| ---------------- | -------------------------------------- | ------------------------- |
+| A declared field | **data** arriving from a wire or a row | `Entity.union("kind", …)` |
+| `_tag`           | an **instance** you already hold       | `P.tag("Invoice")`        |
+
 Related reference: [Declaring an entity](/reference/declaration).
