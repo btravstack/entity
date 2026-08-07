@@ -54,12 +54,21 @@ test("a branded field survives DeepReadonly with its brand intact", () => {
   void wrong;
 });
 
-test("toJSON() returns the plain, mutable decoded shape", () => {
+test("toJSON() is typed readonly all the way down — the projection is shallow", () => {
   const bag = Bag.make({}).getOrThrow();
-  // toJSON() builds a fresh object, so its own keys stay assignable —
-  // DeepReadonly applies to the instance's fields, not to this projection
-  const state: Entity.Output<typeof Bag> = bag.toJSON();
-  state.tags = [];
+  const state = bag.toJSON();
+  // Only the top-level object is fresh: nested containers are the instance's
+  // own frozen references, so `push` on one throws at runtime. Typing the
+  // return as the plain mutable shape let that compile — measured, an ORM
+  // mutating its argument hit `object is not extensible` where the types said
+  // it could not happen.
+  // @ts-expect-error a nested array is the frozen original
+  state.tags.push("x" as z.infer<typeof Tag>);
+  // @ts-expect-error a nested object's property is the frozen original's
+  state.address.city = "Paris";
+  // reading is untouched
+  const city: string = state.address.city;
+  void city;
 });
 
 test("toJSON() is the only projection — there is no second public spelling", () => {

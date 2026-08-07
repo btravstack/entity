@@ -137,6 +137,16 @@ test("a payload missing the discriminant is not misrouted to a member", () => {
   expect(message).toBe('Invalid discriminant undefined; expected one of "free", "silver", "gold"');
 });
 
+test("two members claiming one discriminant value is a declaration-time defect", () => {
+  class DupA extends Entity("DupA")({ kind: z.literal("dup"), id: UserId }) {}
+  class DupB extends Entity("DupB")({ kind: z.literal("dup"), id: UserId }) {}
+  // A duplicate is a bug in the declaration, not bad caller input. Silently
+  // letting the last member win misrouted `make`, while zod's own
+  // discriminated union threw anyway — but lazily, at the first parse, far
+  // from the declaration that caused it. Failing here names both members.
+  expect(() => Entity.union("kind", [DupA, DupB])).toThrow(/DupA.+DupB.+"dup"/);
+});
+
 test("a multi-value literal discriminant does not throw at construction", () => {
   class Wide extends Entity("Wide")({ plan: z.literal(["bronze", "tin"]), id: UserId }) {}
   const U = Entity.union("plan", [Member2Free, Wide]);

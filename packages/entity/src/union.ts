@@ -111,9 +111,26 @@ export function union<
     members.map((m) => m.output) as unknown as Branches,
   );
 
-  const byValue = new Map<unknown, UnionMember>(
-    members.flatMap((m) => discriminantValues(m, discriminant).map((v) => [v, m] as const)),
-  );
+  const byValue = new Map<unknown, UnionMember>();
+  for (const member of members) {
+    for (const value of discriminantValues(member, discriminant)) {
+      const taken = byValue.get(value);
+      if (taken !== undefined) {
+        // A defect, not an InvalidEntity: two members claiming one value is a
+        // bug in the declaration, not bad caller input. Left silent, the last
+        // member won and `make` misrouted; zod's own discriminated union threw
+        // `Duplicate discriminator value` anyway — but lazily, at the first
+        // parse, far from the declaration that caused it. Failing here names
+        // both members while the declaration is on the stack.
+        // oxlint-disable-next-line unthrown/no-throw
+        throw new Error(
+          `union(${JSON.stringify(discriminant)}): members "${taken.entityName}" and ` +
+            `"${member.entityName}" both claim discriminant value ${JSON.stringify(value)}`,
+        );
+      }
+      byValue.set(value, member);
+    }
+  }
 
   const entity = members.map((m) => m.entityName).join(" | ");
   const known = [...byValue.keys()].map((k) => JSON.stringify(k)).join(", ");

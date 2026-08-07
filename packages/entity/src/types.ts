@@ -189,7 +189,10 @@ export declare class ConstructionKey {
   private constructor();
   private readonly seal: never;
 }
-export type Sealed<D> = D & { readonly __constructionKey: ConstructionKey };
+// The property name is the error message: `new SomeEntity(…)` fails with
+// "Property '__useMakeOrFactoryInstead' is missing…", which tells the reader
+// what to do — the same trick `shape.ts` plays with its rejection type names.
+export type Sealed<D> = D & { readonly __useMakeOrFactoryInstead: ConstructionKey };
 
 /**
  * The instance-side shape every entity's `Base` class structurally has: the
@@ -211,7 +214,7 @@ export interface BaseInstance<
   A extends Fields,
   I extends readonly (keyof OutputOf<S, A>)[],
 > {
-  toJSON(): OutputOf<S, A>;
+  toJSON(): DeepReadonly<OutputOf<S, A>>;
   equals(other: unknown): boolean;
   update(patch: PatchOf<S, A, I>): Result<this, InvalidEntity>;
 }
@@ -228,9 +231,9 @@ export interface BaseInstance<
  * The data half is `DeepReadonly`, not `Readonly`: a shallow `Readonly` would
  * type an array field as a mutable `Tag[]`, so `entity.tags.push(…)` would
  * compile and — before the constructor started deep-freezing — mutate stored
- * data, defeating an invariant that had already been checked. `toJSON()` keeps
- * returning the plain `OutputOf` shape: it builds a fresh object, so its own
- * keys really are assignable.
+ * data, defeating an invariant that had already been checked. `toJSON()` is
+ * `DeepReadonly` too: its top-level object is fresh, but the projection is
+ * shallow, so every nested container is one of these same frozen fields.
  */
 type ConstructedInstance<
   Tag extends string,
