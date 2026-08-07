@@ -27,10 +27,16 @@ can build against this package** — the case where a consumer sets
 `declaration: true` and TypeScript has to write entity's types into its own
 `.d.ts`.
 
-That pass runs twice, on two TypeScript versions, and the second one is the
-point: the repo builds with the 7.x native port, which does not enforce the 5.x
-ceiling on serialised type length. Two declaration-emit bugs shipped through
-that blind spot ([#31], [#32]) while every other check stayed green.
+That pass runs twice, on TypeScript 7.0.2 and 5.9.3, and the second one earns
+its place: **both enforce the ceiling on serialised type length, but 5.9.3's is
+lower.** Measured on one entity carrying a 30-member enum, a branded timestamp
+and a six-member literal union — 5.9.3 rejected it with `TS7056` while 7.0.2
+accepted the same shape. Widen the entity and both reject it.
+
+So there is a band of perfectly realistic domain widths that fails for a
+consumer on 5.x and passes on the version this repo builds with. Two
+declaration-emit bugs shipped through that band ([#31], [#32]) while every other
+check stayed green.
 
 `billing-domain/src/emit-guards.ts` carries the assertions that have no runtime
 moment — the construction seal, a forged construction key, every namespace

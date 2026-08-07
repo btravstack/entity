@@ -1,0 +1,45 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // `ComputedOf`, `CreateInputOf` and `GeneratedOf` are exported from
+  // `types.ts` and consumed inside it — by `OutputOf`, `EntityStatic` and
+  // `Generators` respectively — plus `types.test-d.ts`, which this repo
+  // deliberately keeps out of knip's scope. Deleting
+  // `packages/entity/consumer/` removed the last cross-file reference and knip
+  // began reporting all three as dead. They are not: this setting says
+  // "used inside its own file still counts", which is the truth here and what
+  // the sibling repos configure.
+  "ignoreExportsUsedInFile": true,
+
+  // Type-level behaviour lives in `*.test-d.ts`, checked by its own tsc pass and
+  // deliberately kept out of the main one, out of oxlint (`.oxlintrc.json`'s
+  // `ignorePatterns`) and out of knip. Nothing imports them — that is the design
+  // — so knip reads them as dead files. Spelled out here because introducing
+  // this config file at all replaced the defaults that had been excluding them.
+  "ignore": ["**/*.test-d.ts"],
+
+  // Four config packages knip cannot trace, each verified referenced:
+  // `@btravstack/oxlint` from `.oxlintrc.json`'s `extends`, `@btravstack/lefthook`
+  // from `lefthook.yml`'s `extends`, and `@btravstack/typedoc` plus
+  // `typedoc-plugin-markdown` from `docs/typedoc.json`. Knip resolves none of
+  // these three config formats, so it reads all four as unused devDependencies.
+  "ignoreDependencies": [
+    "@btravstack/lefthook",
+    "@btravstack/oxlint",
+    "@btravstack/typedoc",
+    "typedoc-plugin-markdown",
+  ],
+
+  "workspaces": {
+    "examples/billing-domain": {
+      // `emit-guards.ts` is deliberately imported by nothing. It exists to be
+      // COMPILED: it is the declaration-emit fixture that replaced
+      // `packages/entity/consumer/`, and its assertions are `@ts-expect-error`
+      // directives with no runtime moment. Naming it an entry is what stops
+      // knip reporting the guard as dead code and someone helpfully deleting
+      // it. `src/index.ts` is not listed: it is already the package entry.
+      "entry": ["src/emit-guards.ts"],
+      "project": ["src/**/*.ts"],
+    },
+  },
+}
