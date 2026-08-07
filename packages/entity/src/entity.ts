@@ -321,11 +321,8 @@ export function Entity<Tag extends string>(tag: Tag) {
         generators: Generators<S, G>,
       ): EntityFactory<T, S, G> {
         const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
-        return {
-          create: (input) =>
-            // generated spreads last, so a caller cannot override a domain-owned field
-            Ctor.make({ ...(input as object), ...callAll(generators) }),
-        };
+        // generated spreads last, so a caller cannot override a domain-owned field
+        return (input) => Ctor.make({ ...(input as object), ...callAll(generators) });
       }
 
       static factoryAsync<T>(
@@ -333,14 +330,12 @@ export function Entity<Tag extends string>(tag: Tag) {
         generators: AsyncGenerators<S, G>,
       ): AsyncEntityFactory<T, S, G> {
         const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
-        return {
-          create: (input) =>
-            // a generator that rejects is infrastructure failing, not bad domain
-            // input, so it stays a Defect rather than becoming an InvalidEntity
-            fromPromise(resolveAll(generators), (cause, defect) => defect(cause)).flatMap(
-              (generated) => Ctor.make({ ...(input as object), ...generated }),
-            ),
-        };
+        // a generator that rejects is infrastructure failing, not bad domain
+        // input, so it stays a Defect rather than becoming an InvalidEntity
+        return (input) =>
+          fromPromise(resolveAll(generators), (cause, defect) => defect(cause)).flatMap(
+            (generated) => Ctor.make({ ...(input as object), ...generated }),
+          );
       }
 
       /** a partial of the mutable fields → a NEW entity */

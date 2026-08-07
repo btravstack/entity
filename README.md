@@ -96,18 +96,16 @@ class Organization extends Entity("Organization")(
 
 // Bind the effect sources once, at the composition root. The entity itself
 // never reads a clock or generates an id — see "No I/O" below.
-const orgs = Organization.factory({
+const createOrg = Organization.factory({
   id: () => ids.next(),
   createdAt: () => clock.now(),
 });
 
 // A create use case: the caller supplies only request fields.
-const org = orgs
-  .create({
-    slug: "acme" as z.infer<typeof Slug>,
-    name: "Acme" as z.infer<typeof DisplayName>,
-  })
-  .getOrThrow();
+const org = createOrg({
+  slug: "acme" as z.infer<typeof Slug>,
+  name: "Acme" as z.infer<typeof DisplayName>,
+}).getOrThrow();
 
 org.slug; // "acme" — typed, read-only
 org.update({ name: "Acme Inc" as z.infer<typeof DisplayName> }); // a NEW entity; Result<Organization, InvalidEntity>
@@ -215,11 +213,11 @@ Organization.optional(); // ✗ does not exist
 
 ## The three entry points
 
-| Entry point                          | Input                           | Use                                                                |
-| ------------------------------------ | ------------------------------- | ------------------------------------------------------------------ |
-| `Entity.factory(gens).create(input)` | caller fields only              | a create use case                                                  |
-| `entity.update(patch)`               | a partial of the mutable fields | an update use case                                                 |
-| `Entity.make(data)`                  | everything `input` describes    | a row, a folded event stream, an untrusted import, a nested entity |
+| Entry point                   | Input                           | Use                                                                |
+| ----------------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| `Entity.factory(gens)(input)` | caller fields only              | a create use case                                                  |
+| `entity.update(patch)`        | a partial of the mutable fields | an update use case                                                 |
+| `Entity.make(data)`           | everything `input` describes    | a row, a folded event stream, an untrusted import, a nested entity |
 
 `create` is the one reached through a factory, because it is the only one that
 needs values the domain generates rather than receives.
@@ -228,13 +226,13 @@ The types and the schemas are derived from the same declarations, so the
 rules are compile-time facts:
 
 ```ts
-const orgs = Organization.factory({
+const createOrg = Organization.factory({
   id: () => ids.next(),
   createdAt: () => clock.now(),
 });
 
-orgs.create({ slug, name }); // ✓
-orgs.create({ slug, name, id }); // ✗ id is generated
+createOrg({ slug, name }); // ✓
+createOrg({ slug, name, id }); // ✗ id is generated
 
 org.update({ name }); // ✓ Result<Organization, InvalidEntity>
 org.update({ id }); // ✗ id is immutable
@@ -723,11 +721,11 @@ generator that _rejects_ surfaces as a `Defect`: infrastructure failing is not
 the same as bad domain input.
 
 ```ts
-const orgs = Organization.factoryAsync({
+const createOrgAsync = Organization.factoryAsync({
   id: () => ids.nextFromSequence(),
   createdAt: () => clock.now(),
 });
-(await orgs.create({ slug, name })).getOrThrow();
+(await createOrgAsync({ slug, name })).getOrThrow();
 ```
 
 ## Peer dependencies

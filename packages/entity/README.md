@@ -22,12 +22,12 @@ class Organization extends Entity("Organization")(
 ) {}
 
 // effect sources bound once, at the composition root
-const orgs = Organization.factory({
+const createOrg = Organization.factory({
   id: () => ids.next(),
   createdAt: () => clock.now(),
 });
 
-const org = orgs.create({ slug, name }).getOrThrow();
+const org = createOrg({ slug, name }).getOrThrow();
 
 org.update({ name: newName }); // a NEW entity; immutable fields rejected at compile time
 Organization.make(row); // row mappers and event folds
@@ -71,8 +71,8 @@ class name it labels, ahead of the field map.
 | `updateInput`        | `ZodObject` | update request — `output` minus `immutable`, partial                         |
 | _the class itself_   | zod schema  | parses to a class instance; valid as a field and anywhere zod takes a schema |
 | `make(state)`        | method      | already-stored state → entity, for row mappers and event folds               |
-| `factory(gens)`      | method      | binds the generated fields' sources → `{ create(input) }`                    |
-| `factoryAsync(gens)` | method      | same, for promise-returning generators → `{ create(input): AsyncResult }`    |
+| `factory(gens)`      | method      | binds the generated fields' sources → `(input) => Result<Entity>`            |
+| `factoryAsync(gens)` | method      | same, for promise-returning generators → `(input) => AsyncResult<Entity>`    |
 
 **Contracts compose the four `ZodObject`s (`input`, `output`, `createInput`,
 `updateInput`); domain code composes the class itself.** All four `ZodObject`s
