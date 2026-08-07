@@ -32,8 +32,12 @@ class Organization extends Entity("Organization")(
         (d) => d.name.toUpperCase() as z.infer<typeof Upper>,
       ),
     },
-    invariants: (d) =>
-      d.name.length <= 80 ? [] : ["name must be at most 80 characters"],
+    invariants: [
+      Entity.invariant(
+        (d) => d.name.length <= 80,
+        "name must be at most 80 characters",
+      ),
+    ],
   },
 ) {
   get greeting(): string {
@@ -120,7 +124,7 @@ Organization.make({ ...row, name: "" }).match({
 | `generated`  | fields the domain supplies, never the caller                            |
 | `immutable`  | fields that never change after creation                                 |
 | `computed`   | fields derived from the declared ones, re-derived on every construction |
-| `invariants` | `(output) => string[]` — a non-empty result rejects                     |
+| `invariants` | `Entity.Invariant[]` — a rule plus its message; any failure rejects     |
 
 Also `Entity.union(discriminant, members)` for a union that is itself
 entity-like, and `SomeEntity.extend(tag)(fields)` to build a new entity from an

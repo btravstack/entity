@@ -32,12 +32,12 @@ Four names are reserved, because an entity installs them on every instance:
 
 ### `options`
 
-| Option       | Type                            | Effect                                                                           |
-| ------------ | ------------------------------- | -------------------------------------------------------------------------------- |
-| `generated`  | `readonly (keyof fields)[]`     | omitted from `createInput`; supplied by a factory's generators                   |
-| `immutable`  | `readonly (keyof output)[]`     | omitted from `updateInput`; `update()` drops them even if smuggled in at runtime |
-| `computed`   | `{ [name]: ComputedField }`     | derived fields; added to `output`, re-derived on every construction              |
-| `invariants` | `(output) => readonly string[]` | rules spanning two or more fields; a non-empty result rejects                    |
+| Option       | Type                        | Effect                                                                           |
+| ------------ | --------------------------- | -------------------------------------------------------------------------------- |
+| `generated`  | `readonly (keyof fields)[]` | omitted from `createInput`; supplied by a factory's generators                   |
+| `immutable`  | `readonly (keyof output)[]` | omitted from `updateInput`; `update()` drops them even if smuggled in at runtime |
+| `computed`   | `{ [name]: ComputedField }` | derived fields; added to `output`, re-derived on every construction              |
+| `invariants` | `readonly Invariant[]`      | rules spanning two or more declared fields; any failing rule rejects             |
 
 `generated` and `immutable` are keyed off the field names, so a typo is a
 compile error rather than a silently-inert entry.
@@ -142,6 +142,40 @@ field — every derivation is a function of declared data only.
 Output that fails its own schema is a `Defect`, named for the field
 (`Person.computed.initials: …`).
 
+## `Entity.invariant(ensure, message)`
+
+One rule spanning the whole entity: the predicate, and what to say when it
+fails.
+
+```ts
+invariants: [
+  Entity.invariant(
+    (d) => d.name.length <= 80,
+    "name must be at most 80 characters",
+  ),
+  Entity.invariant(
+    (d) => d.endsAt > d.startsAt,
+    (d) => `endsAt must be after ${d.startsAt}`,
+  ),
+];
+```
+
+`ensure` returning **true** means valid — a rule reads as the assertion it
+makes. `d` is contextually typed and needs no annotation. `message` takes the
+data when the text depends on it.
+
+Every failing rule in the list reports, not just the first, and none of them
+carries a `path`: an invariant spans the entity, which is what separates it from
+a field complaint.
+
+`d` is the **declared** fields, not the output — a rule cannot read a computed
+field. Every computed value is a function of declared data, so any rule about
+one is expressible over its sources, and a computed value failing its own schema
+is already a Defect rather than something to re-check here.
+
+A predicate that throws is a Defect, not an `InvalidEntity`, on the same
+reasoning as `computed`.
+
 ## `SomeEntity.extend(tag)(fields, options?)`
 
 A **new** entity carrying the parent's fields plus more, under its own tag —
@@ -155,8 +189,13 @@ class PersonWithAge extends Person.extend("PersonWithAge")({ age: Age }) {
 }
 ```
 
-Options merge per key, child winning. `extend` rebuilds from the
-**declaration**, so class-body members do not carry over — re-declare them.
+Options merge per key, child winning — **except `invariants`**, which
+concatenates parent-then-child. An extension can add rules; it cannot shed them,
+so it is never quietly laxer than what it extends. Declaring `invariants: []` on
+a child does not clear the parent's.
+
+`extend` rebuilds from the **declaration**, so class-body members do not carry
+over — re-declare them.
 
 ## `Entity.union(discriminant, members)`
 

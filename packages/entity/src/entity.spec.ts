@@ -184,9 +184,9 @@ class Trial extends Entity("Trial")(
     seatsUsed: SeatsUsed,
   },
   {
-    invariants: (d) => [
-      ...(d.trialEndsAt > d.createdAt ? [] : ["trialEndsAt must be after createdAt"]),
-      ...(d.seatLimit >= d.seatsUsed ? [] : ["seatsUsed must not exceed seatLimit"]),
+    invariants: [
+      Entity.invariant((d) => d.trialEndsAt > d.createdAt, "trialEndsAt must be after createdAt"),
+      Entity.invariant((d) => d.seatLimit >= d.seatsUsed, "seatsUsed must not exceed seatLimit"),
     ],
   },
 ) {}
@@ -238,7 +238,7 @@ const Address = z.object({ city: z.string(), lines: z.array(z.string()) }).brand
 /** at most two tags — the rule a post-construction `push` used to defeat */
 class Bag extends Entity("Bag")(
   { id: OrgId, tags: z.array(Tag), address: Address },
-  { invariants: (d) => (d.tags.length <= 2 ? [] : ["at most 2 tags"]) },
+  { invariants: [Entity.invariant((d) => d.tags.length <= 2, "at most 2 tags")] },
 ) {}
 
 const bagRaw = {

@@ -30,6 +30,7 @@ export class Organization extends Entity("Organization")(
     computed: {
       shout: Entity.computed(Upper, (d) => d.slug.toUpperCase() as z.infer<typeof Upper>),
     },
+    invariants: [Entity.invariant((d) => d.slug.length <= 40, "slug must be at most 40 chars")],
   },
 ) {}
 
@@ -56,6 +57,7 @@ export type Wire = Entity.Input<typeof Organization>;
 export type NewOrg = Entity.CreateInput<typeof Organization>;
 export type OrgPatch = Entity.Patch<typeof Organization>;
 export type Derived = Entity.ComputedField<typeof Upper, { slug: z.infer<typeof Slug> }>;
+export type Rule = Entity.Invariant<{ slug: z.infer<typeof Slug> }>;
 export type Sealed = Entity.Sealed<Row>;
 export type Base = Entity.BaseInstance<{ id: typeof OrgId }, Record<never, never>, []>;
 

@@ -90,13 +90,46 @@ test("the invariants parameter is contextually typed and branded", () => {
   Entity("Probe")(
     { id: OrgId, slug: Slug },
     {
-      invariants: (d) => {
-        // @ts-expect-error `nope` is not a field, so `d` is not `any`
-        void d.nope;
-        const slug: z.infer<typeof Slug> = d.slug;
-        void slug;
-        return [];
+      invariants: [
+        Entity.invariant((d) => {
+          // @ts-expect-error `nope` is not a field, so `d` is not `any`
+          void d.nope;
+          const slug: z.infer<typeof Slug> = d.slug;
+          void slug;
+          return true;
+        }, "probe"),
+        // the message function is contextually typed the same way
+        Entity.invariant(
+          () => true,
+          (d) => {
+            // @ts-expect-error `nope` is not a field, so `d` is not `any`
+            void d.nope;
+            return d.slug;
+          },
+        ),
+      ],
+    },
+  );
+});
+
+test("an invariant sees the declared fields, never a computed one", () => {
+  const Upper = z.string().brand("Upper");
+  Entity("Derived")(
+    { id: OrgId, slug: Slug },
+    {
+      computed: {
+        shout: Entity.computed(Upper, (d) => d.slug.toUpperCase() as z.infer<typeof Upper>),
       },
+      invariants: [
+        Entity.invariant((d) => {
+          // the declared fields are there, fully branded
+          const slug: z.infer<typeof Slug> = d.slug;
+          void slug;
+          // @ts-expect-error a computed field is not visible to an invariant
+          void d.shout;
+          return true;
+        }, "probe"),
+      ],
     },
   );
 });

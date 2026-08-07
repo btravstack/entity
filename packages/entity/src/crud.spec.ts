@@ -14,7 +14,9 @@ class Organization extends Entity("Organization")(
   {
     generated: ["id", "createdAt"],
     immutable: ["id", "createdAt", "slug"],
-    invariants: (d) => (d.trialEndsAt > d.createdAt ? [] : ["trialEndsAt must be after createdAt"]),
+    invariants: [
+      Entity.invariant((d) => d.trialEndsAt > d.createdAt, "trialEndsAt must be after createdAt"),
+    ],
   },
 ) {}
 

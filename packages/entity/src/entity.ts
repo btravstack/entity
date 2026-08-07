@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { computed, type ComputedField } from "./computed.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
+import { invariant, type Invariant } from "./invariant.js";
 import { renderIssue } from "./issues.js";
 import { attachSchema } from "./schema.js";
 import { shape, type OnlyNominal } from "./shape.js";
@@ -71,7 +72,9 @@ export function Entity<Tag extends string>(tag: Tag) {
       readonly generated?: G;
       readonly immutable?: I;
       readonly computed?: { [K in keyof A]: ComputedField<A[K], InputOf<S>> };
-      readonly invariants?: (d: OutputOf<S, A>) => readonly string[];
+      // The *declared* fields, not `OutputOf`. A rule cannot read a computed
+      // field — see `invariant.ts` for why that is both sound and necessary.
+      readonly invariants?: readonly Invariant<InputOf<S>>[];
     },
   ): EntityStatic<Tag, S, A, G, I> {
     const input = shape<S>(fields);
@@ -205,7 +208,12 @@ export function Entity<Tag extends string>(tag: Tag) {
       Ctor: new (d: Sealed<OutputShape>) => T,
       d: OutputShape,
     ): Result<T, InvalidEntity> => {
-      const broken = invariants?.(d) ?? [];
+      // Every failing rule reports, not just the first. A predicate that throws
+      // escapes to the defect channel via the `fromThrowable` around `make`,
+      // which is what a bug in a rule should be.
+      const broken = (invariants ?? [])
+        .filter((rule) => !rule.ensure(d))
+        .map((rule) => rule.describe(d));
       // no `path` — an invariant spans the entity, not one field
       if (broken.length > 0) {
         return Err(
@@ -369,17 +377,32 @@ export function Entity<Tag extends string>(tag: Tag) {
      * `equals`, and its own schemas. `class X extends Parent {}` would have
      * had none of those — same fields, same tag, no way to tell the two apart.
      *
-     * Options merge per key, child winning. Inheriting matters more than it
-     * might look: silently dropping the parent's `immutable` or `invariants`
-     * would leave the extension quietly laxer than what it extends.
+     * Options merge per key, child winning — except `invariants`, which
+     * **concatenates** parent-then-child. Inheriting matters more than it might
+     * look: silently dropping the parent's `immutable` or `invariants` would
+     * leave the extension quietly laxer than what it extends, and child-wins on
+     * a list of rules is exactly how that happens. An extension can add rules;
+     * it cannot shed them. Chained extends compose without duplicating, because
+     * each `extend` stores the list it already merged.
      */
     Object.defineProperty(Base, "extend", {
       enumerable: false,
       value: (nextTag: string) => (nextFields: Fields, nextOptions?: Record<string, unknown>) => {
         const parent = declarations.get(Base);
+        const parentOptions = parent?.options as
+          | { readonly invariants?: readonly Invariant<unknown>[] }
+          | undefined;
+        const childInvariants = (
+          nextOptions as { readonly invariants?: readonly Invariant<unknown>[] } | undefined
+        )?.invariants;
+        const invariants = [...(parentOptions?.invariants ?? []), ...(childInvariants ?? [])];
         return (Entity as (t: string) => (f: Fields, o?: unknown) => unknown)(nextTag)(
           { ...parent?.fields, ...nextFields },
-          { ...parent?.options, ...nextOptions },
+          {
+            ...parent?.options,
+            ...nextOptions,
+            ...(invariants.length > 0 ? { invariants } : {}),
+          },
         );
       },
     });
@@ -397,6 +420,7 @@ export function Entity<Tag extends string>(tag: Tag) {
  * that test on its own, and is grouped anyway so the rule has no exceptions.
  */
 Entity.computed = computed;
+Entity.invariant = invariant;
 Entity.union = union;
 Entity.InvalidEntity = InvalidEntity;
 
@@ -414,6 +438,7 @@ Entity.InvalidEntity = InvalidEntity;
  * `consumer/` is a failure here, not noise.
  */
 type ComputedFieldSrc<T extends z.core.$ZodType, D> = ComputedField<T, D>;
+type InvariantSrc<D> = Invariant<D>;
 type EntityUnionSrc<K extends string, M extends readonly UnionMember[]> = EntityUnion<K, M>;
 type ConstructionKeySrc = ConstructionKey;
 type SealedSrc<D> = Sealed<D>;
@@ -438,6 +463,9 @@ export declare namespace Entity {
 
   /** One derived field: its schema, and the function that produces it. */
   export type ComputedField<T extends z.core.$ZodType, D> = ComputedFieldSrc<T, D>;
+
+  /** One whole-entity rule: the predicate, and what to say when it fails. */
+  export type Invariant<D> = InvariantSrc<D>;
 
   // `InvalidEntity` is a class, so it needs both meanings under `Entity`: the
   // value for `instanceof`, the type for annotations. A re-export carries both,

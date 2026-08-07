@@ -16,7 +16,7 @@ class Person extends Entity("Person")(
     computed: {
       shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
     },
-    invariants: (d) => (d.name.length <= 20 ? [] : ["name must be at most 20 chars"]),
+    invariants: [Entity.invariant((d) => d.name.length <= 20, "name must be at most 20 chars")],
   },
 ) {}
 
@@ -63,8 +63,24 @@ test("the parent's immutable list carries over", () => {
 });
 
 test("a child option overrides the parent's for that key", () => {
-  class Loose extends Person.extend("Loose")({ age: Age }, { invariants: () => [] }) {}
-  expect(Loose.make({ id, name: "x".repeat(21), age: 1 }).isOk()).toBe(true);
+  class Loose extends Person.extend("Loose")({ age: Age }, { immutable: [] }) {}
+  expect(Object.keys(Loose.updateInput.shape).toSorted()).toEqual(["age", "id", "name"]);
+});
+
+test("invariants are the exception: a child adds to the parent's, never replaces", () => {
+  class Stricter extends Person.extend("Stricter")(
+    { age: Age },
+    { invariants: [Entity.invariant((d) => d.age >= 18, "must be an adult")] },
+  ) {}
+  // the child's own rule applies
+  expect(Stricter.make({ id, name: "ada", age: 1 }).isErr()).toBe(true);
+  // and the parent's still does — declaring invariants must not shed them
+  expect(Stricter.make({ id, name: "x".repeat(21), age: 30 }).isErr()).toBe(true);
+});
+
+test("an extension cannot relax the parent by declaring an empty list", () => {
+  class Loose extends Person.extend("Loose")({ age: Age }, { invariants: [] }) {}
+  expect(Loose.make({ id, name: "x".repeat(21), age: 1 }).isErr()).toBe(true);
 });
 
 test("the extension's own schemas include both halves", () => {

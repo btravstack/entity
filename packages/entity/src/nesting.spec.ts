@@ -96,10 +96,12 @@ test("an invariant can span the outer entity and a nested one", () => {
   class Checked extends Entity("Checked")(
     { id: OrderId, customer: Customer, note: Line },
     {
-      invariants: (d) =>
-        d.note.length >= d.customer.name.length
-          ? []
-          : ["note must be at least as long as the name"],
+      invariants: [
+        Entity.invariant(
+          (d) => d.note.length >= d.customer.name.length,
+          "note must be at least as long as the name",
+        ),
+      ],
     },
   ) {}
   const ok = Checked.make({ id: oid, customer: { id: cid, name: "ada" }, note: "rush" });
