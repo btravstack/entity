@@ -58,6 +58,46 @@ type Branches = readonly [z.core.$ZodTypeDiscriminable, ...z.core.$ZodTypeDiscri
  * `input` and `output` are real discriminated unions, so a contract layer gets
  * one branch per member and JSON Schema in both directions.
  */
+/**
+ * Every value of a member's discriminant field.
+ *
+ * Reading `.value` off the schema — which this did — assumes a single-valued
+ * `z.literal`, and that assumption is narrower than what the rest of the
+ * package accepts. `shape.ts`'s `IsNarrowLiteral` blesses `z.enum([...])` as a
+ * nominal field and `z.discriminatedUnion` (used above) dispatches on enums
+ * happily, so an enum discriminant is an expected declaration — but `ZodEnum`
+ * has no `.value`, so the member registered under `undefined`. Measured
+ * consequences: `input.safeParse` accepted a payload `make` then rejected, a
+ * payload *missing* the discriminant was misrouted to whichever member held the
+ * `undefined` key, and the "expected one of …" message rendered it as empty.
+ * A multi-value `z.literal(["a","b"])` was worse still — `.value` throws
+ * `This schema contains multiple valid literal values`, at union construction.
+ *
+ * `.values` and `.options` are the plural accessors zod v4 provides for exactly
+ * this, and both are sets of the *same* shape, so a member can legitimately
+ * claim several discriminant values.
+ */
+const discriminantValues = (member: UnionMember, discriminant: string): readonly unknown[] => {
+  const schema = member.input.shape[discriminant] as
+    | { readonly values?: unknown; readonly options?: unknown }
+    | undefined;
+
+  // `z.literal(...)` — `.values` is a Set in zod v4, and covers the multi-value
+  // form that makes the singular `.value` getter throw.
+  const values: unknown = schema?.values;
+  if (values instanceof Set) return [...values];
+  if (Array.isArray(values)) return values;
+
+  // `z.enum([...])` — `.options` is the declared member list.
+  const options: unknown = schema?.options;
+  if (Array.isArray(options)) return options;
+
+  // Nothing nameable. Registering under no key is what keeps a malformed
+  // declaration from silently capturing every payload that omits the
+  // discriminant; `make` then reports "Invalid discriminant" as it should.
+  return [];
+};
+
 export function union<
   const K extends string,
   const M extends readonly [UnionMember, UnionMember, ...UnionMember[]],
@@ -72,7 +112,7 @@ export function union<
   );
 
   const byValue = new Map<unknown, UnionMember>(
-    members.map((m) => [(m.input.shape[discriminant] as z.ZodLiteral<string>).value, m]),
+    members.flatMap((m) => discriminantValues(m, discriminant).map((v) => [v, m] as const)),
   );
 
   const entity = members.map((m) => m.entityName).join(" | ");

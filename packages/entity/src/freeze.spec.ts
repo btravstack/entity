@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
+import { z } from "zod";
 
 import { deepFreeze } from "./freeze.js";
+import { Entity } from "./index.js";
+
+const JobId = z.uuid().brand("JobId");
+const jobId = "0199b1f4-1b1e-7000-8000-000000000001";
 
 test("a primitive passes straight through", () => {
   expect(deepFreeze("a")).toBe("a");
@@ -83,4 +88,33 @@ test("omitting `seen` still freezes, so a standalone call is unchanged", () => {
   const value = { nested: { tags: ["a"] } };
   deepFreeze(value);
   expect(Object.isFrozen(value.nested.tags)).toBe(true);
+});
+
+/**
+ * The freeze decides by schema, not by the runtime shape of the value. A
+ * `z.custom` field hands the caller's own reference straight through, and
+ * freezing it in place mutated an object the caller still owns — the exact
+ * risk this module's docstring names.
+ */
+test("a z.custom field is left alone, so the caller's object stays writable", () => {
+  type Config = { retries: number; nested: { a: number } };
+  const ConfigSchema = z.custom<Config>((v) => typeof v === "object" && v !== null).brand("Config");
+  class Job extends Entity("Job")({ id: JobId, config: ConfigSchema }) {}
+
+  const caller: Config = { retries: 1, nested: { a: 1 } };
+  const job = Job.make({ id: jobId, config: caller }).getOrThrow();
+
+  expect(Object.isFrozen(caller)).toBe(false);
+  expect(Object.isFrozen(caller.nested)).toBe(false);
+  caller.retries = 5;
+  expect(caller.retries).toBe(5);
+  // and the entity holds that same reference, as z.custom promises
+  expect(job.config).toBe(caller);
+});
+
+test("an ordinary object field is still deep-frozen", () => {
+  const Address = z.object({ city: z.string() }).brand("Address");
+  class Place extends Entity("Place")({ id: JobId, address: Address }) {}
+  const p = Place.make({ id: jobId, address: { city: "Paris" } }).getOrThrow();
+  expect(Object.isFrozen(p.address)).toBe(true);
 });

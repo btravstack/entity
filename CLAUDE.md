@@ -25,7 +25,7 @@ that are not derivable from there:
 
 ## Architecture
 
-Nine source modules under `packages/entity/src`, split by what they own:
+Ten source modules under `packages/entity/src`, split by what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
@@ -43,9 +43,17 @@ Nine source modules under `packages/entity/src`, split by what they own:
   merged `declare namespace Entity`. Namespace members alias imported types
   through `*Src` names deliberately — see the comment there before renaming
   one.
+- **`equal.ts`** — `deepEqual`, the primitive behind `equals`. Not
+  `JSON.stringify`: that **threw** on a `bigint` field, compared `Set`/`Map`/
+  typed-array fields with different contents as **equal**, and reported a
+  nested record as changed when only its key order differed. All three were
+  measured; `equal.spec.ts` pins them.
 - **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
   and recurses into arrays and plain objects, freezes `Date` as a leaf, and
-  deliberately leaves `Map`/`Set`/class instances alone. The constructor
+  deliberately leaves `Map`/`Set`/class instances alone. Which _fields_ to skip
+  entirely is decided in `entity.ts` from the **schema** (`z.custom` /
+  `z.instanceof`), not here from the runtime shape — those hand back the
+  caller's own reference, and freezing one in place broke the caller. The constructor
   passes one `WeakSet` across every field, so a subtree two fields share is
   walked once.
 - **`types.ts`** — the whole type-level derivation (`OutputOf`,

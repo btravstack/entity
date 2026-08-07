@@ -125,7 +125,10 @@ Called implicitly by `JSON.stringify`.
 ### `entity.equals(other)` → `boolean`
 
 True when both are the same entity and their stored data is deep-equal.
-Compares the serialised form, so entities holding equal arrays compare equal.
+Compares the stored data **structurally**, so entities holding equal arrays
+compare equal. `Set`, `Map` and typed-array fields compare by contents, `Date`
+by timestamp, `bigint` like any other primitive, and a nested object or record
+is compared key-by-key rather than by key order. Arrays stay order-sensitive.
 Two separate `Entity(...)` calls never compare equal, even with identical
 fields.
 
