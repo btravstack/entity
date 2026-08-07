@@ -108,12 +108,12 @@ Organization.make({ ...row, name: "" }).match({
 | `updateInput` | `ZodObject` | update request — `output` minus `immutable`, partial                     |
 | _the class_   | zod schema  | parses to an instance; valid as a field, and anywhere zod takes a schema |
 
-| Entry point                   | Takes                           | For                                        |
-| ----------------------------- | ------------------------------- | ------------------------------------------ |
-| `Entity.factory(gens)(input)` | caller fields only              | a create use case                          |
-| `Entity.make(data)`           | everything `input` describes    | a row, an event fold, an untrusted import  |
-| `entity.update(patch)`        | a partial of the mutable fields | an update use case                         |
-| `entity.toJSON()`             | —                               | the stored data, for a write or a response |
+| Entry point                       | Takes                           | For                                        |
+| --------------------------------- | ------------------------------- | ------------------------------------------ |
+| `SomeEntity.factory(gens)(input)` | caller fields only              | a create use case                          |
+| `SomeEntity.make(data)`           | everything `input` describes    | a row, an event fold, an untrusted import  |
+| `entity.update(patch)`            | a partial of the mutable fields | an update use case                         |
+| `entity.toJSON()`                 | —                               | the stored data, for a write or a response |
 
 | Option       | Meaning                                                                 |
 | ------------ | ----------------------------------------------------------------------- |

@@ -69,8 +69,9 @@ types, while the plain `tsc` pass is `noEmit` from the shared base.
 
 ## Design rules (binding)
 
-`packages/entity/README.md` documents the public behaviour; many of its rules
-were measured against a specific compiler/library version, not assumed. Where a
+`docs/reference.md` documents the public behaviour and `docs/explanation.md`
+the rationale behind it; many of those rules were measured against a specific
+compiler/library version, not assumed. Where a
 source comment records a measurement (a TS diagnostic code, a specific
 library's output), treat it as a regression guard, not decoration — verify
 before "simplifying" it away.

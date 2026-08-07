@@ -28,7 +28,7 @@
  *   class instance that memoises into an own field stops working, and the
  *   value may still be referenced by the caller who passed it in). A field
  *   whose schema yields a live mutable object is outside this guarantee, and
- *   the README says so.
+ *   `docs/explanation.md` says so.
  */
 
 const isObject = (value: unknown): value is object => typeof value === "object" && value !== null;

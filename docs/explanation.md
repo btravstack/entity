@@ -84,7 +84,25 @@ types, so that cannot regress.
 Data is immutable in both halves. Each field is installed non-writable, and its
 value is **deep-frozen** — a shallow guard would leave `org.tags.push(…)` legal,
 which could push an entity into a state its own invariants had already
-rejected.
+rejected. The instance type is `DeepReadonly<…>`, not a shallow `Readonly<…>`,
+so mutation is a compile error first and a `TypeError` only if a consumer casts
+around the type system:
+
+```ts
+org.slug = otherSlug; // ✗ compile error — read-only property
+(org as never as Record<string, unknown>).slug = "hacked"; // TypeError
+
+// on a `Team` declared with `tags: z.array(Tag)` and `address: Address`
+team.tags.push(tag); // ✗ compile error — tags is `readonly Tag[]`
+(team.tags as never as string[]).push("hacked"); // TypeError: object is not extensible
+team.address.city = "Paris"; // ✗ compile error — nested objects are readonly too
+```
+
+Locking the binding alone would not be enough: `writable: false` stops
+`team.tags = [...]` but not `team.tags.push(...)`, and a shallow `Readonly<D>`
+types an array field as a mutable `Tag[]`, because `z.infer` of `z.array(Tag)`
+is `Tag[]`. Both halves matter — the second is what lets `invariants` mean
+anything after construction.
 
 What the freeze covers is deliberately narrow: arrays and plain objects are
 frozen and recursed into; `Date` is frozen as a leaf; `Map`, `Set`, typed arrays
@@ -112,6 +130,15 @@ changed, or before the field existed at all, is corrected on read rather than
 trusted. That is why `make` validates against `input` and not `output` —
 validating stored computed values would reject exactly the rows it is meant to
 repair.
+
+**Why not a getter?** Because a getter carries no schema. It cannot appear in
+`output`, cannot generate JSON Schema, and is skipped by `toJSON()` — it lives
+on the prototype, not in the data. The rule:
+
+|                                                    | use        |
+| -------------------------------------------------- | ---------- |
+| derived, needed in the response body / JSON Schema | `computed` |
+| derived, domain-only behaviour                     | a getter   |
 
 ## Entities are not subclassable
 

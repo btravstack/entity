@@ -71,7 +71,7 @@ z.toJSONSchema(Organization, { io: "output" }); // ✗ throws — the class carr
 
 ## Entry points
 
-### `Entity.factory(generators)` → `(input) => Result<Entity, InvalidEntity>`
+### `SomeEntity.factory(generators)` → `(input) => Result<Entity, InvalidEntity>`
 
 Binds the `generated` fields' sources. Generators are **functions**, called
 once per create.
@@ -86,12 +86,21 @@ createOrg({ slug, name }); // Result<Organization, InvalidEntity>
 
 Pass an arrow, not a bare method reference — `{ id: ids.next }` loses `this`.
 
-### `Entity.factoryAsync(generators)` → `(input) => AsyncResult<Entity, InvalidEntity>`
+### `SomeEntity.factoryAsync(generators)` → `(input) => AsyncResult<Entity, InvalidEntity>`
 
-The same for promise-returning generators. A generator that **rejects**
-surfaces as a `Defect`, not an `InvalidEntity`.
+The same for promise-returning generators — an id from a database sequence,
+say. A generator that **rejects** surfaces as a `Defect`, not an
+`InvalidEntity`: infrastructure failing is not the same as bad domain input.
 
-### `Entity.make(data)` → `Result<Entity, InvalidEntity>`
+```ts
+const createOrgAsync = Organization.factoryAsync({
+  id: () => ids.nextFromSequence(),
+  createdAt: () => clock.now(),
+});
+(await createOrgAsync({ slug, name })).getOrThrow();
+```
+
+### `SomeEntity.make(data)` → `Result<Entity, InvalidEntity>`
 
 The only way in. Validates against `input`, re-derives the computed fields,
 checks the invariants, constructs. Extra keys are ignored, so a stored row
