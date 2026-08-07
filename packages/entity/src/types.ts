@@ -3,6 +3,7 @@ import type { z } from "zod";
 
 import type { ComputedField as ComputedFieldOf } from "./computed.js";
 import type { InvalidEntity } from "./errors.js";
+import type { Invariant as InvariantOf } from "./invariant.js";
 import type { OnlyNominal } from "./shape.js";
 
 /**
@@ -319,7 +320,7 @@ export type EntityStatic<
       readonly generated?: G2;
       readonly immutable?: I2;
       readonly computed?: { [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<S & S2>> };
-      readonly invariants?: (d: OutputOf<S & S2, A2>) => readonly string[];
+      readonly invariants?: readonly InvariantOf<InputOf<S & S2>>[];
     },
   ) => EntityStatic<Tag2, S & S2, A2, G2, I2>;
   factory<T>(

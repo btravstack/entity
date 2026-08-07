@@ -25,7 +25,7 @@ that are not derivable from there:
 
 ## Architecture
 
-Eight source modules under `packages/entity/src`, split by what they own:
+Nine source modules under `packages/entity/src`, split by what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
@@ -72,6 +72,12 @@ Eight source modules under `packages/entity/src`, split by what they own:
   (public as `Entity.computed`) and the `InvalidEntity` tagged error. Computed
   fields are re-derived on every construction path, so they cannot drift from
   their sources.
+- **`invariant.ts`** — `invariant(ensure, message)`, public as
+  `Entity.invariant`. A rule's `d` is `InputOf<S>`, **not** `OutputOf<S, A>`,
+  and that is not a simplification: `OutputOf` carries the deferred
+  `ComputedOf<A>` conditional, `A` is unresolved while the invariants array is
+  checked, and typing `d` as the output degrades it to a bag of `unknown`
+  wherever an entity declares `computed` too. Measured — see the comment there.
 
 The design rule the whole package turns on: **contracts compose the four plain
 `ZodObject`s; domain code composes the class itself.** The class carries a

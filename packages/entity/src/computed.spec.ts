@@ -84,7 +84,10 @@ test("toJSON round-trips through make", () => {
   expect(Person.make(p.toJSON()).getOrThrow().fullName).toBe("Ada Lovelace");
 });
 
-test("invariants see the computed fields", () => {
+test("an invariant constrains a computed value through its sources", () => {
+  // A rule reads the *declared* fields, never a computed one. Every computed
+  // value is a function of declared data, so the rule is expressed over the
+  // sources it derives from — here, the length `fullName` will end up with.
   class Checked extends Entity("Checked")(
     { id: PersonId, first: NamePart, last: NamePart },
     {
@@ -94,7 +97,12 @@ test("invariants see the computed fields", () => {
           (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>,
         ),
       },
-      invariants: (d) => (d.fullName.length <= 20 ? [] : ["fullName must be at most 20 chars"]),
+      invariants: [
+        Entity.invariant(
+          (d) => d.first.length + 1 + d.last.length <= 20,
+          "fullName must be at most 20 chars",
+        ),
+      ],
     },
   ) {}
   expect(Checked.make(raw).isOk()).toBe(true);

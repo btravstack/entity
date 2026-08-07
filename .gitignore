@@ -26,3 +26,6 @@ coverage/
 
 # macOS
 .DS_Store
+
+# Local design scratch, not part of the published docs
+docs/superpowers/

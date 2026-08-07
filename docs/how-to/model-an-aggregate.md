@@ -55,10 +55,12 @@ order.watchers[0].equals(other); // its behaviour
 class Order extends Entity("Order")(
   { id: OrderId, customer: Customer, note: Line },
   {
-    invariants: (d) =>
-      d.note.length >= d.customer.name.length
-        ? []
-        : ["note must be at least as long as the name"],
+    invariants: [
+      Entity.invariant(
+        (d) => d.note.length >= d.customer.name.length,
+        "note must be at least as long as the name",
+      ),
+    ],
   },
 ) {}
 ```
