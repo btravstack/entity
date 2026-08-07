@@ -725,7 +725,7 @@ const createOrgAsync = Organization.factoryAsync({
   id: () => ids.nextFromSequence(),
   createdAt: () => clock.now(),
 });
-(await createOrg({ slug, name })).getOrThrow();
+(await createOrgAsync({ slug, name })).getOrThrow();
 ```
 
 ## Peer dependencies
