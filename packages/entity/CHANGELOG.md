@@ -1,5 +1,60 @@
 # @btravstack/entity
 
+## 0.3.0
+
+### Minor Changes
+
+- 5f1a395: Two correctness fixes, honest `toJSON` typing, and readable errors.
+
+  - **Fix: `deepEqual` no longer remembers failed comparisons as equal.** The
+    cycle guard recorded every pair it entered and never forgot one that
+    finished `false`, so two `Set`/`Map` fields with plainly different contents
+    could compare equal once their elements shared a subtree. The guard is now a
+    stack of in-progress pairs, not a memo.
+  - **Fix: `deepFreeze` no longer freezes caller-owned values under a union
+    branch.** The schema walk lost context at `union`, `pipe` and
+    `intersection` boundaries, so a `z.custom(...)` value nested inside one was
+    frozen in place — mutating an object the caller still owns. The walk now
+    carries context through all three.
+  - **`toJSON()` returns `DeepReadonly<Output>`.** The projection is shallow:
+    the top-level object is fresh, but nested containers are the instance's own
+    frozen references, so the previous mutable type let
+    `toJSON().tags.push(…)` compile and throw at runtime.
+  - **`InvalidEntity.message` is populated** — `"<entity>: <path>: <message>; …"` —
+    so a log line or a failed assertion names the entity and the failing fields
+    instead of printing a blank `Error`. The structured `issues` are unchanged.
+  - **New `Entity.renderIssue` and `Entity.keysOf`** — the issue helpers an
+    adapter needs to turn an `InvalidEntity` into a response body, the same ones
+    the message is built from.
+  - **A duplicate union discriminant value is a declaration-time defect.**
+    `Entity.union` previously let the last member win while zod threw lazily at
+    the first parse; it now fails at the declaration, naming both members.
+  - **The construction seal's property is named `__useMakeOrFactoryInstead`**, so
+    the compile error on `new SomeEntity(…)` tells the reader what to do.
+
+- ce69f0a: `update()` rejects a patch key it cannot apply, instead of dropping it silently.
+
+  A patch may now carry only keys `updateInput` accepts. A key that is
+  `immutable`, `computed`, or not a field of the entity at all comes back as an
+  `InvalidEntity` with that key in `path` — every offending key reports, not
+  just the first.
+
+  All three were silently discarded before while `update` returned `Ok`: the
+  caller asked for a change, got a success, and the change never happened. The
+  patch type already excluded them, but TypeScript's excess-property check only
+  fires on object literals, so the common adapter shape — building a patch as a
+  `Record<string, unknown>` from a request body — evaded it entirely and the key
+  vanished into a passing `Result`.
+
+  `make` is deliberately unchanged: it still ignores extra keys, so a stored row
+  carrying computed columns round-trips. Rehydrating data and patching it are
+  different acts — one heals what is already written, the other states an intent.
+
+  **Breaking** for code that relied on the drop, most likely
+  `update(someWholeOutputObject)`. Patch only the fields you mean to change, or
+  narrow the object first — `updateInput.parse(body)` strips unknown keys and
+  gives you a patch that is accepted by construction.
+
 ## 0.2.0
 
 ### Minor Changes
