@@ -3,6 +3,7 @@ import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthro
 import type { z } from "zod";
 
 import { computed, type ComputedField } from "./computed.js";
+import { deepEqual } from "./equal.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
 import { invariant, type Invariant } from "./invariant.js";
@@ -83,23 +84,29 @@ export function Entity<Tag extends string>(tag: Tag) {
     // list — TS won't reduce `Exclude<G[number], keyof S>` (or the equivalent
     // for `I`) to `never` even though the constraint implies it — so this
     // calls through a simplified signature rather than fight it.
+    //
+    // The empty-key branch rebuilds rather than returning `o`. Returning the
+    // argument made `input === output === createInput` for any entity with no
+    // `generated` and no `computed` — one object under three names. Since the
+    // design rule is "contracts compose the four plain `ZodObject`s", anything
+    // keying off schema identity collapsed: registering the three in
+    // `z.globalRegistry` under distinct ids silently kept only the last, and
+    // `z.toJSONSchema` emitted one `$def` that all three properties `$ref`'d.
+    // `contract.spec.ts` missed it because its fixture declares both options.
     const omitBy = (o: z.ZodObject<Fields>, keys: readonly PropertyKey[]) =>
-      keys.length > 0
-        ? (o.omit as (m: Record<string, true>) => z.ZodObject<Fields>)(maskOf(keys))
-        : o;
+      (o.omit as (m: Record<string, true>) => z.ZodObject<Fields>)(maskOf(keys));
 
     /** [key, validate its output, produce it] per computed field. */
     const computedFields = Object.entries(
       (options?.computed ?? {}) as Record<string, ComputedField<z.ZodTypeAny, InputShape>>,
     );
 
-    const output = (
-      computedFields.length > 0
-        ? (input as z.ZodObject<Fields>).extend(
-            Object.fromEntries(computedFields.map(([k, f]) => [k, f.schema])),
-          )
-        : input
-    ) as z.ZodObject<S & A>;
+    // `.extend({})` on the empty branch for the same reason as `omitBy`: the
+    // four schema members must be four distinct objects, or a consumer keying a
+    // registry by identity silently loses three of them.
+    const output = (input as z.ZodObject<Fields>).extend(
+      Object.fromEntries(computedFields.map(([k, f]) => [k, f.schema])),
+    ) as unknown as z.ZodObject<S & A>;
 
     const generatedKeys = options?.generated ?? [];
     const immutableKeys = options?.immutable ?? [];
@@ -130,6 +137,15 @@ export function Entity<Tag extends string>(tag: Tag) {
     type InputShape = InputOf<S>;
 
     const dataKeys = Object.keys(output.shape) as unknown as readonly (keyof OutputShape)[];
+
+    // Each field's schema goes to `deepFreeze` with its value, so the walk can
+    // skip a passed-through value wherever it sits — not only when it *is* the
+    // field. `freeze.ts` promises a `z.custom(...)`/`z.instanceof(...)` value is
+    // left alone because "the value may still be referenced by the caller who
+    // passed it in", and deciding from the runtime shape broke that: `z.custom`
+    // returns the caller's reference, a plain-object one satisfied
+    // `isPlainObject`, and the caller's own later write threw
+    // `Cannot assign to read only property`.
 
     /**
      * Projects an instance down to exactly the `output` schema's keys.
@@ -264,7 +280,11 @@ export function Entity<Tag extends string>(tag: Tag) {
             // initialisers run after `super()` returns, so the instance
             // itself must stay extensible (pinned by a test in
             // `entity.spec.ts`).
-            value: deepFreeze(source[k as PropertyKey], seen),
+            value: deepFreeze(
+              source[k as PropertyKey],
+              seen,
+              (output.shape as Record<string, unknown>)[k as string],
+            ),
             writable: false,
             enumerable: true,
           });
@@ -293,11 +313,17 @@ export function Entity<Tag extends string>(tag: Tag) {
         return project(this);
       }
 
-      /** Equal stored data means equal entity. Compares JSON-serialized form to
-       * handle arrays correctly and ignore construction order. */
+      /**
+       * Equal stored data means equal entity.
+       *
+       * Compares the projected data structurally, not by `JSON.stringify`:
+       * serialising threw on a `bigint` field, equated `Set`/`Map`/typed-array
+       * fields with different contents, and reported a nested record as changed
+       * when only its key order differed. See `equal.ts`.
+       */
       equals(other: unknown): boolean {
         if (!(other instanceof Base)) return false;
-        return JSON.stringify(project(this)) === JSON.stringify(project(other));
+        return deepEqual(project(this), project(other));
       }
 
       /**

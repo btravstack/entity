@@ -105,11 +105,18 @@ is `Tag[]`. Both halves matter — the second is what lets `invariants` mean
 anything after construction.
 
 What the freeze covers is deliberately narrow: arrays and plain objects are
-frozen and recursed into; `Date` is frozen as a leaf; `Map`, `Set`, typed arrays
-and anything a `z.custom(...)` field hands through are left alone, because
-freezing those is either theatre (a frozen `Map` still accepts `.set`) or
-destructive. A field whose schema yields a live mutable object is outside the
-guarantee.
+frozen and recursed into; `Date` is frozen as a leaf; `Map`, `Set` and typed
+arrays are left alone, because freezing those is either theatre (a frozen `Map`
+still accepts `.set`) or destructive. A field whose schema yields a live mutable
+object is outside the guarantee.
+
+A `z.custom(...)`/`z.instanceof(...)` field is skipped **by its schema**, not by
+what the value turns out to look like at runtime. That distinction is the whole
+point: `z.custom` hands back the caller's own reference, and a plain-object one
+is indistinguishable at runtime from decoded data. Deciding by runtime shape
+froze objects the caller still owned, so their next write threw. Only the
+declaration knows which values were passed through, so that is where the
+decision is made.
 
 `Object.freeze(this)` is **not** used and cannot be: a class body's field
 initialisers run after `super()` returns, so the instance itself must stay

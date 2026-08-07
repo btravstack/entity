@@ -100,3 +100,45 @@ test("a union member can itself be a field of another entity", () => {
   const a = Audit.make({ id: userRow.id, actor: svcRow }).getOrThrow();
   expect(a.actor).toBeInstanceOf(ServiceAccount);
 });
+
+/**
+ * A member's discriminant may be an enum or a multi-value literal, not only a
+ * single `z.literal`. `shape.ts` blesses `z.enum([...])` as nominal and
+ * `z.discriminatedUnion` dispatches on it, so reading a singular `.value` made
+ * `input` and `make` disagree — and registered the member under `undefined`,
+ * which swallowed every payload that omitted the discriminant.
+ */
+const Tier = z.enum(["silver", "gold"]);
+
+class Member2Free extends Entity("Member2Free")({ plan: z.literal("free"), id: UserId }) {}
+class Member2Paid extends Entity("Member2Paid")({ plan: Tier, id: UserId, label: Label }) {}
+const Plan = Entity.union("plan", [Member2Free, Member2Paid]);
+
+const paidRow = { id: "0199b1f4-1b1e-7000-8000-000000000000", label: "x" };
+
+test("an enum discriminant routes on every one of its values", () => {
+  expect(Plan.make({ ...paidRow, plan: "silver" }).getOrThrow()).toBeInstanceOf(Member2Paid);
+  expect(Plan.make({ ...paidRow, plan: "gold" }).getOrThrow()).toBeInstanceOf(Member2Paid);
+  expect(Plan.make({ id: paidRow.id, plan: "free" }).getOrThrow()).toBeInstanceOf(Member2Free);
+});
+
+test("`input` and `make` agree on an enum discriminant", () => {
+  const row = { ...paidRow, plan: "silver" };
+  expect(Plan.input.safeParse(row).success).toBe(true);
+  expect(Plan.make(row).isOk()).toBe(true);
+});
+
+test("a payload missing the discriminant is not misrouted to a member", () => {
+  const message = Plan.make({ id: paidRow.id }).match({
+    ok: () => "WRONGLY ACCEPTED",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues[0]?.message ?? ""),
+    defect: () => "DEFECT",
+  });
+  expect(message).toBe('Invalid discriminant undefined; expected one of "free", "silver", "gold"');
+});
+
+test("a multi-value literal discriminant does not throw at construction", () => {
+  class Wide extends Entity("Wide")({ plan: z.literal(["bronze", "tin"]), id: UserId }) {}
+  const U = Entity.union("plan", [Member2Free, Wide]);
+  expect(U.make({ id: paidRow.id, plan: "tin" }).getOrThrow()).toBeInstanceOf(Wide);
+});

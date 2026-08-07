@@ -89,3 +89,33 @@ test("contracts can still derive further views", () => {
   const Summary = ApiKey.output.pick({ id: true, searchKey: true });
   expect(Object.keys(Summary.shape).toSorted()).toEqual(["id", "searchKey"]);
 });
+
+/**
+ * The four schema members must be four distinct objects. `omitBy` used to
+ * return its argument when the key list was empty, and `output` used to *be*
+ * `input` when nothing was computed, so a plain entity had one object under
+ * three names — and anything keying off schema identity silently collapsed.
+ */
+test("the four schema members are distinct objects, even for a plain entity", () => {
+  const PlainId = z.uuid().brand("PlainId");
+  class Plain extends Entity("Plain")({ id: PlainId }) {}
+
+  const members = [Plain.input, Plain.output, Plain.createInput, Plain.updateInput];
+  expect(new Set(members).size).toBe(4);
+});
+
+test("each member registers under its own id rather than overwriting", () => {
+  const RegId = z.uuid().brand("RegId");
+  class Reg extends Entity("Reg")({ id: RegId }) {}
+
+  const registry = z.registry<{ id: string }>();
+  registry.add(Reg.input, { id: "RegInput" });
+  registry.add(Reg.output, { id: "RegOutput" });
+  registry.add(Reg.createInput, { id: "RegCreateInput" });
+
+  expect([
+    registry.get(Reg.input)?.id,
+    registry.get(Reg.output)?.id,
+    registry.get(Reg.createInput)?.id,
+  ]).toEqual(["RegInput", "RegOutput", "RegCreateInput"]);
+});
