@@ -25,3 +25,9 @@ at runtime.
 The rejection message for a genuinely unbranded field is readable now — it
 names `DomainFieldMustBeBrandedOrAnEntity` instead of a tuple TypeScript
 truncated to `& [...]`.
+
+A field may no longer take a name the entity installs on every instance —
+`_tag`, `equals`, `toJSON` or `update`. Such a field used to shadow the member
+silently: a field called `update` left `entity.update` holding a string, with
+the method gone and no error anywhere. It is now a compile error naming
+`FieldNameIsReservedByEntity`.

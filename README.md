@@ -266,6 +266,10 @@ Person.make(person.toJSON()); // ✓ also fine — computed keys are re-derived
 }
 ```
 
+A field may not be named `_tag`, `equals`, `toJSON` or `update`: those are
+installed on every instance, and a data field of the same name would shadow
+one silently. The field map rejects them.
+
 Both are **arrays of field names**, and both are keyed off `keyof S`
 (`generated`) or `keyof output` (`immutable`), so a typo — `immutable:
 ["slugg"]` — is a compile error, not a silently-mutable field.

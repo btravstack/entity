@@ -88,4 +88,19 @@ describe("shape() rejects unbranded scalars", () => {
     // @ts-expect-error a nested entity's data is still read-only
     order.customer.name = name;
   });
+
+  test("a field may not take a name the entity installs on every instance", () => {
+    // @ts-expect-error `update` would shadow the prototype method
+    shape({ id: Id, update: Name });
+    // @ts-expect-error `equals` would shadow the prototype method
+    shape({ id: Id, equals: Name });
+    // @ts-expect-error `toJSON` would shadow the projection
+    shape({ id: Id, toJSON: Name });
+    // @ts-expect-error `_tag` is the runtime tag
+    shape({ id: Id, _tag: Name });
+  });
+
+  test("names that merely resemble reserved ones are fine", () => {
+    shape({ id: Id, updatedAt: Name, equality: Name, tag: Name, json: Name });
+  });
 });

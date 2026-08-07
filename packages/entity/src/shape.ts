@@ -59,18 +59,37 @@ type IsNominalField<T> =
     : IsNominalScalar<StripUndefined<T>>;
 
 /**
- * The rejection type. A named interface rather than a tuple of strings: a
- * tuple prints as `& [...]` once TypeScript truncates, hiding the advice,
- * whereas a name survives truncation and *is* the message.
+ * The rejection types. Named rather than tuples of strings: a tuple prints as
+ * `& [...]` once TypeScript truncates, hiding the advice, whereas a name
+ * survives truncation and *is* the message.
  */
 type DomainFieldMustBeBrandedOrAnEntity = {
   readonly __domainFieldMustBeBrandedOrAnEntity: never;
 };
 
+type FieldNameIsReservedByEntity = {
+  readonly __fieldNameIsReservedByEntity: never;
+};
+
+/**
+ * Names an entity installs on every instance. A data field taking one of these
+ * would shadow it silently — measured: a field called `update` leaves
+ * `entity.update` holding a string, with the method simply gone and no error
+ * anywhere. Rejecting the name is the only signal available, since the clash
+ * is invisible at runtime.
+ *
+ * Statics (`input`, `make`, …) are deliberately absent: shadowing one takes a
+ * `static` declaration the author wrote themselves, so it is visible in a way
+ * this is not.
+ */
+type ReservedFieldName = "_tag" | "equals" | "toJSON" | "update";
+
 type OnlyNominal<T extends Record<string, z.ZodTypeAny>> = {
-  [K in keyof T]: IsNominalField<z.infer<T[K]>> extends true
-    ? T[K]
-    : DomainFieldMustBeBrandedOrAnEntity;
+  [K in keyof T]: K extends ReservedFieldName
+    ? FieldNameIsReservedByEntity
+    : IsNominalField<z.infer<T[K]>> extends true
+      ? T[K]
+      : DomainFieldMustBeBrandedOrAnEntity;
 };
 
 /** The only sanctioned way to declare a domain shape. */
