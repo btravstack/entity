@@ -27,7 +27,30 @@ type IsNarrowLiteral<T> = T extends string
 
 type StripUndefined<T> = T extends undefined ? never : T;
 
-type IsNominalScalar<T> = T extends Nominal ? true : IsNarrowLiteral<T> extends true ? true : false;
+/**
+ * Another entity, reached through its `.instance` schema.
+ *
+ * Checked structurally rather than against `BaseInstance` itself: that
+ * interface is generic in the entity's own shape, and there is no argument
+ * that matches every entity — `never` is too narrow to match any, and the
+ * field map has no way to name the specific one. These three members are what
+ * every entity instance has and nothing else in a field map does.
+ */
+type IsEntity<T> = T extends {
+  readonly toJSON: () => unknown;
+  readonly equals: (other: unknown) => boolean;
+  readonly update: (patch: never) => unknown;
+}
+  ? true
+  : false;
+
+type IsNominalScalar<T> = T extends Nominal
+  ? true
+  : IsEntity<T> extends true
+    ? true
+    : IsNarrowLiteral<T> extends true
+      ? true
+      : false;
 
 /** Strips `undefined` (for `.optional()`) and unwraps one array level before checking. */
 type IsNominalField<T> =
@@ -35,10 +58,38 @@ type IsNominalField<T> =
     ? IsNominalScalar<StripUndefined<Element>>
     : IsNominalScalar<StripUndefined<T>>;
 
+/**
+ * The rejection types. Named rather than tuples of strings: a tuple prints as
+ * `& [...]` once TypeScript truncates, hiding the advice, whereas a name
+ * survives truncation and *is* the message.
+ */
+type DomainFieldMustBeBrandedOrAnEntity = {
+  readonly __domainFieldMustBeBrandedOrAnEntity: never;
+};
+
+type FieldNameIsReservedByEntity = {
+  readonly __fieldNameIsReservedByEntity: never;
+};
+
+/**
+ * Names an entity installs on every instance. A data field taking one of these
+ * would shadow it silently — measured: a field called `update` leaves
+ * `entity.update` holding a string, with the method simply gone and no error
+ * anywhere. Rejecting the name is the only signal available, since the clash
+ * is invisible at runtime.
+ *
+ * Statics (`input`, `make`, …) are deliberately absent: shadowing one takes a
+ * `static` declaration the author wrote themselves, so it is visible in a way
+ * this is not.
+ */
+type ReservedFieldName = "_tag" | "equals" | "toJSON" | "update";
+
 type OnlyNominal<T extends Record<string, z.ZodTypeAny>> = {
-  [K in keyof T]: IsNominalField<z.infer<T[K]>> extends true
-    ? T[K]
-    : ["ERROR: domain fields must be branded", K];
+  [K in keyof T]: K extends ReservedFieldName
+    ? FieldNameIsReservedByEntity
+    : IsNominalField<z.infer<T[K]>> extends true
+      ? T[K]
+      : DomainFieldMustBeBrandedOrAnEntity;
 };
 
 /** The only sanctioned way to declare a domain shape. */

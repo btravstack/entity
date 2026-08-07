@@ -273,9 +273,11 @@ export type EntityStatic<
    * needs the subclass's own members back must narrow explicitly (e.g.
    * `instanceof`) after parsing.
    */
-  readonly instance: z.ZodType<BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>>>;
+  readonly instance: z.ZodType<
+    BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
+  >;
   readonly "~standard": z.ZodType<
-    BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>>
+    BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
   >["~standard"];
   /** phantom carriers, so consumers can recover the shapes for annotations */
   readonly __input: InputOf<S>;
