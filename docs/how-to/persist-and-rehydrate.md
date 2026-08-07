@@ -8,7 +8,7 @@ without the storage layer knowing about entity internals.
 > ```ts
 > import { z } from "zod";
 > import { match, P } from "unthrown";
-> import { Entity, computed } from "@btravstack/entity";
+> import { Entity } from "@btravstack/entity";
 > ```
 
 ## Write with `toJSON()`
@@ -72,9 +72,7 @@ The type helpers name each shape, so a repository signature never restates the
 model:
 
 ```ts
-import type { Output } from "@btravstack/entity";
-
-type OrganizationRow = Output<typeof Organization>;
+type OrganizationRow = Entity.Output<typeof Organization>;
 
 interface OrganizationRepository {
   save(org: Organization): Promise<void>;

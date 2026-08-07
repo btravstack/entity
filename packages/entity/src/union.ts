@@ -8,7 +8,7 @@ import { keysOf } from "./issues.js";
  * The part of an entity a union needs. Typed loosely — `EntityStatic` is
  * generic in the entity's own shape, and a union has to accept any of them.
  */
-type UnionMember = {
+export type UnionMember = {
   readonly entityName: string;
   readonly input: z.ZodObject<z.core.$ZodLooseShape>;
   readonly output: z.ZodObject<z.core.$ZodLooseShape>;

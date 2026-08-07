@@ -2,7 +2,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { Entity, computed } from "./index.js";
+import { Entity } from "./index.js";
 
 const ApiKeyId = z.uuid().brand("ApiKeyId");
 const OrgId = z.uuid().brand("OrgId");
@@ -18,7 +18,10 @@ class ApiKey extends Entity("ApiKey")(
     // a denormalised field: stored so a query can index it, re-derived on
     // every construction so it cannot drift from `label`
     computed: {
-      searchKey: computed(SearchKey, (d) => d.label.toLowerCase() as z.infer<typeof SearchKey>),
+      searchKey: Entity.computed(
+        SearchKey,
+        (d) => d.label.toLowerCase() as z.infer<typeof SearchKey>,
+      ),
     },
   },
 ) {}

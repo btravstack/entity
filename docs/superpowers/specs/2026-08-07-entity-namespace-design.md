@@ -1,7 +1,10 @@
 # Collapse the public surface onto `Entity`
 
-**Status:** approved design, not yet implemented
+**Status:** implemented
 **Date:** 2026-08-07
+
+> One claim below did not survive implementation: `index.ts` cannot export a
+> single name. See [Implementation notes](#implementation-notes).
 
 ## Problem
 
@@ -23,7 +26,9 @@ collapses the surface to a single exported name.
 
 ## Decision
 
-`index.ts` exports exactly one name: `Entity`.
+`index.ts` exports exactly one name you write against: `Entity`. (Three
+declaration-emit escape hatches also stay top-level — see
+[Implementation notes](#implementation-notes).)
 
 | today                                     | after                   |
 | ----------------------------------------- | ----------------------- |
@@ -146,7 +151,10 @@ This is the same class of defect as the `TS4020` history recorded on
 
 - `packages/entity/src/entity.ts` — namespace declaration, expando assignments,
   internal source aliases, the constraint comment.
-- `packages/entity/src/index.ts` — reduced to a single export.
+- `packages/entity/src/index.ts` — `Entity`, plus the three declaration-emit
+  escape hatches.
+- `packages/entity/src/union.ts` — `UnionMember` exported (internally only, so
+  `Entity.Union` can name its own constraint).
 - `packages/entity/consumer/index.ts` — exercise `Entity.computed`,
   `Entity.ConstructionKey`, `Entity.Output`, `Entity.InvalidEntity` through the
   built `d.mts`.
@@ -192,6 +200,43 @@ preamble reading `import { Entity, computed } from "@btravstack/entity"`. Eight
 files carry that line — `docs/reference.md`, `docs/explanation.md`, all four
 `docs/how-to/*.md`, `README.md` and `packages/entity/README.md` — and every one
 collapses to `import { Entity }`.
+
+## Implementation notes
+
+Two things the design got wrong, both caught by the gate rather than by review.
+
+### `index.ts` exports four names, not one
+
+`BaseInstance`, `ConstructionKey` and `Sealed` must stay **top-level** exports.
+Moving them behind `Entity` built and typechecked fine, and then failed the
+consumer pass:
+
+```
+consumer/index.ts(26,35): error TS4020: 'extends' clause of exported class
+  'Organization' has or is using private name 'BaseInstance'.
+consumer/index.ts(26,14): error TS4094: Property 'seal' of exported anonymous
+  class type may not be private or protected.
+```
+
+A downstream library compiling with `declaration: true` emits the _underlying_
+type into its own `.d.ts`, not the namespace path that aliases it. With
+`export { Entity }` alone those three are declared-but-unexported in the built
+`d.mts`, so they are private names to anyone emitting declarations — which is
+the precise regression `types.ts` already documents for `ConstructionKey`.
+
+They are exported both ways now: top level for declaration emit, and as
+`Entity.BaseInstance` etc. for anyone annotating by hand. The rule is therefore
+"one name you _write against_", not "one export".
+
+### `Entity.InvalidEntity` is a re-export, not a type alias
+
+Declaring `export type InvalidEntity = InvalidEntitySrc` inside the namespace
+made the runtime assignment `Entity.InvalidEntity = InvalidEntity` fail with
+`TS2339`: once the namespace declares the name, expando inference stops
+supplying a value for it. `export { InvalidEntity }` inside the namespace
+carries both meanings and accepts the assignment. `computed` and `union` are
+unaffected — they have no type member of the same name, so expando inference
+still applies.
 
 ## Out of scope
 

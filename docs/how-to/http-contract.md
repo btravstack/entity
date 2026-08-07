@@ -9,7 +9,7 @@ from the model.
 > ```ts
 > import { z } from "zod";
 > import { match, P } from "unthrown";
-> import { Entity, computed } from "@btravstack/entity";
+> import { Entity } from "@btravstack/entity";
 > ```
 
 ## Use the four `ZodObject` members directly

@@ -1,14 +1,7 @@
 import { test } from "vitest";
 import { z } from "zod";
 
-import {
-  Entity,
-  computed,
-  type CreateInput,
-  type Output,
-  type Input,
-  type Patch,
-} from "./index.js";
+import { Entity } from "./index.js";
 
 const OrgId = z.uuid().brand("OrgId");
 const Slug = z.string().min(1).brand("Slug");
@@ -65,7 +58,7 @@ test("toJSON() returns the plain, mutable decoded shape", () => {
   const bag = Bag.make({}).getOrThrow();
   // toJSON() builds a fresh object, so its own keys stay assignable —
   // DeepReadonly applies to the instance's fields, not to this projection
-  const state: Output<typeof Bag> = bag.toJSON();
+  const state: Entity.Output<typeof Bag> = bag.toJSON();
   state.tags = [];
 });
 
@@ -114,7 +107,7 @@ test("computed's function is contextually typed and must return brands", () => {
     { id: OrgId, slug: Slug },
     {
       computed: {
-        slugUpper: computed(Upper, (d) => {
+        slugUpper: Entity.computed(Upper, (d) => {
           // @ts-expect-error `nope` is not a field, so `d` is not `any`
           void d.nope;
           // the declared fields are what a computed value derives from
@@ -132,7 +125,7 @@ test("computed's function is contextually typed and must return brands", () => {
 
 test("computed rejects an unbranded field", () => {
   // @ts-expect-error a bare string is not a domain field
-  computed(z.string(), () => "x");
+  Entity.computed(z.string(), () => "x");
 });
 
 test("create rejects a generated field and update rejects an immutable one", () => {
@@ -189,7 +182,7 @@ test("a computed field is immutable without being declared immutable", () => {
     { id: OrgId, slug: Slug },
     {
       computed: {
-        slugUpper: computed(Upper, (d) => d.slug.toUpperCase() as z.infer<typeof Upper>),
+        slugUpper: Entity.computed(Upper, (d) => d.slug.toUpperCase() as z.infer<typeof Upper>),
       },
     },
   ) {}
@@ -235,14 +228,14 @@ test("the helper types name each shape", () => {
     { generated: ["id", "createdAt"], immutable: ["id", "createdAt"] },
   ) {}
 
-  const wire: Input<typeof Org> = {
+  const wire: Entity.Input<typeof Org> = {
     id: "x" as z.infer<typeof OrgId>,
     slug: "s" as z.infer<typeof Slug>,
     createdAt: "t" as z.infer<typeof Instant>,
   };
-  const state: Output<typeof Org> = wire;
-  const created: CreateInput<typeof Org> = { slug: "s" as z.infer<typeof Slug> };
-  const patch: Patch<typeof Org> = { slug: "s" as z.infer<typeof Slug> };
+  const state: Entity.Output<typeof Org> = wire;
+  const created: Entity.CreateInput<typeof Org> = { slug: "s" as z.infer<typeof Slug> };
+  const patch: Entity.Patch<typeof Org> = { slug: "s" as z.infer<typeof Slug> };
   void wire;
   void state;
   void created;

@@ -13,7 +13,7 @@ operation returns an [`unthrown`](https://github.com/btravstack/unthrown)
 
 ```ts
 import { z } from "zod";
-import { Entity, computed } from "@btravstack/entity";
+import { Entity } from "@btravstack/entity";
 
 const OrgId = z.uuid().brand("OrgId");
 const Slug = z.string().min(1).brand("Slug");
@@ -27,7 +27,7 @@ class Organization extends Entity("Organization")(
     generated: ["id", "createdAt"],
     immutable: ["id", "createdAt", "slug"],
     computed: {
-      shout: computed(
+      shout: Entity.computed(
         Upper,
         (d) => d.name.toUpperCase() as z.infer<typeof Upper>,
       ),

@@ -8,7 +8,7 @@ tests without stubbing `Date.now` or `crypto.randomUUID`.
 > ```ts
 > import { z } from "zod";
 > import { match, P } from "unthrown";
-> import { Entity, computed } from "@btravstack/entity";
+> import { Entity } from "@btravstack/entity";
 > ```
 
 ## Bind fixed generators instead of stubbing globals

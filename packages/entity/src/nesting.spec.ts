@@ -2,7 +2,7 @@ import { P } from "unthrown";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { Entity, computed } from "./index.js";
+import { Entity } from "./index.js";
 
 const CustomerId = z.uuid().brand("CustomerId");
 const OrderId = z.uuid().brand("OrderId");
@@ -12,7 +12,11 @@ const Line = z.string().min(1).brand("Line");
 
 class Customer extends Entity("Customer")(
   { id: CustomerId, name: Name },
-  { computed: { shout: computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>) } },
+  {
+    computed: {
+      shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
+    },
+  },
 ) {}
 
 /** An aggregate: an entity whose fields are other entities. */

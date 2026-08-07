@@ -9,7 +9,7 @@ Every member of the public surface. For _why_ it is shaped this way, see
 > ```ts
 > import { z } from "zod";
 > import { match, P } from "unthrown";
-> import { Entity, computed } from "@btravstack/entity";
+> import { Entity } from "@btravstack/entity";
 > ```
 
 ## `Entity(tag)(fields, options?)`
@@ -124,14 +124,14 @@ Compares the serialised form, so entities holding equal arrays compare equal.
 Two separate `Entity(...)` calls never compare equal, even with identical
 fields.
 
-## `computed(schema, from)`
+## `Entity.computed(schema, from)`
 
 One derived field: its schema, and the function producing it.
 
 ```ts
 computed: {
-  fullName: computed(FullName, (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>),
-  initials: computed(Initials, (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>),
+  fullName: Entity.computed(FullName, (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>),
+  initials: Entity.computed(Initials, (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>),
 }
 ```
 
@@ -176,7 +176,7 @@ Member.discriminant; // "kind"
 on it rather than trying each branch, so a failing member reports its own
 issues. The union is a schema too, so it nests as a field.
 
-## `InvalidEntity`
+## `Entity.InvalidEntity`
 
 ```ts
 class InvalidEntity extends TaggedError("InvalidEntity")<{
@@ -184,6 +184,11 @@ class InvalidEntity extends TaggedError("InvalidEntity")<{
   readonly issues: SchemaIssues; // readonly StandardSchemaV1.Issue[]
 }> {}
 ```
+
+Reachable as both a value and a type — `e instanceof Entity.InvalidEntity` and
+`const e: Entity.InvalidEntity`. The signatures above write it unqualified, the
+way `SomeEntity` is also a stand-in; `Entity.InvalidEntity` is how you spell it.
+Matching by tag needs no import at all: `P.tag("InvalidEntity")`.
 
 Schema failures carry the failing field's `path`; an `invariants` violation has
 none — that absence distinguishes a whole-entity rule from a field complaint.
@@ -200,14 +205,23 @@ none — that absence distinguishes a whole-entity rule from a field complaint.
 ## Helper types
 
 ```ts
-import type { CreateInput, Input, Output, Patch } from "@btravstack/entity";
+import { Entity } from "@btravstack/entity";
 
-type OrgWire = Input<typeof Organization>; // what make() accepts
-type OrgState = Output<typeof Organization>; // what toJSON() returns
-type OrgCreate = CreateInput<typeof Organization>; // what a factory accepts
-type OrgPatch = Patch<typeof Organization>; // what update() accepts
+type OrgWire = Entity.Input<typeof Organization>; // what make() accepts
+type OrgState = Entity.Output<typeof Organization>; // what toJSON() returns
+type OrgCreate = Entity.CreateInput<typeof Organization>; // what a factory accepts
+type OrgPatch = Entity.Patch<typeof Organization>; // what update() accepts
 ```
 
-`BaseInstance`, `ConstructionKey` and `Sealed` are also exported, but only so a
-consumer's emitted declarations can name them. They are not part of the API you
-write against.
+Also `Entity.ComputedField` and `Entity.Union`, the shapes `Entity.computed` and
+`Entity.union` return.
+
+`BaseInstance`, `ConstructionKey` and `Sealed` are the one exception to the
+single-import rule: they are exported at the top level **as well as** under
+`Entity`, because a downstream library compiling with `declaration: true` emits
+the underlying name rather than the namespace path that aliases it, and would
+otherwise fail with `TS4020`. They are not part of the API you write against.
+
+```ts
+import type { BaseInstance, ConstructionKey, Sealed } from "@btravstack/entity";
+```
