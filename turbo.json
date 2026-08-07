@@ -24,6 +24,10 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
+    },
+    "@btravstack/entity-docs#build": {
+      "inputs": ["$TURBO_DEFAULT$", "../packages/entity/src/**"],
+      "outputs": [".vitepress/dist/**", "api/entity/**"]
     }
   }
 }

@@ -1,3 +1,8 @@
+---
+title: Test domain logic
+description: Deterministic entity tests without stubbing Date.now or crypto.randomUUID, asserting on failures without try/catch.
+---
+
 # Test domain logic
 
 **Problem:** entities involve ids and timestamps, and you want deterministic

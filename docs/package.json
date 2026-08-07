@@ -1,0 +1,22 @@
+{
+  "name": "@btravstack/entity-docs",
+  "private": true,
+  "description": "Documentation website for @btravstack/entity",
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "type": "module",
+  "scripts": {
+    "build": "typedoc && vitepress build .",
+    "dev": "typedoc && vitepress dev .",
+    "preview": "vitepress preview ."
+  },
+  "devDependencies": {
+    "@btravstack/theme": "catalog:",
+    "@btravstack/typedoc": "catalog:",
+    "@types/node": "catalog:",
+    "typedoc": "catalog:",
+    "typedoc-plugin-markdown": "catalog:",
+    "typescript": "catalog:typedoc",
+    "vitepress": "catalog:"
+  }
+}

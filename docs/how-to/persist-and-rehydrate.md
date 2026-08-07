@@ -1,3 +1,8 @@
+---
+title: Persist and rehydrate
+description: Write an entity to a database with toJSON() and read it back with make(), without the storage layer knowing about entity internals.
+---
+
 # Persist and rehydrate
 
 **Problem:** you need to write an entity to a database and read it back,

@@ -67,11 +67,12 @@ Also `Entity.union(...)` for a union that is itself entity-like, and
 
 ## Documentation
 
-Full docs live in the repository:
+**[btravstack.github.io/entity](https://btravstack.github.io/entity/)**
 
-- [Reference](https://github.com/btravstack/entity/blob/main/docs/reference.md) — every member, option and type
-- [Explanation](https://github.com/btravstack/entity/blob/main/docs/explanation.md) — why it is built this way
-- How-to: [HTTP contract](https://github.com/btravstack/entity/blob/main/docs/how-to/http-contract.md) · [persist and rehydrate](https://github.com/btravstack/entity/blob/main/docs/how-to/persist-and-rehydrate.md) · [model an aggregate](https://github.com/btravstack/entity/blob/main/docs/how-to/model-an-aggregate.md) · [test domain logic](https://github.com/btravstack/entity/blob/main/docs/how-to/test-domain-logic.md)
+- [Getting started](https://btravstack.github.io/entity/tutorial/getting-started) — from nothing to a working entity
+- [Reference](https://btravstack.github.io/entity/reference/declaration) — every member, option and type
+- [Explanation](https://btravstack.github.io/entity/explanation/why-entity) — why it is built this way
+- How-to: [HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
 
 ## License
 

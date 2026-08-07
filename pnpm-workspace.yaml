@@ -6,12 +6,15 @@ strictPeerDependencies: true
 
 packages:
   - packages/*
+  - docs
 
 catalog:
   "@btravstack/commitlint": 0.1.0
   "@btravstack/lefthook": 0.1.1
   "@btravstack/oxlint": 0.2.1
+  "@btravstack/theme": 1.7.0
   "@btravstack/tsconfig": 0.2.0
+  "@btravstack/typedoc": 0.1.0
   "@changesets/cli": 2.31.1
   "@commitlint/cli": 21.2.1
   # Pinned to the exact prerelease the package's design doc measured
@@ -30,6 +33,8 @@ catalog:
   oxlint: 1.77.0
   tsdown: 0.22.14
   turbo: 2.10.8
+  typedoc: 0.28.20
+  typedoc-plugin-markdown: 4.12.0
   # 7.0.2 is the exact release the package's design doc measured the
   # construction-seal declaration-emit behaviour against (zero TS4020, `declare
   # const CtorKey: unique symbol` carried module-local into the emitted
@@ -37,11 +42,32 @@ catalog:
   typescript: 7.0.2
   unthrown: 5.1.0
   "@vitest/coverage-v8": 4.1.10
+  vitepress: 1.6.4
   vitest: 4.1.10
   zod: 4.4.3
 
+catalogs:
+  # TypeDoc's own toolchain, deliberately NOT the default catalog's TypeScript.
+  # `typescript: 7.0.2` above is the native port: it ships `lib/tsc.js` (a thin
+  # launcher) and no `typescript.js`, so the compiler API TypeDoc is written
+  # against does not exist there — measured, and the reason `typedoc` runs from
+  # the `docs` workspace rather than from `packages/entity` as it does in the
+  # other btravstack repos. 6.0.3 is the last release carrying the JS API, and
+  # is what `typedoc@0.28`'s peer range allows.
+  typedoc:
+    typescript: 6.0.3
+
+peerDependencyRules:
+  ignoreMissing:
+    # Optional analytics peer of VitePress's bundled Algolia DocSearch.
+    - search-insights
+
 minimumReleaseAgeExclude:
   - knip@6.32.0
+  # First-party shared config (@btravstack scope): adopt immediately, skip any
+  # registry-maturity delay — these are published from btravstack repos.
+  - "@btravstack/theme"
+  - "@btravstack/typedoc"
 
 allowBuilds:
   esbuild: true

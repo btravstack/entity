@@ -1,0 +1,62 @@
+name: Deploy Documentation
+
+# Publish the VitePress site once CI is green on main. Chaining off CI rather
+# than pushing directly means the site is never built from a commit that does
+# not compile, and the `github-pages` environment's branch policy sees `main`
+# (a `workflow_run` event runs against the default branch).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # A Pages deploy replaces the whole site, so only one may be in flight.
+  group: pages
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    # A `workflow_run` fires on ANY CI conclusion (failure, cancelled); deploy
+    # only after a successful one. `workflow_dispatch` is unconditional.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # The docs build runs TypeDoc (straight from packages/entity/src into
+      # docs/api/entity) and then VitePress — see docs/package.json.
+      - name: Build documentation
+        run: pnpm --filter ./docs exec turbo build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
