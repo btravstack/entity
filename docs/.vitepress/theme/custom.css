@@ -1,0 +1,59 @@
+/* entity accent — the mascotte's blush pink. The shared @btravstack/theme
+ * derives every accent shade (deep/hover/soft/washes/hero glow/feature icons/AA
+ * text) from this single token, including the darkened --text-accent that keeps
+ * accent-coloured text readable on the light canvas. */
+:root {
+  --accent: #ee9cc4;
+}
+
+/* Hero name in the package accent — the BtravStack multi-accent rule: the
+ * canvas stays neutral, the product glows in its own color (AA via
+ * --text-accent, which darkens on light). */
+:root:root {
+  --vp-home-hero-name-color: var(--text-accent);
+}
+
+/* Home-hero background glyph — the project's motif behind the hero: a record
+ * card with its fields, stamped validated. Painted in --accent through a mask,
+ * so it always tracks the accent token; the SVG is base64-encoded so no CSS
+ * minifier can mangle it. */
+.VPHome {
+  position: relative;
+  isolation: isolate;
+  /* content-column width, and the gutter from the viewport edge in to it —
+     defined once so the glow and glyph stay anchored to the same column. */
+  --btv-col: 1152px;
+  --btv-gutter: max(0px, calc((100% - var(--btv-col)) / 2));
+}
+.VPHome::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: var(--btv-gutter);
+  right: var(--btv-gutter);
+  aspect-ratio: 500 / 300;
+  background-color: var(--accent);
+  -webkit-mask: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MDAgMzAwIiBmaWxsPSJub25lIj48cmVjdCB4PSIxNDAiIHk9IjUyIiB3aWR0aD0iMjIwIiBoZWlnaHQ9IjE0NiIgcng9IjE2IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIvPjxnIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik0xNzIsOTYgSDI2MiIvPjxwYXRoIGQ9Ik0xNzIsMTI0IEgzMDIiLz48cGF0aCBkPSJNMTcyLDE1MiBIMjMyIi8+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM0OCwxODYpIHJvdGF0ZSgtMTQpIiBzdHJva2U9IiNmZmYiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGNpcmNsZSByPSIzMCIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjQwIDcgNTIgNyA1OCA3Ii8+PGNpcmNsZSByPSIyMC41IiBzdHJva2Utd2lkdGg9IjEuNSIvPjxwYXRoIGQ9Ik0tOCwwLjYgTC0yLjcsNi4yIEw4LjksLTYuNiIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L2c+PHRleHQgeD0iMTQwIiB5PSIyNDgiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTUiIGZpbGw9IiNmZmYiPkVudGl0eSgiT3JnYW5pemF0aW9uIik8L3RleHQ+PC9zdmc+")
+    no-repeat top center / contain;
+  mask: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MDAgMzAwIiBmaWxsPSJub25lIj48cmVjdCB4PSIxNDAiIHk9IjUyIiB3aWR0aD0iMjIwIiBoZWlnaHQ9IjE0NiIgcng9IjE2IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIvPjxnIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik0xNzIsOTYgSDI2MiIvPjxwYXRoIGQ9Ik0xNzIsMTI0IEgzMDIiLz48cGF0aCBkPSJNMTcyLDE1MiBIMjMyIi8+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM0OCwxODYpIHJvdGF0ZSgtMTQpIiBzdHJva2U9IiNmZmYiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGNpcmNsZSByPSIzMCIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjQwIDcgNTIgNyA1OCA3Ii8+PGNpcmNsZSByPSIyMC41IiBzdHJva2Utd2lkdGg9IjEuNSIvPjxwYXRoIGQ9Ik0tOCwwLjYgTC0yLjcsNi4yIEw4LjksLTYuNiIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L2c+PHRleHQgeD0iMTQwIiB5PSIyNDgiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTUiIGZpbGw9IiNmZmYiPkVudGl0eSgiT3JnYW5pemF0aW9uIik8L3RleHQ+PC9zdmc+")
+    no-repeat top center / contain;
+  opacity: 0.14;
+  pointer-events: none;
+  z-index: -1;
+}
+@media (max-width: 768px) {
+  .VPHome::after {
+    display: none;
+  }
+}
+
+/* The shared theme only enlarges the hero mark at >=960px; below that the
+ * mark's small intrinsic size leaves it tiny, so size it up for tablet/mobile
+ * too. */
+@media (max-width: 959px) {
+  .VPHero .image-src {
+    width: min(208px, 62vw);
+    height: min(208px, 62vw);
+    object-fit: contain;
+  }
+}

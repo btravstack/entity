@@ -1,0 +1,29 @@
+{
+  "extends": "@btravstack/typedoc/base.json",
+  "entryPoints": ["../packages/entity/src/index.ts"],
+  "tsconfig": "../packages/entity/tsconfig.json",
+  "out": "api/entity",
+  "categoryOrder": ["Facade", "Declaration", "Entry points", "Types", "Errors", "*"],
+  "intentionallyNotExported": [
+    "BaseInstanceSrc",
+    "ComputedField",
+    "ComputedFieldSrc",
+    "ComputedOf",
+    "ConstructionKeySrc",
+    "DomainFieldMustBeBrandedOrAnEntity",
+    "EntityStatic",
+    "EntityUnion",
+    "EntityUnionSrc",
+    "Fields",
+    "InputOf",
+    "InvalidEntity",
+    "Invariant",
+    "InvariantSrc",
+    "IsNominalField",
+    "OnlyNominal",
+    "OutputOf",
+    "PatchOf",
+    "SealedSrc",
+    "UnionMember"
+  ]
+}

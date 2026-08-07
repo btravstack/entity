@@ -10,18 +10,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 fallible operation returns an `unthrown` `Result<T, InvalidEntity>` instead of
 throwing.
 
-pnpm + turbo monorepo with a single package, `packages/entity`. Root scripts
-delegate to turbo; package scripts are where the real commands live.
+pnpm + turbo monorepo with two workspaces: the package, `packages/entity`, and
+the documentation site, `docs`. Root scripts delegate to turbo; workspace
+scripts are where the real commands live.
 
 ## Commands
 
-Scripts are in `package.json`; the root ones delegate to turbo. Two things
+Scripts are in `package.json`; the root ones delegate to turbo. Three things
 that are not derivable from there:
 
 - **The gate CI runs, in order**: `format --check`, `lint`, `typecheck`,
   `test`, `knip`, `build`. `typecheck` is three passes — the main `tsc`, the
   `.test-d.ts` pass, and the consumer declaration-emit pass.
 - **A single test file runs from inside `packages/entity`**, not the root.
+- **The docs site runs from inside `docs`**: `pnpm --filter ./docs dev`.
+  `pnpm build` at the root builds it too, since it is a workspace.
+
+## The documentation site
+
+`docs/` is a VitePress site deployed to <https://btravstack.github.io/entity/>
+by `.github/workflows/deploy-docs.yml` once CI is green on `main`. It is
+organised by the four [Diátaxis](https://diataxis.fr/) modes — `tutorial/`,
+`how-to/`, `reference/`, `explanation/` — with one shared sidebar across all
+four so any page reaches any other. `docs/.vitepress/theme/custom.css` sets a
+single `--accent` token; the shared `@btravstack/theme` derives every other
+shade from it.
+
+Its build is `typedoc && vitepress build`. TypeDoc reads
+`packages/entity/src/index.ts` straight through and writes `docs/api/entity/`,
+which is git-ignored and regenerated every build — `docs/api/index.md` is the
+one hand-written page under `api/`.
+
+TypeDoc runs from **`docs/`** rather than from `packages/entity/` (where the
+other btravstack repos put it), with its own TypeScript from the named
+`typedoc` catalog. That is forced, not stylistic: the default catalog's
+`typescript: 7.0.2` is the native port and ships no JS compiler API, so TypeDoc
+cannot run against it. Measured — the reason is inline in
+`pnpm-workspace.yaml`.
 
 ## Architecture
 

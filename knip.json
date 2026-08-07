@@ -5,7 +5,15 @@
   "workspaces": {
     "packages/*": {
       "project": ["src/**/*.ts"]
+    },
+    "docs": {
+      "project": [".vitepress/**/*.ts"]
     }
   },
-  "ignoreDependencies": ["@btravstack/oxlint", "@btravstack/lefthook"]
+  "ignoreDependencies": [
+    "@btravstack/oxlint",
+    "@btravstack/lefthook",
+    "@btravstack/typedoc",
+    "typedoc-plugin-markdown"
+  ]
 }

@@ -1,3 +1,8 @@
+---
+title: Expose an HTTP contract
+description: Turn an entity into request and response schemas for a route, converted to JSON Schema in both directions, with no hand-written omit lists.
+---
+
 # Expose an HTTP contract
 
 **Problem:** you have an entity and need request and response schemas for a

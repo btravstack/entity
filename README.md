@@ -15,7 +15,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[**Reference**](./docs/reference.md) · [**Explanation**](./docs/explanation.md) · [**How-to guides**](./docs/how-to)
+[**Documentation**](https://btravstack.github.io/entity/) · [**Getting started**](https://btravstack.github.io/entity/tutorial/getting-started) · [**Reference**](https://btravstack.github.io/entity/reference/declaration) · [**Why entity?**](https://btravstack.github.io/entity/explanation/why-entity)
 
 </div>
 
@@ -67,7 +67,8 @@ pnpm add @btravstack/entity zod unthrown @unthrown/standard-schema
 ```
 
 `zod`, `unthrown` and `@unthrown/standard-schema` are **peer dependencies** —
-install all four. ([Why](./docs/explanation.md#peer-dependencies).)
+install all four.
+([Why](https://btravstack.github.io/entity/explanation/peer-dependencies).)
 
 ## A worked example
 
@@ -146,13 +147,14 @@ existing one.
 
 ## Documentation
 
-- **[Reference](./docs/reference.md)** — every member, option and type, with signatures.
-- **[Explanation](./docs/explanation.md)** — why it is built this way: sealed construction, deep immutability, no I/O, why entities are not subclassable.
-- **How-to guides**
-  - [Expose an HTTP contract](./docs/how-to/http-contract.md)
-  - [Persist and rehydrate](./docs/how-to/persist-and-rehydrate.md)
-  - [Model an aggregate](./docs/how-to/model-an-aggregate.md)
-  - [Test domain logic](./docs/how-to/test-domain-logic.md)
+**[btravstack.github.io/entity](https://btravstack.github.io/entity/)** — built
+with VitePress from [`docs/`](./docs), and organised by the four
+[Diátaxis](https://diataxis.fr/) modes:
+
+- **[Tutorial](https://btravstack.github.io/entity/tutorial/getting-started)** — from nothing to a working entity, one step at a time.
+- **How-to guides** — [expose an HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
+- **[Reference](https://btravstack.github.io/entity/reference/declaration)** — every member, option and type, with signatures. Plus the [generated API reference](https://btravstack.github.io/entity/api/).
+- **[Explanation](https://btravstack.github.io/entity/explanation/why-entity)** — why it is built this way: sealed construction, deep immutability, no I/O, why entities are not subclassable.
 
 ## Development
 

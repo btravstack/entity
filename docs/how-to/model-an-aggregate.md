@@ -1,3 +1,8 @@
+---
+title: Model an aggregate
+description: Nest entities inside entities, span invariants across the boundary, and model a union of entities that survives a JSON round trip.
+---
+
 # Model an aggregate
 
 **Problem:** one entity contains others — an order with a customer and line
@@ -145,4 +150,4 @@ class PersonWithAge extends Person.extend("PersonWithAge")({ age: Age }) {}
 
 That produces a new entity with its own tag and identity — not a variant of
 `Person`, and not a subclass, which is
-[refused](../explanation.md#entities-are-not-subclassable).
+[refused](/explanation/sealed-construction#entities-are-not-subclassable).

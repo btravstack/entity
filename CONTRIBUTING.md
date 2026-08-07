@@ -29,10 +29,34 @@ pnpm lint              # oxlint
 pnpm typecheck         # tsc (incl. type-level tests)
 pnpm test              # vitest
 pnpm knip               # dead code / unused deps
-pnpm build              # tsdown dual CJS/ESM + d.ts
+pnpm build              # tsdown dual CJS/ESM + d.ts, and the docs site
 ```
 
 Run `pnpm format` (no `--check`) to auto-fix formatting.
+
+### The documentation site
+
+`docs/` is a workspace of its own — a [VitePress](https://vitepress.dev) site
+organised by the four [Diátaxis](https://diataxis.fr/) modes (Tutorial, How-to,
+Reference, Explanation), deployed to
+<https://btravstack.github.io/entity/> by `.github/workflows/deploy-docs.yml`
+once CI is green on `main`.
+
+```sh
+pnpm --filter ./docs dev       # local preview with hot reload
+pnpm --filter ./docs build     # what CI and the deploy build
+```
+
+The build is `typedoc && vitepress build`. TypeDoc reads
+`packages/entity/src/index.ts` and writes `docs/api/entity/` (git-ignored,
+regenerated every build); `docs/api/index.md` is the one hand-written page
+there.
+
+TypeDoc runs from **`docs/`**, not from `packages/entity/` as it does in the
+other btravstack repos, and with its own TypeScript. That is forced, not
+stylistic: the catalog's `typescript: 7.0.2` is the native port, which ships no
+JS compiler API for TypeDoc to drive. The named `typedoc` catalog in
+`pnpm-workspace.yaml` pins 6.0.3 for that one job, with the reason inline.
 
 ### Type-level tests
 
@@ -69,8 +93,8 @@ types, while the plain `tsc` pass is `noEmit` from the shared base.
 
 ## Design rules (binding)
 
-`docs/reference.md` documents the public behaviour and `docs/explanation.md`
-the rationale behind it; many of those rules were measured against a specific
+`docs/reference/` documents the public behaviour and `docs/explanation/` the
+rationale behind it; many of those rules were measured against a specific
 compiler/library version, not assumed. Where a
 source comment records a measurement (a TS diagnostic code, a specific
 library's output), treat it as a regression guard, not decoration — verify
