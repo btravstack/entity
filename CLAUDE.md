@@ -15,31 +15,13 @@ delegate to turbo; package scripts are where the real commands live.
 
 ## Commands
 
-Run from the repo root:
+Scripts are in `package.json`; the root ones delegate to turbo. Two things
+that are not derivable from there:
 
-```sh
-pnpm build            # tsdown → dist, dual CJS/ESM + .d.ts
-pnpm test             # vitest run (src/**/*.spec.ts)
-pnpm typecheck        # tsc --noEmit, both the main pass and the .test-d.ts pass
-pnpm test:types       # the .test-d.ts pass alone
-pnpm lint             # oxlint
-pnpm format           # oxfmt (add --check for CI-style verification)
-pnpm knip             # dead code / unused deps
-```
-
-The full gate CI runs is: `format --check`, `lint`, `typecheck`, `test`,
-`knip`, `build`.
-
-Single test / single file — run inside `packages/entity`:
-
-```sh
-pnpm vitest run src/crud.spec.ts
-pnpm vitest run -t "update returns a new entity"
-pnpm vitest              # watch mode
-```
-
-Node is pinned in `.node-version` (24.16.0); pnpm 11.7.0 via `packageManager`
-(`corepack enable`).
+- **The gate CI runs, in order**: `format --check`, `lint`, `typecheck`,
+  `test`, `knip`, `build`. `typecheck` is three passes — the main `tsc`, the
+  `.test-d.ts` pass, and the consumer declaration-emit pass.
+- **A single test file runs from inside `packages/entity`**, not the root.
 
 ## Architecture
 
@@ -103,7 +85,7 @@ design — `contract.spec.ts` pins that both ways.
 - **Type-level behaviour lives in `*.test-d.ts`**, checked by
   `tsc --noEmit -p tsconfig.test-d.json`. They are excluded from the main tsc
   pass, from oxlint, and from knip. Changing a compile-time guarantee (the
-  seal, `generated`/`immutable` rules, `add`'s contextual typing) means
+  seal, `generated`/`immutable` rules, `computed`'s contextual typing) means
   updating the matching `@ts-expect-error` assertion.
 - **One concept, one name.** The surface is meant to stay small enough that the
   library can be "done". Resist convenience aliases.
