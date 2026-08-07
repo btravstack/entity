@@ -4,6 +4,14 @@
 route, converted to JSON Schema, without hand-writing omit lists that drift
 from the model.
 
+> Snippets below assume these imports:
+>
+> ```ts
+> import { z } from "zod";
+> import { match, P } from "unthrown";
+> import { Entity, computed } from "@btravstack/entity";
+> ```
+
 ## Use the four `ZodObject` members directly
 
 ```ts

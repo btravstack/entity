@@ -4,6 +4,14 @@
 items, a document with authors — and you want the whole thing to still be an
 entity rather than a bare schema.
 
+> Snippets below assume these imports:
+>
+> ```ts
+> import { z } from "zod";
+> import { match, P } from "unthrown";
+> import { Entity, computed } from "@btravstack/entity";
+> ```
+
 ## Use the class as a field
 
 An entity class is itself a zod schema, so it is a field like any other:
@@ -107,8 +115,6 @@ class Audit extends Entity("Audit")({ id: AuditId, actor: Member }) {}
 ## Match exhaustively on what comes back
 
 ```ts
-import { match, P } from "unthrown";
-
 const describe = (m: User | ServiceAccount) =>
   match(m)
     .with(P.tag("User"), (u) => `user:${u.email}`)

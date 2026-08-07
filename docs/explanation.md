@@ -4,6 +4,14 @@ Why the package is built the way it is. Several of these record behaviour that
 was **measured**, not assumed — the diagnostic codes are quoted so a future
 change can re-check rather than re-litigate.
 
+> Snippets below assume these imports:
+>
+> ```ts
+> import { z } from "zod";
+> import { match, P } from "unthrown";
+> import { Entity, computed } from "@btravstack/entity";
+> ```
+
 ## What an entity is, and why this exists
 
 An entity is simultaneously four things: a **type** your domain code programs

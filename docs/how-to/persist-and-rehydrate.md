@@ -3,6 +3,14 @@
 **Problem:** you need to write an entity to a database and read it back,
 without the storage layer knowing about entity internals.
 
+> Snippets below assume these imports:
+>
+> ```ts
+> import { z } from "zod";
+> import { match, P } from "unthrown";
+> import { Entity, computed } from "@btravstack/entity";
+> ```
+
 ## Write with `toJSON()`
 
 ```ts

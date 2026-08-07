@@ -3,6 +3,14 @@
 **Problem:** entities involve ids and timestamps, and you want deterministic
 tests without stubbing `Date.now` or `crypto.randomUUID`.
 
+> Snippets below assume these imports:
+>
+> ```ts
+> import { z } from "zod";
+> import { match, P } from "unthrown";
+> import { Entity, computed } from "@btravstack/entity";
+> ```
+
 ## Bind fixed generators instead of stubbing globals
 
 The entity generates nothing itself, so a test binds its own sources:

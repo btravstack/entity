@@ -4,6 +4,14 @@ Every member of the public surface. For _why_ it is shaped this way, see
 [Explanation](./explanation.md); for task recipes, see the
 [how-to guides](./how-to/).
 
+> Snippets below assume these imports:
+>
+> ```ts
+> import { z } from "zod";
+> import { match, P } from "unthrown";
+> import { Entity, computed } from "@btravstack/entity";
+> ```
+
 ## `Entity(tag)(fields, options?)`
 
 Declares an entity. Curried on the tag so it reads next to the class name.

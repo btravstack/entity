@@ -89,6 +89,8 @@ const ResponseBody = Organization.output;
 Failures are values, not exceptions:
 
 ```ts
+import { P } from "unthrown";
+
 Organization.make({ ...row, name: "" }).match({
   ok: (o) => o,
   errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues), // [{ path: ["name"], … }]
