@@ -9,7 +9,7 @@ entity rather than a bare schema.
 > ```ts
 > import { z } from "zod";
 > import { match, P } from "unthrown";
-> import { Entity, computed } from "@btravstack/entity";
+> import { Entity } from "@btravstack/entity";
 > ```
 
 ## Use the class as a field
@@ -21,7 +21,7 @@ class Customer extends Entity("Customer")(
   { id: CustomerId, name: Name },
   {
     computed: {
-      shout: computed(
+      shout: Entity.computed(
         Upper,
         (d) => d.name.toUpperCase() as z.infer<typeof Upper>,
       ),

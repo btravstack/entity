@@ -2,7 +2,7 @@ import { P } from "unthrown";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { Entity, computed } from "./index.js";
+import { Entity } from "./index.js";
 
 const PersonId = z.uuid().brand("PersonId");
 const NamePart = z.string().min(1).brand("NamePart");
@@ -14,8 +14,14 @@ class Person extends Entity("Person")(
   {
     immutable: ["id"],
     computed: {
-      fullName: computed(FullName, (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>),
-      initials: computed(Initials, (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>),
+      fullName: Entity.computed(
+        FullName,
+        (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>,
+      ),
+      initials: Entity.computed(
+        Initials,
+        (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>,
+      ),
     },
   },
 ) {}
@@ -83,7 +89,10 @@ test("invariants see the computed fields", () => {
     { id: PersonId, first: NamePart, last: NamePart },
     {
       computed: {
-        fullName: computed(FullName, (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>),
+        fullName: Entity.computed(
+          FullName,
+          (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>,
+        ),
       },
       invariants: (d) => (d.fullName.length <= 20 ? [] : ["fullName must be at most 20 chars"]),
     },
@@ -105,7 +114,7 @@ test("computed output failing its own schema is a defect, not bad input", () => 
     {
       // FullName requires at least 1 char; this returns an empty string
       computed: {
-        fullName: computed(FullName, () => "" as z.infer<typeof FullName>),
+        fullName: Entity.computed(FullName, () => "" as z.infer<typeof FullName>),
       },
     },
   ) {}
@@ -117,7 +126,7 @@ test("a throwing derivation is a defect, not an escaped exception", () => {
     { id: PersonId, first: NamePart, last: NamePart },
     {
       computed: {
-        fullName: computed(FullName, () => {
+        fullName: Entity.computed(FullName, () => {
           // oxlint-disable-next-line unthrown/no-throw
           throw new Error("boom");
         }),
@@ -133,7 +142,7 @@ test("a defect names the field that produced it", () => {
     { id: PersonId, first: NamePart, last: NamePart },
     {
       computed: {
-        initials: computed(Initials, () => "" as z.infer<typeof Initials>),
+        initials: Entity.computed(Initials, () => "" as z.infer<typeof Initials>),
       },
     },
   ) {}

@@ -37,7 +37,12 @@ Eight source modules under `packages/entity/src`, split by what they own:
   and `_tag` non-enumerably, which is why `_tag` never reaches `toJSON()`,
   `JSON.stringify`, or spread. `toJSON()` is the **only** public projection —
   it, `equals` and `update` all route through a module-private `project`, so
-  there is no second public spelling of the same data.
+  there is no second public spelling of the same data. It also carries the
+  whole public surface: `Entity.computed` / `Entity.union` /
+  `Entity.InvalidEntity` as expando properties, and every public type in a
+  merged `declare namespace Entity`. Namespace members alias imported types
+  through `*Src` names deliberately — see the comment there before renaming
+  one.
 - **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
   and recurses into arrays and plain objects, freezes `Date` as a leaf, and
   deliberately leaves `Map`/`Set`/class instances alone. The constructor
@@ -57,14 +62,16 @@ Eight source modules under `packages/entity/src`, split by what they own:
   declared discriminant rather than trying each branch, so a failing member
   reports its own issues.
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
-  fields, and `shape()`, the only sanctioned way to build a domain object.
+  fields, and `shape()`, which builds the validated field map. Both are
+  internal; neither is exported from `index.ts`.
 - **`issues.ts`** — `keysOf` and `renderIssue`. Standard Schema permits a path
   segment to be a bare `PropertyKey` or a `{ key }` wrapper; zod emits the
   bare form, and `keysOf` normalises it wherever a path meets an API wanting
   plain keys.
-- **`computed.ts`** / **`errors.ts`** — the `computed(schema, from)` helper and
-  the `InvalidEntity` tagged error. Computed fields are re-derived on every
-  construction path, so they cannot drift from their sources.
+- **`computed.ts`** / **`errors.ts`** — the `computed(schema, from)` helper
+  (public as `Entity.computed`) and the `InvalidEntity` tagged error. Computed
+  fields are re-derived on every construction path, so they cannot drift from
+  their sources.
 
 The design rule the whole package turns on: **contracts compose the four plain
 `ZodObject`s; domain code composes the class itself.** The class carries a
@@ -89,6 +96,15 @@ design — `contract.spec.ts` pins that both ways.
   updating the matching `@ts-expect-error` assertion.
 - **One concept, one name.** The surface is meant to stay small enough that the
   library can be "done". Resist convenience aliases.
+- **`index.ts` exports `Entity`, and nothing else you write against.** A bare
+  `computed` or `union` is too generic to take from a consumer's import scope,
+  so everything hangs off the builder. The sole exception is `BaseInstance` /
+  `ConstructionKey` / `Sealed`, exported at the top level as well: a downstream
+  library compiling with `declaration: true` emits the _underlying_ name, not
+  the namespace path aliasing it, so hiding them fails the consumer pass with
+  `TS4020`. That is measured, not assumed — `consumer/index.ts` names every
+  namespace member for exactly this reason, and an **unused**
+  `@ts-expect-error` there is a failure signal, not noise.
 - **Entities are not subclassable.** One `extends` is the declaration form;
   `construct` defects on anything deeper. Behaviour goes in the entity's own
   class body. This is runtime-only — TypeScript has no `final`, and

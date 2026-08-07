@@ -9,7 +9,7 @@ change can re-check rather than re-litigate.
 > ```ts
 > import { z } from "zod";
 > import { match, P } from "unthrown";
-> import { Entity, computed } from "@btravstack/entity";
+> import { Entity } from "@btravstack/entity";
 > ```
 
 ## What an entity is, and why this exists

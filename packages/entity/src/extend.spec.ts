@@ -2,7 +2,7 @@ import { P } from "unthrown";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { Entity, computed } from "./index.js";
+import { Entity } from "./index.js";
 
 const PersonId = z.uuid().brand("PersonId");
 const Name = z.string().min(1).brand("Name");
@@ -13,7 +13,9 @@ class Person extends Entity("Person")(
   { id: PersonId, name: Name },
   {
     immutable: ["id"],
-    computed: { shout: computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>) },
+    computed: {
+      shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
+    },
     invariants: (d) => (d.name.length <= 20 ? [] : ["name must be at most 20 chars"]),
   },
 ) {}

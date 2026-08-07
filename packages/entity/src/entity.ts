@@ -2,7 +2,7 @@ import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
 import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthrown";
 import type { z } from "zod";
 
-import type { ComputedField } from "./computed.js";
+import { computed, type ComputedField } from "./computed.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
 import { renderIssue } from "./issues.js";
@@ -11,6 +11,8 @@ import { shape, type OnlyNominal } from "./shape.js";
 import type {
   AsyncEntityFactory,
   AsyncGenerators,
+  BaseInstance,
+  ConstructionKey,
   EntityFactory,
   Generators,
   OutputOf,
@@ -22,7 +24,7 @@ import type {
   Sealed,
   UpdateInputShapeOf,
 } from "./types.js";
-import { union } from "./union.js";
+import { union, type EntityUnion, type UnionMember } from "./union.js";
 
 /** Calls every generator once, in declaration order. */
 const callAll = (generators: Record<string, () => unknown>): Record<string, unknown> =>
@@ -387,20 +389,72 @@ export function Entity<Tag extends string>(tag: Tag) {
 }
 
 /**
- * Grouped under `Entity` rather than exported loose: `union` alone is too
- * generic a name to take from a consumer's import scope, and it reads as
- * `z.union`'s sibling when it is nothing of the sort.
+ * Grouped under `Entity` rather than exported loose, and the package exports
+ * nothing else: `computed` and `union` are both too generic to take from a
+ * consumer's import scope — `computed` collides outright with Vue, MobX,
+ * Angular signals and Solid — and each reads as a sibling of whatever already
+ * holds that name when it is nothing of the sort. `InvalidEntity` would pass
+ * that test on its own, and is grouped anyway so the rule has no exceptions.
  */
+Entity.computed = computed;
 Entity.union = union;
+Entity.InvalidEntity = InvalidEntity;
 
-/** What the wire sends — for mapper and request signatures. */
-export type Input<E extends { readonly __input: unknown }> = E["__input"];
+/**
+ * Source aliases for the namespace below. The `Src` suffix is load bearing.
+ *
+ * A namespace member that shares a name with the type it aliases is emitted by
+ * tsdown's dts bundler as a circular self-alias — `type ConstructionKey =
+ * ConstructionKey` — because the bundler collapses the import to a bare name
+ * that then resolves to the member itself. That **compiles**, so nothing fails
+ * loudly; the type just degenerates. Measured against tsdown + typescript
+ * 7.0.2: spelling this member `import("./types.js").ConstructionKey` voided the
+ * construction seal, and the only signal was the consumer fixture's
+ * `@ts-expect-error` on a forged key going *unused*. An unused directive under
+ * `consumer/` is a failure here, not noise.
+ */
+type ComputedFieldSrc<T extends z.core.$ZodType, D> = ComputedField<T, D>;
+type EntityUnionSrc<K extends string, M extends readonly UnionMember[]> = EntityUnion<K, M>;
+type ConstructionKeySrc = ConstructionKey;
+type SealedSrc<D> = Sealed<D>;
+type BaseInstanceSrc<
+  S extends Fields,
+  A extends Fields,
+  I extends readonly (keyof OutputOf<S, A>)[],
+> = BaseInstance<S, A, I>;
 
-/** What the entity stores — for `make` and repository signatures. */
-export type Output<E extends { readonly __output: unknown }> = E["__output"];
+export declare namespace Entity {
+  /** What the wire sends — for mapper and request signatures. */
+  export type Input<E extends { readonly __input: unknown }> = E["__input"];
 
-/** What `create` accepts from a caller. */
-export type CreateInput<E extends { readonly __createInput: unknown }> = E["__createInput"];
+  /** What the entity stores — for `make` and repository signatures. */
+  export type Output<E extends { readonly __output: unknown }> = E["__output"];
 
-/** What `update` accepts. */
-export type Patch<E extends { readonly __patch: unknown }> = E["__patch"];
+  /** What `create` accepts from a caller. */
+  export type CreateInput<E extends { readonly __createInput: unknown }> = E["__createInput"];
+
+  /** What `update` accepts. */
+  export type Patch<E extends { readonly __patch: unknown }> = E["__patch"];
+
+  /** One derived field: its schema, and the function that produces it. */
+  export type ComputedField<T extends z.core.$ZodType, D> = ComputedFieldSrc<T, D>;
+
+  // `InvalidEntity` is a class, so it needs both meanings under `Entity`: the
+  // value for `instanceof`, the type for annotations. A re-export carries both,
+  // where a `type` member would shadow the value and reject the runtime
+  // assignment above (TS2339).
+  export { InvalidEntity };
+
+  /** What `Entity.union(...)` returns. */
+  export type Union<K extends string, M extends readonly UnionMember[]> = EntityUnionSrc<K, M>;
+
+  // Exported only so a consumer's emitted declarations can name them — none of
+  // the three is part of the API you write against. See `Sealed` in types.ts.
+  export type BaseInstance<
+    S extends Fields,
+    A extends Fields,
+    I extends readonly (keyof OutputOf<S, A>)[],
+  > = BaseInstanceSrc<S, A, I>;
+  export type ConstructionKey = ConstructionKeySrc;
+  export type Sealed<D> = SealedSrc<D>;
+}
