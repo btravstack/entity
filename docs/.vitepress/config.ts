@@ -203,10 +203,10 @@ export default defineConfig({
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:site_name", content: "entity" }],
     ["meta", { property: "og:locale", content: "en_US" }],
-    // 1280x640, rendered from docs/og/card.html — see the comment there.
-    // SVG is not a valid og:image: X, Slack, LinkedIn and Discord all refuse to
-    // render one, which is why pointing this at the logo produced no preview at
-    // all rather than a small one.
+    // The 1280x640 social card, on the same template as the other btravstack
+    // packages. SVG is not a valid og:image: X, Slack, LinkedIn and Discord all
+    // refuse to render one, which is why pointing this at the logo produced no
+    // preview at all rather than a small one.
     ["meta", { property: "og:image", content: `${SITE_URL}og-entity.png` }],
     ["meta", { property: "og:image:type", content: "image/png" }],
     // The card's true size. The sibling sites declare 1200x630 (the size the OG

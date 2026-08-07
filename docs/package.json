@@ -8,7 +8,6 @@
   "scripts": {
     "build": "typedoc && vitepress build .",
     "dev": "typedoc && vitepress dev .",
-    "og:card": "sh og/render.sh",
     "preview": "vitepress preview ."
   },
   "devDependencies": {
