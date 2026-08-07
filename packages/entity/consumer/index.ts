@@ -29,8 +29,8 @@ export class Organization extends Entity("Organization")(
 /** The statics must still yield the subclass, not the structural base. */
 export const load = (raw: unknown): Organization => Organization.make(raw).getOrThrow();
 
-/** Nesting must still work from outside the package. */
-export const Aggregate = z.object({ owner: Organization.instance });
+/** The class must still compose as a schema from outside the package. */
+export const Aggregate = z.object({ owner: Organization });
 
 // @ts-expect-error construction stays sealed for a consumer
 new Organization({ id: "x" as never, slug: "y" as never });

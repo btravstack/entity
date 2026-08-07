@@ -5,7 +5,12 @@ import type { ComputedField as ComputedFieldOf } from "./computed.js";
 import type { InvalidEntity } from "./errors.js";
 import type { OnlyNominal } from "./shape.js";
 
-export type Fields = Record<string, z.ZodTypeAny>;
+/**
+ * A field map's values. `z.core.$ZodType`, not `z.ZodTypeAny`: an entity class
+ * carries only zod's internal slots, not the full method surface, and must be
+ * usable as a field. Anything zod accepts in an object shape is accepted here.
+ */
+export type Fields = Record<string, z.core.$ZodType>;
 
 /** The data an entity accepts on the wire. */
 export type InputOf<S extends Fields> = z.infer<z.ZodObject<S>>;
@@ -262,22 +267,26 @@ export type EntityStatic<
   readonly createInput: z.ZodObject<Omit<S, G[number]>>;
   readonly updateInput: z.ZodObject<UpdateInputShapeOf<S, A, I>>;
   /**
-   * At runtime `X.instance.parse(...)` yields an actual `X` — `attachInstance`
-   * (see `instance.ts`) reads the receiver, which JS's prototype-based static
-   * inheritance sets to whichever subclass `.instance` was read from. The type
-   * cannot say that: unlike a *method*, a property can't take an explicit
-   * `this` parameter to infer the receiver's type from the call site (the
-   * trick `decode`/`make`/`create` and `update` use), and a `this` type
-   * written directly in the property's type does not repolymorphize per
-   * subclass on a *static* member the way it does for instance members — this
-   * was measured, not assumed: `Y extends X {}` still narrows `Y.instance` to
-   * `X`'s shape. So `instance` is typed as the base shape only; a caller who
-   * needs the subclass's own members back must narrow explicitly (e.g.
-   * `instanceof`) after parsing.
+   * The zod slots that make the class itself a schema, so it composes
+   * directly: `z.object({ owner: Organization })`, `z.array(Organization)`,
+   * or as a field of another entity. Parsing yields a real instance.
+   *
+   * Only these two are declared, never the full `ZodType`: that would put a
+   * throwing `.parse()` on every entity beside `make`, which is the opposite
+   * of what this package is for. Wrapping still works through zod's function
+   * forms — `z.optional(Organization)` rather than `Organization.optional()`.
+   *
+   * The runtime binds to whichever class the slot is read from, so a schema
+   * built from a subclass yields that subclass. The type cannot say so — a
+   * property, unlike a method, takes no `this` parameter to infer the receiver
+   * from — so it states the base shape and a caller narrows with `instanceof`.
    */
-  readonly instance: z.ZodType<
+  readonly _zod: z.ZodType<
     BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
-  >;
+  >["_zod"];
+  readonly "~standard": z.ZodType<
+    BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
+  >["~standard"];
   /** phantom carriers, so consumers can recover the shapes for annotations */
   readonly __input: InputOf<S>;
   readonly __output: OutputOf<S, A>;

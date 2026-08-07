@@ -5,7 +5,7 @@ import type { z } from "zod";
 import type { ComputedField } from "./computed.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
-import { attachInstance } from "./instance.js";
+import { attachSchema } from "./instance.js";
 import { renderIssue } from "./issues.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
@@ -361,7 +361,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
     }
 
-    attachInstance<Base & DeepReadonly<OutputShape>>(Base, input);
+    attachSchema<Base & DeepReadonly<OutputShape>>(Base, input);
     declarations.set(Base, { fields, options: options as Record<string, unknown> | undefined });
 
     /**

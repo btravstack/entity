@@ -73,13 +73,13 @@ describe("shape() rejects unbranded scalars", () => {
 
   test("another entity's `.instance` is a valid field", () => {
     class Customer extends Entity("Customer")({ id: Id, name: Name }) {}
-    shape({ id: Id, customer: Customer.instance });
-    shape({ id: Id, watchers: z.array(Customer.instance) });
+    shape({ id: Id, customer: Customer });
+    shape({ id: Id, watchers: z.array(Customer) });
   });
 
   test("a nested entity keeps its behaviour and tag through the field", () => {
     class Customer extends Entity("Customer")({ id: Id, name: Name }) {}
-    class Order extends Entity("Order")({ id: Id, customer: Customer.instance }) {}
+    class Order extends Entity("Order")({ id: Id, customer: Customer }) {}
     const order = Order.make({}).getOrThrow();
     const tag: "Customer" = order.customer._tag;
     const name: z.infer<typeof Name> = order.customer.name;

@@ -66,12 +66,11 @@ Eight source modules under `packages/entity/src`, split by what they own:
   `Sealed<D>`, the module-private `unique symbol` that makes `new X(...)` a
   compile error. Written independently of the builder's body-local values so
   `EntityStatic` can serve as the builder's explicit return annotation.
-- **`instance.ts`** — `attachInstance` installs `instance` as a lazy,
-  self-overwriting accessor getter. The getter (not a plain value) is what
-  makes `X.instance.parse(...)` build an `X` rather than the base class, since
-  the subclass does not exist when the builder runs. `instance` is a zod
-  schema, so it is already a Standard Schema; the class carries no `~standard`
-  of its own.
+- **`instance.ts`** — `attachSchema` makes the entity class itself a zod
+  schema by delegating `_zod` and `~standard` to a lazily built, per-receiver
+  transform. Only those two slots, never the full `ZodType`: the methods would
+  put a throwing `.parse()` beside `make`. Reading from the receiver is what
+  makes a schema built from a subclass yield that subclass.
 - **`union.ts`** — `Entity.union(discriminant, members)`. Dispatches on the
   declared discriminant rather than trying each branch, so a failing member
   reports its own issues.
@@ -86,7 +85,7 @@ Eight source modules under `packages/entity/src`, split by what they own:
   construction path, so they cannot drift from their sources.
 
 The design rule the whole package turns on: **contracts compose the four plain
-`ZodObject`s; domain code composes `instance`.** `instance` carries a
+`ZodObject`s; domain code composes the class itself.** `instance` carries a
 `.transform()`, so `z.toJSONSchema(instance, { io: "output" })` throws by
 design — `contract.spec.ts` pins that both ways.
 

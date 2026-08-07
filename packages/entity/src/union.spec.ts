@@ -76,16 +76,14 @@ test("input and output generate JSON Schema in both directions, one branch per m
   }
 });
 
-test("instance parses to the member class and nests", () => {
-  expect(Member.instance.parse(userRow)).toBeInstanceOf(User);
-  const Wrapper = z.object({ member: Member.instance });
+test("the union is a schema too, parsing to the member class and nesting", () => {
+  expect(z.array(Member).parse([userRow])[0]).toBeInstanceOf(User);
+  const Wrapper = z.object({ member: Member });
   expect(Wrapper.parse({ member: svcRow }).member).toBeInstanceOf(ServiceAccount);
 });
 
 test("a nested member failure keeps the outer path", () => {
-  const result = z
-    .object({ member: Member.instance })
-    .safeParse({ member: { ...userRow, email: "nope" } });
+  const result = z.object({ member: Member }).safeParse({ member: { ...userRow, email: "nope" } });
   expect(result.success).toBe(false);
   if (!result.success) {
     expect(result.error.issues[0]?.path).toEqual(["member", "email"]);
@@ -98,7 +96,7 @@ test("the members are reachable, for exhaustiveness and registries", () => {
 });
 
 test("a union member can itself be a field of another entity", () => {
-  class Audit extends Entity("Audit")({ id: UserId, actor: Member.instance }) {}
+  class Audit extends Entity("Audit")({ id: UserId, actor: Member }) {}
   const a = Audit.make({ id: userRow.id, actor: svcRow }).getOrThrow();
   expect(a.actor).toBeInstanceOf(ServiceAccount);
 });

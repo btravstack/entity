@@ -42,41 +42,46 @@ function instanceSchema<T>(
 }
 
 /**
- * Attaches `instance` to an entity class as a lazily computed,
- * self-overwriting accessor property.
+ * Makes the entity class itself a zod schema.
+ *
+ * `_zod` is the slot zod reads a schema through, and `~standard` is the
+ * Standard Schema entry point; delegating both to a lazily built transform
+ * schema is enough for `z.object({ owner: Organization })`, `z.array(...)`
+ * and an entity field map to accept the class directly. Deliberately *only*
+ * these two: the full `ZodType` surface would put a throwing `.parse()` on
+ * every entity beside `make`, which this package exists to avoid.
  *
  * The class is only ever consumed through a subclass (`class X extends
  * Entity(tag)(fields) {}`), which does not exist yet when the entity builder
  * runs. A plain value would close over the literal base constructor, so
- * `X.instance.parse(...)` would build a base instance — not an `X` —
- * failing `instanceof X`. A getter instead reads `this` from the access
- * site (`X.instance`), which JS's prototype-based static inheritance sets
- * to the actual receiver, so it binds to whichever subclass it was read
- * from — but a bare getter would rebuild the schema on every access, so
- * `X.instance !== X.instance` and every parse would reconstruct the whole
- * transform chain. The getter therefore overwrites itself with a plain,
- * non-enumerable data property on the same receiver the first time it runs,
- * so later reads are free and identity is stable.
+ * parsing would build a base instance — not an `X` — failing `instanceof X`.
+ * A getter instead reads `this` from the access site, which JS's
+ * prototype-based static inheritance sets to the actual receiver, so it binds
+ * to whichever subclass it was read from — but a bare getter would rebuild the
+ * schema on every access, so every parse would reconstruct the whole transform
+ * chain. The schema is therefore memoised per receiver in a `WeakMap`.
  *
- * Caveat: the self-overwrite is first-read-wins *per receiver*, not per
- * class. `attachInstance` runs once per `Entity(...)` call, so every entity
- * built that way defines its own getter and is unaffected. But a bare `class
- * Y extends X {}` — a plain JS subclass with no `Entity(...)` call of its
- * own — has no getter of its own; it inherits `X`'s. If `X.instance` is read
- * first, the getter on `X` is replaced by `X`'s own data property before `Y`
- * ever reads it, and `Y.instance` then resolves to that inherited property:
- * `Y.instance.parse(...)` silently builds an `X`, not a `Y`, with no error.
  */
-export function attachInstance<T>(Base: object, input: z.ZodType): void {
-  Object.defineProperty(Base, "instance", {
-    configurable: true,
-    enumerable: false,
-    get(this: object) {
-      const built = instanceSchema<T>(input, (d) =>
-        (this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> }).make(d),
-      );
-      Object.defineProperty(this, "instance", { value: built, enumerable: false });
-      return built;
-    },
-  });
+const schemas = new WeakMap<object, z.ZodType>();
+
+export function attachSchema<T>(Base: object, input: z.ZodType): void {
+  const schemaFor = (receiver: object): z.ZodType => {
+    const cached = schemas.get(receiver);
+    if (cached !== undefined) return cached;
+    const built = instanceSchema<T>(input, (d) =>
+      (receiver as unknown as { make: (state: unknown) => Result<T, InvalidEntity> }).make(d),
+    );
+    schemas.set(receiver, built);
+    return built;
+  };
+
+  for (const slot of ["_zod", "~standard"] as const) {
+    Object.defineProperty(Base, slot, {
+      configurable: true,
+      enumerable: false,
+      get(this: object) {
+        return (schemaFor(this) as unknown as Record<string, unknown>)[slot];
+      },
+    });
+  }
 }

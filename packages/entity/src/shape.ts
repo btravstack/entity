@@ -84,7 +84,7 @@ type FieldNameIsReservedByEntity = {
  */
 type ReservedFieldName = "_tag" | "equals" | "toJSON" | "update";
 
-type OnlyNominal<T extends Record<string, z.ZodTypeAny>> = {
+type OnlyNominal<T extends Record<string, z.core.$ZodType>> = {
   [K in keyof T]: K extends ReservedFieldName
     ? FieldNameIsReservedByEntity
     : IsNominalField<z.infer<T[K]>> extends true
@@ -93,7 +93,7 @@ type OnlyNominal<T extends Record<string, z.ZodTypeAny>> = {
 };
 
 /** The only sanctioned way to declare a domain shape. */
-export function shape<T extends Record<string, z.ZodTypeAny>>(
+export function shape<T extends Record<string, z.core.$ZodType>>(
   fields: T & OnlyNominal<T>,
 ): z.ZodObject<T> {
   return z.object(fields as T);
