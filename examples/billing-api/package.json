@@ -1,0 +1,30 @@
+{
+  "name": "@btravstack/entity-example-billing-api",
+  "private": true,
+  "description": "Composing an entity's four ZodObjects into an HTTP contract",
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@btravstack/entity-example-billing-domain": "workspace:*",
+    "@orpc/contract": "catalog:",
+    "@orpc/json-schema": "catalog:",
+    "@orpc/zod": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@btravstack/tsconfig": "catalog:",
+    "@types/node": "catalog:",
+    "@unthrown/vitest": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

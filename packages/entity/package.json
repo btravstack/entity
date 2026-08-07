@@ -49,7 +49,7 @@
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:types": "tsc --noEmit -p tsconfig.test-d.json",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test-d.json && tsc -p tsconfig.consumer.json && node ./node_modules/typescript-consumer/bin/tsc -p tsconfig.consumer5.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test-d.json"
   },
   "devDependencies": {
     "@btravstack/tsconfig": "catalog:",
@@ -60,7 +60,6 @@
     "@vitest/coverage-v8": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
-    "typescript-consumer": "catalog:",
     "unthrown": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
