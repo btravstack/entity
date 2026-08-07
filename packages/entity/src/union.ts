@@ -16,9 +16,10 @@ type UnionMember = {
 } & z.core.$ZodType;
 
 /**
- * The member's instance type, read off `instance` rather than off `make`.
- * `make` is generic in a `this` parameter, which cannot be inferred through a
- * loosened member type; `instance` states the same type plainly.
+ * The member's instance type, read off the member itself — an entity class is
+ * a schema, so `z.infer` gives what parsing it yields. Not read off `make`,
+ * which is generic in a `this` parameter and cannot be inferred through a
+ * loosened member type.
  */
 type InstanceOf<M extends UnionMember> = z.infer<M>;
 

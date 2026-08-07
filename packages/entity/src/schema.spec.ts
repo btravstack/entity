@@ -40,21 +40,22 @@ test("a nested invariant failure names the failing member in the issue path", ()
   }
 });
 
-test("instance is the Standard Schema entry point", () => {
+test("the class is the Standard Schema entry point", () => {
   const parse = fromSchema(Organization);
   expect(parse(raw).getOrThrow()).toBeInstanceOf(Organization);
   expect(parse({ id: "nope", slug: "" }).isErr()).toBe(true);
 });
 
-test("instance is not enumerable on the class", () => {
-  expect(Object.keys(Organization)).not.toContain("instance");
+test("the schema slots are not enumerable on the class", () => {
+  expect(Object.keys(Organization)).not.toContain("_zod");
+  expect(Object.keys(Organization)).not.toContain("~standard");
 });
 
-test("instance is built once and reused", () => {
+test("the schema is built once and reused", () => {
   expect(Organization).toBe(Organization);
 });
 
-test("instance is a Standard Schema, so it is what a framework receives", () => {
+test("the class carries ~standard, so a framework accepts it directly", () => {
   expect("~standard" in (Organization as object)).toBe(true);
 });
 
@@ -63,7 +64,7 @@ test("a defect during make propagates instead of becoming a validation issue", (
     { id: OrgId },
     {
       invariants: () => {
-        // deliberately simulate an unmodeled defect, to pin that `instance`
+        // deliberately simulate an unmodeled defect, to pin that the schema
         // lets it propagate rather than folding it into a zod issue
         // oxlint-disable-next-line unthrown/no-throw
         throw new Error("boom");

@@ -71,7 +71,7 @@ describe("shape() rejects unbranded scalars", () => {
     void wrong;
   });
 
-  test("another entity's `.instance` is a valid field", () => {
+  test("another entity class is a valid field", () => {
     class Customer extends Entity("Customer")({ id: Id, name: Name }) {}
     shape({ id: Id, customer: Customer });
     shape({ id: Id, watchers: z.array(Customer) });

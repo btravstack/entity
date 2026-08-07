@@ -66,7 +66,7 @@ Eight source modules under `packages/entity/src`, split by what they own:
   `Sealed<D>`, the module-private `unique symbol` that makes `new X(...)` a
   compile error. Written independently of the builder's body-local values so
   `EntityStatic` can serve as the builder's explicit return annotation.
-- **`instance.ts`** — `attachSchema` makes the entity class itself a zod
+- **`schema.ts`** — `attachSchema` makes the entity class itself a zod
   schema by delegating `_zod` and `~standard` to a lazily built, per-receiver
   transform. Only those two slots, never the full `ZodType`: the methods would
   put a throwing `.parse()` beside `make`. Reading from the receiver is what
@@ -85,8 +85,8 @@ Eight source modules under `packages/entity/src`, split by what they own:
   construction path, so they cannot drift from their sources.
 
 The design rule the whole package turns on: **contracts compose the four plain
-`ZodObject`s; domain code composes the class itself.** `instance` carries a
-`.transform()`, so `z.toJSONSchema(instance, { io: "output" })` throws by
+`ZodObject`s; domain code composes the class itself.** The class carries a
+`.transform()`, so `z.toJSONSchema(SomeEntity, { io: "output" })` throws by
 design — `contract.spec.ts` pins that both ways.
 
 ## Binding conventions

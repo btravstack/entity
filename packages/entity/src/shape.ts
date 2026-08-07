@@ -28,7 +28,8 @@ type IsNarrowLiteral<T> = T extends string
 type StripUndefined<T> = T extends undefined ? never : T;
 
 /**
- * Another entity, reached through its `.instance` schema.
+ * Another entity. The class is itself a schema, so it appears in a field
+ * map directly.
  *
  * Checked structurally rather than against `BaseInstance` itself: that
  * interface is generic in the entity's own shape, and there is no argument

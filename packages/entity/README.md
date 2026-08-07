@@ -75,8 +75,8 @@ class name it labels, ahead of the field map.
 | `factoryAsync(gens)` | method      | same, for promise-returning generators → `{ create(input): AsyncResult }`         |
 
 **Contracts compose the four `ZodObject`s (`input`, `output`, `createInput`,
-`updateInput`); domain code composes `instance`.** All four `ZodObject`s
-generate JSON Schema in both `"input"` and `"output"` directions. `instance`
+`updateInput`); domain code composes the class itself.** All four `ZodObject`s
+generate JSON Schema in both `"input"` and `"output"` directions. The class
 carries a transform, so it has no _output_ representation —
 `z.toJSONSchema(SomeEntity, { io: "output" })` throws by design, and a
 test in `contract.spec.ts` pins that.

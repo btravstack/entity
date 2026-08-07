@@ -5,8 +5,8 @@ import type { z } from "zod";
 import type { ComputedField } from "./computed.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
-import { attachSchema } from "./instance.js";
 import { renderIssue } from "./issues.js";
+import { attachSchema } from "./schema.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
   AsyncEntityFactory,

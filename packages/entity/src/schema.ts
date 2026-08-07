@@ -8,7 +8,7 @@ import { keysOf } from "./issues.js";
  * The composable surface: input data parsed into a class instance.
  *
  * Failures cross into zod's issue channel so a nested entity reports which
- * member failed — `z.object({ owner: Organization.instance })` yields
+ * member failed — `z.object({ owner: Organization })` yields
  * `path: ["owner"]`. This schema carries a transform, so
  * `z.toJSONSchema(..., { io: "output" })` throws on it by design; contracts
  * use the four plain `ZodObject` members instead.
