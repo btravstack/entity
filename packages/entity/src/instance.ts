@@ -42,8 +42,8 @@ function instanceSchema<T>(
 }
 
 /**
- * Attaches `instance` and `~standard` to an entity class as lazily
- * computed, self-overwriting accessor properties.
+ * Attaches `instance` to an entity class as a lazily computed,
+ * self-overwriting accessor property.
  *
  * The class is only ever consumed through a subclass (`class X extends
  * Entity(tag)(fields) {}`), which does not exist yet when the entity builder
@@ -52,12 +52,11 @@ function instanceSchema<T>(
  * failing `instanceof X`. A getter instead reads `this` from the access
  * site (`X.instance`), which JS's prototype-based static inheritance sets
  * to the actual receiver, so it binds to whichever subclass it was read
- * from — but a bare getter would rebuild the schema (and its `~standard`)
- * on every access, so `X.instance !== X.instance` and every `validate()`
- * call would reconstruct the whole transform chain. Each getter therefore
- * overwrites itself with a plain, non-enumerable data property on the same
- * receiver the first time it runs, so later reads are free and identity is
- * stable.
+ * from — but a bare getter would rebuild the schema on every access, so
+ * `X.instance !== X.instance` and every parse would reconstruct the whole
+ * transform chain. The getter therefore overwrites itself with a plain,
+ * non-enumerable data property on the same receiver the first time it runs,
+ * so later reads are free and identity is stable.
  *
  * Caveat: the self-overwrite is first-read-wins *per receiver*, not per
  * class. `attachInstance` runs once per `Entity(...)` call, so every entity
@@ -78,15 +77,6 @@ export function attachInstance<T>(Base: object, input: z.ZodType): void {
       );
       Object.defineProperty(this, "instance", { value: built, enumerable: false });
       return built;
-    },
-  });
-  Object.defineProperty(Base, "~standard", {
-    configurable: true,
-    enumerable: false,
-    get(this: { instance: z.ZodType<T> }) {
-      const standard = (this.instance as unknown as { "~standard": unknown })["~standard"];
-      Object.defineProperty(this, "~standard", { value: standard, enumerable: false });
-      return standard;
     },
   });
 }

@@ -276,9 +276,6 @@ export type EntityStatic<
   readonly instance: z.ZodType<
     BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
   >;
-  readonly "~standard": z.ZodType<
-    BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
-  >["~standard"];
   /** phantom carriers, so consumers can recover the shapes for annotations */
   readonly __input: InputOf<S>;
   readonly __output: OutputOf<S, A>;

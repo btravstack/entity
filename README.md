@@ -186,15 +186,14 @@ const Aggregate = z.object({ organization: Organization.instance });
 Aggregate.parse(raw).organization instanceof Organization; // true
 ```
 
-`instance` is also a [Standard Schema](https://standardschema.dev) — the
-class itself carries a non-enumerable `~standard` property delegating to
-`instance`, so `@unthrown/standard-schema`'s `fromSchema(Organization)`
-returns a `(raw) => Result<Organization, Issues>` validator directly:
+`instance` is also a [Standard Schema](https://standardschema.dev), being a
+zod schema, so it hands straight to anything that accepts one — a router, a
+form library, `@unthrown/standard-schema`'s `fromSchema`:
 
 ```ts
 import { fromSchema } from "@unthrown/standard-schema";
 
-const parseOrg = fromSchema(Organization);
+const parseOrg = fromSchema(Organization.instance);
 parseOrg(raw).getOrThrow(); // Organization
 ```
 
