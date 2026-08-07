@@ -2,7 +2,9 @@
 "@btravstack/entity": minor
 ---
 
-New `Entity.extend`: build a new entity from an existing one's declaration.
+New `extend` static on every entity: build a new entity from an existing
+one's declaration. It is `SomeEntity.extend(tag)(fields)`, a static on the
+class — not a property of the `Entity` builder.
 
 ```ts
 class PersonWithAge extends Person.extend("PersonWithAge")({ age: Age }) {

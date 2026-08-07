@@ -3,6 +3,7 @@ import type { z } from "zod";
 
 import type { ComputedField as ComputedFieldOf } from "./computed.js";
 import type { InvalidEntity } from "./errors.js";
+import type { OnlyNominal } from "./shape.js";
 
 export type Fields = Record<string, z.ZodTypeAny>;
 
@@ -307,7 +308,7 @@ export type EntityStatic<
       ? I
       : [],
   >(
-    fields: S2,
+    fields: S2 & OnlyNominal<S2>,
     options?: {
       readonly generated?: G2;
       readonly immutable?: I2;

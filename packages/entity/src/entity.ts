@@ -41,13 +41,6 @@ const maskOf = (keys: readonly PropertyKey[]) =>
   Object.fromEntries(keys.map((k) => [k, true as const]));
 
 /**
- * `class X extends Entity("X")({ …fields }) {}`
- *
- * Curried on the tag so it reads next to the class name it labels, ahead of
- * the field map. The tag is a non-enumerable instance property: it exists
- * for `P.tag` matching and never reaches the wire.
- */
-/**
  * What each entity was declared with, so `extend` can rebuild from it. Keyed
  * by the base class rather than stored on it, so nothing leaks onto the
  * public surface or into a consumer's declarations.
@@ -57,6 +50,13 @@ const declarations = new WeakMap<
   { readonly fields: Fields; readonly options: Record<string, unknown> | undefined }
 >();
 
+/**
+ * `class X extends Entity("X")({ …fields }) {}`
+ *
+ * Curried on the tag so it reads next to the class name it labels, ahead of
+ * the field map. The tag is a non-enumerable instance property: it exists
+ * for `P.tag` matching and never reaches the wire.
+ */
 export function Entity<Tag extends string>(tag: Tag) {
   return function <
     S extends Fields,
