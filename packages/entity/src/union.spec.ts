@@ -2,7 +2,7 @@ import { match, P } from "unthrown";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { Entity } from "./index.js";
+import { Entity, union } from "./index.js";
 
 const UserId = z.uuid().brand("UserId");
 const SvcId = z.uuid().brand("SvcId");
@@ -21,48 +21,84 @@ class ServiceAccount extends Entity("ServiceAccount")({
   label: Label,
 }) {}
 
-const Member = z.discriminatedUnion("kind", [User.output, ServiceAccount.output]);
+const Member = union("kind", [User, ServiceAccount]);
 
-const userRow = {
-  kind: "user",
-  id: "0199b1f4-1b1e-7000-8000-000000000000",
-  email: "a@b.com",
-};
+const userRow = { kind: "user", id: "0199b1f4-1b1e-7000-8000-000000000000", email: "a@b.com" };
 const svcRow = {
   kind: "service_account",
   id: "0199b1f4-1b1e-7000-8000-000000000001",
   label: "deploy-bot",
 };
 
-test("the discriminated union parses both members", () => {
-  expect(Member.parse(userRow).kind).toBe("user");
-  expect(Member.parse(svcRow).kind).toBe("service_account");
+test("make yields the right class for each member", () => {
+  expect(Member.make(userRow).getOrThrow()).toBeInstanceOf(User);
+  expect(Member.make(svcRow).getOrThrow()).toBeInstanceOf(ServiceAccount);
 });
 
-test("the union rejects an unknown discriminant", () => {
-  expect(Member.safeParse({ ...userRow, kind: "nope" }).success).toBe(false);
-});
-
-test("the union generates JSON Schema in BOTH directions, one branch per member", () => {
-  for (const io of ["input", "output"] as const) {
-    const js = z.toJSONSchema(Member, { io }) as { anyOf?: unknown[]; oneOf?: unknown[] };
-    expect((js.anyOf ?? js.oneOf ?? []).length).toBe(2);
-  }
-});
-
-test("a union of instance surfaces yields the right class", () => {
-  const Instances = z.union([User.instance, ServiceAccount.instance]);
-  expect(Instances.parse(userRow)).toBeInstanceOf(User);
-  expect(Instances.parse(svcRow)).toBeInstanceOf(ServiceAccount);
-});
-
-const describe = (m: User | ServiceAccount) =>
-  match(m)
+test("the resulting instance keeps its behaviour and tag", () => {
+  const m = Member.make(userRow).getOrThrow();
+  const described = match(m)
     .with(P.tag("User"), (u) => `user:${u.email}`)
     .with(P.tag("ServiceAccount"), (s) => `svc:${s.label}`)
     .exhaustive();
+  expect(described).toBe("user:a@b.com");
+});
 
-test("entities match with P.tag on the runtime tag", () => {
-  expect(describe(User.make(userRow).getOrThrow())).toBe("user:a@b.com");
-  expect(describe(ServiceAccount.make(svcRow).getOrThrow())).toBe("svc:deploy-bot");
+test("an unknown discriminant fails with the key and the options", () => {
+  const issues = Member.make({ ...userRow, kind: "nope" }).match({
+    ok: () => [] as readonly string[],
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues.map((i) => i.message)),
+    defect: () => ["DEFECT"],
+  });
+  expect(issues[0]).toContain('Invalid discriminant "nope"');
+  expect(issues[0]).toContain('"user"');
+  expect(issues[0]).toContain('"service_account"');
+});
+
+test("a member's own validation failure reports only that member's issues", () => {
+  // dispatching on the discriminant is what keeps this from reporting every
+  // branch's complaints, which is what a plain z.union would do
+  const issues = Member.make({ ...userRow, email: "not-an-email" }).match({
+    ok: () => [] as readonly string[],
+    errCases: (m) =>
+      m.with(P.tag("InvalidEntity"), (e) => e.issues.map((i) => String(i.path?.[0]))),
+    defect: () => ["DEFECT"],
+  });
+  expect(issues).toEqual(["email"]);
+});
+
+test("input and output generate JSON Schema in both directions, one branch per member", () => {
+  for (const io of ["input", "output"] as const) {
+    for (const schema of [Member.input, Member.output]) {
+      const js = z.toJSONSchema(schema, { io }) as { anyOf?: unknown[]; oneOf?: unknown[] };
+      expect((js.anyOf ?? js.oneOf ?? []).length).toBe(2);
+    }
+  }
+});
+
+test("instance parses to the member class and nests", () => {
+  expect(Member.instance.parse(userRow)).toBeInstanceOf(User);
+  const Wrapper = z.object({ member: Member.instance });
+  expect(Wrapper.parse({ member: svcRow }).member).toBeInstanceOf(ServiceAccount);
+});
+
+test("a nested member failure keeps the outer path", () => {
+  const result = z
+    .object({ member: Member.instance })
+    .safeParse({ member: { ...userRow, email: "nope" } });
+  expect(result.success).toBe(false);
+  if (!result.success) {
+    expect(result.error.issues[0]?.path).toEqual(["member", "email"]);
+  }
+});
+
+test("the members are reachable, for exhaustiveness and registries", () => {
+  expect(Member.discriminant).toBe("kind");
+  expect(Member.members.map((m) => m.entityName)).toEqual(["User", "ServiceAccount"]);
+});
+
+test("a union member can itself be a field of another entity", () => {
+  class Audit extends Entity("Audit")({ id: UserId, actor: Member.instance }) {}
+  const a = Audit.make({ id: userRow.id, actor: svcRow }).getOrThrow();
+  expect(a.actor).toBeInstanceOf(ServiceAccount);
 });

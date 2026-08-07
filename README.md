@@ -444,21 +444,35 @@ class ServiceAccount extends Entity("ServiceAccount")({
   label: Label,
 }) {}
 
-const Member = z.discriminatedUnion("kind", [
-  User.output,
-  ServiceAccount.output,
-]);
+const Member = union("kind", [User, ServiceAccount]);
 ```
 
-This parses both members, rejects an unknown discriminant, and generates JSON
-Schema in both directions with one branch per member — because `kind` is a
-real field on a real `ZodObject`, not framework metadata layered on top. A
-union of the `instance` surfaces parses to the right class:
+`union` gives you one artifact with both halves, rather than making you choose:
 
 ```ts
-const Instances = z.union([User.instance, ServiceAccount.instance]);
-Instances.parse(userRow) instanceof User; // true
+Member.make(row).getOrThrow(); // User | ServiceAccount — the real class
+Member.input; // discriminated union, one branch per member
+Member.output; // ditto — JSON Schema in both directions
+Member.instance; // parses to the member class; nests like any other
+Member.members; // the tuple, for registries and exhaustiveness
 ```
+
+The union **dispatches on the discriminant** rather than trying each branch in
+turn, so a member whose own validation fails reports _its_ issues — `path:
+["email"]` — instead of a pile of every branch's complaints. An unrecognised
+discriminant names the key and lists what was expected.
+
+A union is a valid field too, so an aggregate can hold one:
+
+```ts
+class Audit extends Entity("Audit")({ id: AuditId, actor: Member.instance }) {}
+```
+
+**Why the discriminant is a declared field and not the tag.** `_tag` is
+non-enumerable and absent after serialisation, so a union built on it could not
+survive a JSON round trip. The two are not redundant: `kind` discriminates
+_data_, `_tag` matches an _instance_ with `P.tag(...)`. `union` needs the
+first; the second keeps working on whatever it returns.
 
 and `_tag` still serves in domain code, exactly as in the `match` example
 above — the two mechanisms solve different problems. A brand is _per field_
