@@ -182,11 +182,16 @@ Two checks specific to this change:
 
 ## Sequencing
 
-PR #23 (`docs/fix-restructure-fallout`) edits `docs/reference.md`,
+Resolved. PR #23 (`docs/fix-restructure-fallout`) edited `docs/reference.md`,
 `docs/explanation.md` and three of the four how-to guides — the same files this
-change rewrites. **Merge #23 first, then rebase this work onto `main`.** This
-branch is currently cut from `main` and does not contain those fixes; doing the
-docs pass here before #23 lands would duplicate or revert them.
+change rewrites. It merged as `8c2485b`, and this branch is rebased onto it, so
+the docs pass here starts from the corrected text.
+
+One consequence for the docs pass: #23 gave each guide a shared imports
+preamble reading `import { Entity, computed } from "@btravstack/entity"`. Eight
+files carry that line — `docs/reference.md`, `docs/explanation.md`, all four
+`docs/how-to/*.md`, `README.md` and `packages/entity/README.md` — and every one
+collapses to `import { Entity }`.
 
 ## Out of scope
 
