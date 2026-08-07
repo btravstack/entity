@@ -154,6 +154,31 @@ test("a failed candidate match inside a Set does not poison a later comparison",
   expect(left.equals(right)).toBe(false);
 });
 
+test("a provisional match inside a failed comparison is not remembered either", () => {
+  // x and y compare equal only under the assumption that their cyclic peers
+  // a and b match — an assumption that then fails (v differs). The completed
+  // `true` for (x, y) must be forgotten with it: remembered, it wrongly
+  // matches x to y in a later genuine trial, where their peers differ.
+  const pair = (v: number) => {
+    const node: { child?: unknown; v: number } = { child: undefined, v };
+    const link = { peer: node, w: 1 };
+    node.child = link;
+    return [node, link] as const;
+  };
+  const [a, x] = pair(1);
+  const [b, y] = pair(2);
+  const [a2] = pair(1);
+  const [b2] = pair(2);
+  const p = { ref: a, extra: 1 };
+  const q = { ref: b, extra: 1 };
+  const p2 = { ref: a2, extra: 1 };
+  const r = { ref: b2, extra: 1 };
+
+  // trial p-vs-q fails but seeds (x, y) as equal; x then has no genuine
+  // match on the right, so the sets are unequal
+  expect(deepEqual(new Set([p, x, r]), new Set([q, p2, y]))).toBe(false);
+});
+
 test("typed-array values compare bytewise", () => {
   expect(deepEqual(new Uint8Array([1, 2]), new Uint8Array([1, 2]))).toBe(true);
   expect(deepEqual(new Uint8Array([1, 2]), new Uint8Array([1, 3]))).toBe(false);

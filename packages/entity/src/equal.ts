@@ -61,12 +61,13 @@ const keysOf = (value: object): readonly string[] => Object.keys(value);
  * Assuming a revisited pair is equal is the standard co-inductive reading —
  * two structures are equal if assuming their cycles match leads to no
  * contradiction elsewhere. That reading is only sound for pairs whose
- * comparison is still *open*: a pair that already finished with `false` must be
- * forgotten on the way out. `unorderedEqual`'s failed candidate matches do not
- * abort the traversal, so a remembered failure would make a later genuine
- * comparison of the same pair short-circuit to `true` — measured, two `Set`
- * fields with plainly different contents compared equal once their elements
- * shared a subtree.
+ * comparison is still *open*: every completed pair must be forgotten on the
+ * way out, whatever it concluded. A remembered `false` poisons a later genuine
+ * comparison directly — measured, two `Set` fields with plainly different
+ * contents compared equal once their elements shared a subtree. A remembered
+ * `true` is subtler but as wrong: it may have relied on an enclosing pair that
+ * was still only provisionally assumed equal, and that assumption can then
+ * fail — both are pinned in `equal.spec.ts`.
  */
 type Seen = WeakMap<object, WeakSet<object>>;
 
@@ -115,8 +116,8 @@ const equalWith = (a: unknown, b: unknown, seen: Seen): boolean => {
 
   const result = compareObjects(a, b, tag, seen);
   // the pair is only assumed-equal while its own comparison is open — see the
-  // `Seen` docstring for why a completed `false` must not stay recorded
-  if (!result) against.delete(b);
+  // `Seen` docstring for why no completed pair may stay recorded
+  against.delete(b);
   return result;
 };
 
