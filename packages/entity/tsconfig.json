@@ -3,23 +3,9 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    // `files: ["dist"]` excludes `src/`, so published declaration maps would be
-    // dead-ends (broken go-to-definition); consumers get the TSDoc'd d.ts.
     "declarationMap": false,
-    // Declaration settings reach further than this file. tsdown reads this
-    // tsconfig for its `--dts` emit (the `build` script) — the plain `tsc` pass
-    // is `noEmit`, inherited from the base — so what is set here shapes the
-    // *published* d.ts. That matters for the construction seal: `src/types.ts`
-    // seals classes with the module-private `CtorKey` symbol, and a consumer
-    // that exports an entity subclass with `declaration: true` gets TS4020
-    // ("'extends' clause of exported class has or is using private name") on
-    // `CtorKey` and `BaseInstance`. Measured against TypeScript 5.9.3 and
-    // 7.0.2 with the built d.ts. Note the base sets `declaration: true`, not
-    // `false` as the `CtorKey` comment in `src/types.ts` still says.
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  // Type-level assertions get their own relaxed pass via tsconfig.test-d.json
-  // (see the `typecheck` script) — the main pass keeps noUnusedLocals strict.
   "exclude": ["node_modules", "dist", "src/**/*.test-d.ts"]
 }

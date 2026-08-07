@@ -37,11 +37,35 @@ Run `pnpm format` (no `--check`) to auto-fix formatting.
 ### Type-level tests
 
 Behaviour that only shows up at the type level — the construction seal, the
-generated/immutable compile-time rules, `add`'s contextual typing — is pinned
-in `packages/entity/src/*.test-d.ts` and checked by
+generated/immutable compile-time rules, `computed`'s contextual typing — is
+pinned in `packages/entity/src/*.test-d.ts` and checked by
 `tsc --noEmit -p tsconfig.test-d.json` (run as part of `pnpm typecheck`). If
-you change a type-level guarantee, update or add the matching `@ts-expect-error`
-assertion.
+you change a type-level guarantee, update or add the matching
+`@ts-expect-error` assertion.
+
+`*.test-d.ts` files are excluded from the main `tsc` pass by
+`tsconfig.json`, so that pass can keep `noUnusedLocals` strict while the
+assertions declare bindings they never read.
+
+### The consumer pass
+
+`pnpm typecheck` ends with `tsc -p tsconfig.consumer.json`, which compiles
+`packages/entity/consumer/` **with declaration emit, against the built
+`dist/*.d.mts`** — a stand-in for a downstream library. That is the only
+configuration that catches a private name leaking out of the published types
+(`TS4020`), because this repo's own `tsc` pass is `noEmit` and never emits
+declarations. Both of that config's overrides are load-bearing; the fixture's
+own doc comment says why.
+
+### Publishing settings
+
+`declarationMap` is off in `packages/entity/tsconfig.json`: `files: ["dist"]`
+excludes `src/`, so published declaration maps would be dead-ends (broken
+go-to-definition). Consumers get the TSDoc'd `.d.ts` instead.
+
+Declaration settings reach further than they look — `tsdown` reads that
+tsconfig for its `--dts` emit, so what is set there shapes the _published_
+types, while the plain `tsc` pass is `noEmit` from the shared base.
 
 ## Design rules (binding)
 
