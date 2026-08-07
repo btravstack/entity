@@ -30,6 +30,14 @@ the tests and everything else had gone green.
 `EntityStatic` is now a top-level export, and `Entity.Static` for anyone
 annotating by hand. Both regressions are pinned by the consumer fixture.
 
+`EntityUnion` and `UnionMember` are exported for the same reason, one type
+further along: an exported `const` holding an `Entity.union(...)` had no
+top-level name either, so TypeScript expanded its members structurally and
+reached `$brand` through any branded field — `TS4023: Exported variable 'X' has
+or is using name '$brand' … but cannot be named`. Reported as the second error
+in [#32], and reproduced by declaring a union over an entity with a branded
+`Money` field.
+
 **The zod peer range widens from `^4.4.0` to `^4.3.0`.** Nothing in the
 implementation needed 4.4; the range was simply the version current at the
 initial release. The floor is measured — the full surface typechecks, emits

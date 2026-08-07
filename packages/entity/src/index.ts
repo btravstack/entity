@@ -23,3 +23,12 @@ export { Entity } from "./entity.js";
 // computed-key position and could not be named (`TS4020`, #32). Emitting
 // `EntityStatic<…>` by reference fixes both. Do not un-export it.
 export type { BaseInstance, ConstructionKey, EntityStatic, Sealed } from "./types.js";
+
+// `Entity.union(...)` assigned to an exported `const` is the same story one
+// type further along: with no top-level name for what it returns, TypeScript
+// expands the union's members structurally and reaches zod's module-private
+// `$brand` through any branded field, failing with `TS4023: Exported variable
+// 'X' has or is using name '$brand' … but cannot be named`. `UnionMember`
+// travels with it — it is `EntityUnion`'s own constraint, so the reference is
+// unusable without it.
+export type { EntityUnion, UnionMember } from "./union.js";
