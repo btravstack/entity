@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="26 40 148 99" width="112" height="75" fill="none">
+  <!-- identity: the beet IS the photo on its own record -->
+  <rect x="30" y="44" width="140" height="91" rx="11" fill="#E3D7DE"/>
+  <rect x="40" y="54" width="120" height="71" rx="6" stroke="#8A7580" stroke-width="3" fill="none" opacity="0.45"/>
+  <!-- photo box, vertically centered: 8px margin above and below inside the frame -->
+  <rect x="50" y="62" width="46" height="55" rx="7" fill="#8A7580" opacity="0.35"/>
+  <g transform="translate(73,115) scale(1.04)">
+    <path d="M-3,-16 C-5,-21 -4,-26 -1,-30" stroke="#2C8B4E" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+    <path d="M-1,-30 C-5,-32 -6,-37 -2,-39 C3,-41 5,-36 4,-33 C3,-31 1,-30 -1,-30 Z" fill="#3DAE62"/>
+    <path d="M-8,-15 C-13,-19 -19,-20 -23,-17 C-27,-14 -25,-9 -20,-9 C-15,-9 -11,-12 -8,-15 Z" fill="#2C8B4E"/>
+    <!-- leaf tips escape the photo frame — the character does not quite fit its own picture -->
+    <path d="M7,-16 C11,-21 17,-23 21,-20 C25,-17 23,-12 18,-11 C13,-10 9,-13 7,-16 Z" fill="#3DAE62"/>
+    <path d="M0,-18 C-14,-18 -22,-9 -22,2 L22,2 C22,-9 14,-18 0,-18 Z" fill="#CE3D80"/>
+    <path d="M8,-16 C16,-12 22,-6 22,2 L13,2 C13,-5 12,-11 8,-16 Z" fill="#8E1A52" opacity="0.85"/>
+    <circle cx="-9" cy="-6" r="3.8" fill="#3A0D24"/>
+    <circle cx="-7.8" cy="-7.2" r="1.3" fill="#FFFFFF"/>
+    <circle cx="9" cy="-6" r="3.8" fill="#3A0D24"/>
+    <circle cx="10.2" cy="-7.2" r="1.3" fill="#FFFFFF"/>
+    <path d="M-4,-1.5 Q0,1.6 4,-1.5" stroke="#3A0D24" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <circle cx="-15.5" cy="-3.5" r="2.9" fill="#EE9CC4" opacity="0.75"/>
+    <circle cx="15.5" cy="-3.5" r="2.9" fill="#EE9CC4" opacity="0.75"/>
+  </g>
+  <g stroke="#8A7580" stroke-width="7" stroke-linecap="round">
+    <path d="M106,70 L152,70"/>
+    <path d="M106,86 L128,86"/>
+  </g>
+  <!-- validation stamp: tilted double ring, worn ink gaps, check for "validated" -->
+  <g transform="translate(140,107) rotate(-14)" stroke="#CE3D80" fill="none" stroke-linecap="round">
+    <circle r="15.5" stroke-width="3.2" stroke-dasharray="22 3.5 28 3.5 30 3.5"/>
+    <circle r="10.5" stroke-width="2"/>
+    <path d="M-4.2,0.3 L-1.4,3.2 L4.6,-3.4" stroke-width="2.6" stroke-linejoin="round"/>
+  </g>
+</svg>
