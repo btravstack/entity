@@ -124,7 +124,7 @@ Organization.make({ ...row, name: "" }).match({
 | `generated`  | fields the domain supplies, never the caller                            |
 | `immutable`  | fields that never change after creation                                 |
 | `computed`   | fields derived from the declared ones, re-derived on every construction |
-| `invariants` | `Entity.Invariant[]` — a rule plus its message; any failure rejects     |
+| `invariants` | rules built with `Entity.invariant`; any failing rule rejects           |
 
 Also `Entity.union(discriminant, members)` for a union that is itself
 entity-like, and `SomeEntity.extend(tag)(fields)` to build a new entity from an
