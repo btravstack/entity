@@ -30,6 +30,12 @@ catalogs:
     '@commitlint/cli':
       specifier: 21.2.1
       version: 21.2.1
+    '@orpc/contract':
+      specifier: 2.0.0-beta.24
+      version: 2.0.0-beta.24
+    '@orpc/json-schema':
+      specifier: 2.0.0-beta.24
+      version: 2.0.0-beta.24
     '@orpc/zod':
       specifier: 2.0.0-beta.24
       version: 2.0.0-beta.24
@@ -75,6 +81,9 @@ catalogs:
     typescript:
       specifier: 7.0.2
       version: 7.0.2
+    typescript-consumer:
+      specifier: npm:typescript@5.9.3
+      version: 5.9.3
     unthrown:
       specifier: 5.1.0
       version: 5.1.0
@@ -156,6 +165,105 @@ importers:
       vitepress:
         specifier: 'catalog:'
         version: 1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.25)(typescript@6.0.3)(yaml@2.9.0)
+
+  examples/billing-api:
+    dependencies:
+      '@btravstack/entity-example-billing-domain':
+        specifier: workspace:*
+        version: link:../billing-domain
+      '@orpc/contract':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.24
+      '@orpc/json-schema':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.24
+      '@orpc/zod':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.24(zod@4.4.3)
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@btravstack/tsconfig':
+        specifier: 'catalog:'
+        version: 0.2.0
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      '@unthrown/vitest':
+        specifier: 'catalog:'
+        version: 5.1.0(unthrown@5.1.0)(vitest@4.1.10)
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jiti@2.7.0)(yaml@2.9.0)
+
+  examples/billing-domain:
+    dependencies:
+      '@btravstack/entity':
+        specifier: workspace:*
+        version: link:../../packages/entity
+      unthrown:
+        specifier: 'catalog:'
+        version: 5.1.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@btravstack/tsconfig':
+        specifier: 'catalog:'
+        version: 0.2.0
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      '@unthrown/standard-schema':
+        specifier: 'catalog:'
+        version: 5.1.0
+      '@unthrown/vitest':
+        specifier: 'catalog:'
+        version: 5.1.0(unthrown@5.1.0)(vitest@4.1.10)
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      typescript-consumer:
+        specifier: 'catalog:'
+        version: typescript@5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jiti@2.7.0)(yaml@2.9.0)
+
+  examples/billing-persistence:
+    dependencies:
+      '@btravstack/entity':
+        specifier: workspace:*
+        version: link:../../packages/entity
+      '@btravstack/entity-example-billing-domain':
+        specifier: workspace:*
+        version: link:../billing-domain
+      unthrown:
+        specifier: 'catalog:'
+        version: 5.1.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@btravstack/tsconfig':
+        specifier: 'catalog:'
+        version: 0.2.0
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      '@unthrown/vitest':
+        specifier: 'catalog:'
+        version: 5.1.0(unthrown@5.1.0)(vitest@4.1.10)
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jiti@2.7.0)(yaml@2.9.0)
 
   packages/entity:
     devDependencies:
@@ -3012,6 +3120,11 @@ packages:
     peerDependencies:
       typescript: 5.0.x || 5.1.x || 5.2.x || 5.3.x || 5.4.x || 5.5.x || 5.6.x || 5.7.x || 5.8.x || 5.9.x || 6.0.x
 
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
@@ -5723,6 +5836,8 @@ snapshots:
       minimatch: 10.2.6
       typescript: 6.0.3
       yaml: 2.9.0
+
+  typescript@5.9.3: {}
 
   typescript@6.0.3: {}
 

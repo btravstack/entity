@@ -12,7 +12,11 @@ operation returns an [`unthrown`](https://github.com/btravstack/unthrown)
 pnpm add @btravstack/entity zod unthrown @unthrown/standard-schema
 ```
 
-`zod`, `unthrown` and `@unthrown/standard-schema` are peer dependencies.
+`zod`, `unthrown` and `@unthrown/standard-schema` are peer dependencies. The
+zod range is `^4.3.0` — the floor is measured, not guessed: the full surface
+typechecks, emits declarations and passes its runtime assertions on 4.3.0.
+Nothing here needs a later minor, and monorepos commonly pin one zod across
+every package, so the range is kept as wide as it is true.
 
 ```ts
 import { z } from "zod";

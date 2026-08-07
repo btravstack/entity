@@ -9,4 +9,26 @@ export { Entity } from "./entity.js";
 // Unexported, they are private names, and the consumer fixture fails with
 // `TS4020` / `TS4094`. They must stay top-level exports of the built `d.mts`.
 // `Entity.BaseInstance` and friends exist too, for anyone annotating by hand.
-export type { BaseInstance, ConstructionKey, Sealed } from "./types.js";
+//
+// `EntityStatic` is here for the same reason and one more: it is what the whole
+// builder returns, so with no name to write, TypeScript serialises the entire
+// static surface — construct signature, four `ZodObject`s, both zod slots, four
+// phantom carriers, `make`/`extend`/`factory` — structurally into every
+// consumer's `.d.ts`, repeating the field map a dozen times over. Measured: a
+// **one-field** entity emitted a 274,048-byte declaration; exporting the name
+// took it to 240. That expansion was two reported build failures, not a size
+// curiosity — a realistic domain enum crossed TypeScript's serialisation
+// ceiling (`TS7056`, #31), and a branded *object* field was expanded through
+// `DeepReadonly` until zod's module-private `$brand` symbol reached
+// computed-key position and could not be named (`TS4020`, #32). Emitting
+// `EntityStatic<…>` by reference fixes both. Do not un-export it.
+export type { BaseInstance, ConstructionKey, EntityStatic, Sealed } from "./types.js";
+
+// `Entity.union(...)` assigned to an exported `const` is the same story one
+// type further along: with no top-level name for what it returns, TypeScript
+// expands the union's members structurally and reaches zod's module-private
+// `$brand` through any branded field, failing with `TS4023: Exported variable
+// 'X' has or is using name '$brand' … but cannot be named`. `UnionMember`
+// travels with it — it is `EntityUnion`'s own constraint, so the reference is
+// unusable without it.
+export type { EntityUnion, UnionMember } from "./union.js";

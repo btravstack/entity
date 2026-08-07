@@ -10,9 +10,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 fallible operation returns an `unthrown` `Result<T, InvalidEntity>` instead of
 throwing.
 
-pnpm + turbo monorepo with two workspaces: the package, `packages/entity`, and
-the documentation site, `docs`. Root scripts delegate to turbo; workspace
-scripts are where the real commands live.
+pnpm + turbo monorepo with five workspaces: the package, `packages/entity`; the
+documentation site, `docs`; and three example packages under `examples/`, which
+document the library and double as its declaration-emit fixtures. Root scripts
+delegate to turbo; workspace scripts are where the real commands live.
 
 ## Commands
 
@@ -20,8 +21,24 @@ Scripts are in `package.json`; the root ones delegate to turbo. Three things
 that are not derivable from there:
 
 - **The gate CI runs, in order**: `format --check`, `lint`, `typecheck`,
-  `test`, `knip`, `build`. `typecheck` is three passes — the main `tsc`, the
-  `.test-d.ts` pass, and the consumer declaration-emit pass.
+  `test`, `knip`, `build`. `typecheck` spans two workspaces:
+  `packages/entity` runs the main `tsc` plus the `.test-d.ts` pass, and
+  `examples/billing-domain` compiles **its own declarations twice** — once on
+  the repo's TypeScript (7.0.2) and once on 5.9.3 through the
+  `typescript-consumer` alias. That example is the fixture proving a downstream
+  library can build against this package; it is not decoration.
+  The second compiler is not redundant, though the reason is narrower than it
+  looks. **Both versions enforce `TS7056`; 5.9.3's threshold is simply lower.**
+  Measured on one entity carrying a 30-member enum, a branded timestamp and a
+  six-member literal union: 5.9.3 reported `TS7056`, 7.0.2 accepted the same
+  shape and reported only `TS4020`. Widen the entity and both report it. So a
+  band of realistic domain widths fails for consumers and passes here —
+  which is the band issues #31 and #32 shipped through.
+- **A `paths` mapping is not how the emit fixture resolves the package.**
+  `examples/billing-domain` depends on `@btravstack/entity` as `workspace:*`
+  and reaches `dist/index.d.mts` through its real `exports`, the way an actual
+  consumer does. The deleted `packages/entity/consumer/` faked that with
+  `paths`.
 - **A single test file runs from inside `packages/entity`**, not the root.
 - **The docs site runs from inside `docs`**: `pnpm --filter ./docs dev`.
   `pnpm build` at the root builds it too, since it is a workspace.
