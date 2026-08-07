@@ -12,7 +12,7 @@ without the storage layer knowing about entity internals.
 >
 > ```ts
 > import { z } from "zod";
-> import { match, P } from "unthrown";
+> import { P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
 
@@ -37,6 +37,12 @@ org.toJSON(); // { id, slug } — cachedSummary is not there
 
 Do **not** use spread. `{ ...org }` copies own enumerable properties, which
 includes class-body fields — so it leaks exactly what `toJSON()` excludes.
+
+The projection is typed `DeepReadonly`, and that is honest rather than
+cautious: the top-level object is fresh, but nested containers are the
+instance's own frozen references, so mutating one would throw. A driver that
+insists on mutating its argument gets a structural clone
+(`structuredClone(org.toJSON())`), not a cast.
 
 ## Read with `make()`
 
@@ -69,7 +75,9 @@ Person.make({ id, first: "Ada", last: "Lovelace", fullName: "stale value" });
 
 That means a derivation change does not need a backfill migration to be
 _correct_ — only to make stored values match, for queries that read the column
-directly.
+directly. For every other kind of model change against stored rows — adding,
+defaulting, renaming, retiring a field — see
+[Evolve an entity](/how-to/evolve-an-entity).
 
 ## Map a repository
 

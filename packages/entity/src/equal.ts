@@ -45,7 +45,7 @@ const keysOf = (value: object): readonly string[] => Object.keys(value);
  * a canonical form this module deliberately does not define.
  */
 /**
- * Pairs already being compared further up the stack.
+ * Pairs currently being compared further up the stack — a stack, not a memo.
  *
  * `deepFreeze` guards cycles with a `WeakSet` and its docstring names the
  * sources: "a `z.custom` field or a caller-supplied object can close a loop".
@@ -54,13 +54,20 @@ const keysOf = (value: object): readonly string[] => Object.keys(value);
  * `RangeError: Maximum call stack size exceeded`, which is exactly the escaping
  * throw this module exists to remove.
  *
- * Keyed by the left value, holding the right ones it is already being compared
- * against, so the guard is per *pair*: `a` may legitimately be compared with
- * several different values in one traversal.
+ * Keyed by the left value, holding the right ones it is currently being
+ * compared against, so the guard is per *pair*: `a` may legitimately be
+ * compared with several different values in one traversal.
  *
  * Assuming a revisited pair is equal is the standard co-inductive reading —
  * two structures are equal if assuming their cycles match leads to no
- * contradiction elsewhere.
+ * contradiction elsewhere. That reading is only sound for pairs whose
+ * comparison is still *open*: every completed pair must be forgotten on the
+ * way out, whatever it concluded. A remembered `false` poisons a later genuine
+ * comparison directly — measured, two `Set` fields with plainly different
+ * contents compared equal once their elements shared a subtree. A remembered
+ * `true` is subtler but as wrong: it may have relied on an enclosing pair that
+ * was still only provisionally assumed equal, and that assumption can then
+ * fail — both are pinned in `equal.spec.ts`.
  */
 type Seen = WeakMap<object, WeakSet<object>>;
 
@@ -102,11 +109,19 @@ const equalWith = (a: unknown, b: unknown, seen: Seen): boolean => {
   const tag = tagOf(a);
   if (tag !== tagOf(b)) return false;
 
-  const against = seen.get(a);
-  if (against?.has(b) === true) return true;
-  if (against === undefined) seen.set(a, new WeakSet<object>([b]));
-  else against.add(b);
+  const against = seen.get(a) ?? new WeakSet<object>();
+  if (against.has(b)) return true;
+  if (!seen.has(a)) seen.set(a, against);
+  against.add(b);
 
+  const result = compareObjects(a, b, tag, seen);
+  // the pair is only assumed-equal while its own comparison is open — see the
+  // `Seen` docstring for why no completed pair may stay recorded
+  against.delete(b);
+  return result;
+};
+
+const compareObjects = (a: object, b: object, tag: string, seen: Seen): boolean => {
   const deepEqual = (l: unknown, r: unknown): boolean => equalWith(l, r, seen);
 
   switch (tag) {

@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { z } from "zod";
 
+import { deepEqual } from "./equal.js";
 import { Entity } from "./index.js";
 
 const Id = z.uuid().brand("Id");
@@ -129,6 +130,72 @@ test("a cycle does not mask a difference reachable only through it", () => {
   const a = Tree.make({ id, root: linked("x") }).getOrThrow();
   const b = Tree.make({ id, root: linked("y") }).getOrThrow();
   expect(a.equals(b)).toBe(false);
+});
+
+test("a failed candidate match inside a Set does not poison a later comparison", () => {
+  type Item = { child: { v: number }; a: number };
+  const ItemSchema = z.custom<Item>((v) => typeof v === "object" && v !== null);
+  const Items = z.set(ItemSchema).brand("Items");
+  class Box extends Entity("Box")({ id: Id, items: Items }) {}
+
+  const c = { v: 1 };
+  const p: Item = { child: c, a: 1 };
+  const r: Item = { child: c, a: 1 };
+  const q: Item = { child: { v: 2 }, a: 1 };
+  const s: Item = { child: { v: 1 }, a: 1 };
+
+  const left = Box.make({ id, items: new Set([p, r]) }).getOrThrow();
+  const right = Box.make({ id, items: new Set([q, s]) }).getOrThrow();
+
+  // `left` holds two {v:1}-shaped items, `right` one {v:1} and one {v:2} — no
+  // matching exists, so the sets are unequal. The greedy walk first compares
+  // p against q (false), which recorded (c, q.child) in `seen`; r against q
+  // then hit that leftover pair and wrongly short-circuited to equal.
+  expect(left.equals(right)).toBe(false);
+});
+
+test("a provisional match inside a failed comparison is not remembered either", () => {
+  // x and y compare equal only under the assumption that their cyclic peers
+  // a and b match — an assumption that then fails (v differs). The completed
+  // `true` for (x, y) must be forgotten with it: remembered, it wrongly
+  // matches x to y in a later genuine trial, where their peers differ.
+  const pair = (v: number) => {
+    const node: { child?: unknown; v: number } = { child: undefined, v };
+    const link = { peer: node, w: 1 };
+    node.child = link;
+    return [node, link] as const;
+  };
+  const [a, x] = pair(1);
+  const [b, y] = pair(2);
+  const [a2] = pair(1);
+  const [b2] = pair(2);
+  const p = { ref: a, extra: 1 };
+  const q = { ref: b, extra: 1 };
+  const p2 = { ref: a2, extra: 1 };
+  const r = { ref: b2, extra: 1 };
+
+  // trial p-vs-q fails but seeds (x, y) as equal; x then has no genuine
+  // match on the right, so the sets are unequal
+  expect(deepEqual(new Set([p, x, r]), new Set([q, p2, y]))).toBe(false);
+});
+
+test("typed-array values compare bytewise", () => {
+  expect(deepEqual(new Uint8Array([1, 2]), new Uint8Array([1, 2]))).toBe(true);
+  expect(deepEqual(new Uint8Array([1, 2]), new Uint8Array([1, 3]))).toBe(false);
+  expect(deepEqual(new Uint8Array([1, 2]), new Uint8Array([1, 2, 3]))).toBe(false);
+  // different views over identical bytes are different kinds, never equal
+  expect(deepEqual(new Uint8Array([1]), new Int8Array([1]))).toBe(false);
+});
+
+test("ArrayBuffers compare bytewise", () => {
+  expect(deepEqual(new Uint8Array([1, 2]).buffer, new Uint8Array([1, 2]).buffer)).toBe(true);
+  expect(deepEqual(new Uint8Array([1, 2]).buffer, new Uint8Array([1, 3]).buffer)).toBe(false);
+});
+
+test("RegExps compare by source and flags", () => {
+  expect(deepEqual(/a/g, /a/g)).toBe(true);
+  expect(deepEqual(/a/g, /a/i)).toBe(false);
+  expect(deepEqual(/a/, /b/)).toBe(false);
 });
 
 test("the same object compared against two different values is not confused", () => {

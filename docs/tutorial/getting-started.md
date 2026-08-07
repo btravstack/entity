@@ -22,7 +22,8 @@ pnpm add @btravstack/entity zod unthrown @unthrown/standard-schema
 
 All four, because `zod`, `unthrown` and `@unthrown/standard-schema` are **peer**
 dependencies — the package hands you back _your_ copies of them rather than its
-own. ([Why](/explanation/peer-dependencies).)
+own. ([Why](/explanation/peer-dependencies).) Any zod `^4.3.0` works; the floor
+is measured, not guessed.
 
 ## 1. Brand your fields
 
@@ -41,7 +42,7 @@ const Instant = z.iso.datetime().brand("Instant");
 
 The reason is the one every domain modeller already knows: with plain strings,
 `findOrg(slug, name)` type-checks with the arguments swapped. Branded, it does
-not.
+not. ([The full argument](/explanation/branded-fields).)
 
 ## 2. Declare the entity
 
@@ -66,8 +67,10 @@ Organization.createInput; // ZodObject — the create request
 Organization.updateInput; // ZodObject — the update request, partial
 ```
 
-Right now `createInput` equals `input` and `updateInput` is just `output` made
-partial. The next step is what makes them differ.
+Right now `createInput` has the same shape as `input`, and `updateInput` is
+just `output` made partial — though each is its own object, so a registry keyed
+by schema identity keeps all four. The next step is what makes their shapes
+differ.
 
 ## 3. Say which fields the domain owns
 
@@ -285,6 +288,8 @@ no output representation.
   end to end.
 - [Persist and rehydrate](/how-to/persist-and-rehydrate) — repositories, and why
   computed columns heal themselves.
+- [Evolve an entity](/how-to/evolve-an-entity) — changing the model once rows
+  are stored.
 - [Model an aggregate](/how-to/model-an-aggregate) — entities nested in entities,
   and `Entity.union`.
 - [Test domain logic](/how-to/test-domain-logic) — deterministic tests with no

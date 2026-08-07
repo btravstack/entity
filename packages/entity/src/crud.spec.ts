@@ -88,6 +88,26 @@ test("update re-runs invariants", () => {
   expect(issues).toEqual(["trialEndsAt must be after createdAt"]);
 });
 
+test("an InvalidEntity carries a readable message, not a blank Error", () => {
+  const message = Organization.make({ id: "nope", slug: "" }).match({
+    ok: () => "",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.message),
+    defect: () => "DEFECT",
+  });
+  // the structured `issues` stay the API; the message is their human spelling,
+  // so a bare `console.log(err)` or a failed assertion names the entity and
+  // the failing fields instead of printing an empty `Error`
+  expect(message).toContain("Organization");
+  expect(message).toContain("id: ");
+});
+
+test("Entity.renderIssue and Entity.keysOf render and normalise one issue", () => {
+  // Standard Schema allows a bare key or a `{ key }` wrapper in a path
+  expect(Entity.keysOf({ path: ["a", { key: "b" }], message: "broken" })).toEqual(["a", "b"]);
+  expect(Entity.renderIssue({ path: ["a", { key: "b" }], message: "broken" })).toBe("a.b: broken");
+  expect(Entity.renderIssue({ message: "spans the entity" })).toBe("spans the entity");
+});
+
 test("an entity with no generated or immutable options still exposes both schemas", () => {
   class Plain extends Entity("Plain")({ id: OrgId, slug: Slug }) {}
   expect(Object.keys(Plain.createInput.shape).toSorted()).toEqual(["id", "slug"]);

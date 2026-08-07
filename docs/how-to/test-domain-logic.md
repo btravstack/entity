@@ -12,7 +12,7 @@ tests without stubbing `Date.now` or `crypto.randomUUID`.
 >
 > ```ts
 > import { z } from "zod";
-> import { match, P } from "unthrown";
+> import { P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
 

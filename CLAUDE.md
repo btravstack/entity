@@ -158,8 +158,8 @@ design — `contract.spec.ts` pins that both ways.
   `ConstructionKey` / `Sealed`, exported at the top level as well: a downstream
   library compiling with `declaration: true` emits the _underlying_ name, not
   the namespace path aliasing it, so hiding them fails the consumer pass with
-  `TS4020`. That is measured, not assumed — `consumer/index.ts` names every
-  namespace member for exactly this reason, and an **unused**
+  `TS4020`. That is measured, not assumed — `examples/billing-domain/src/emit-guards.ts`
+  names every namespace member for exactly this reason, and an **unused**
   `@ts-expect-error` there is a failure signal, not noise.
 - **Entities are not subclassable.** One `extends` is the declaration form;
   `construct` defects on anything deeper. Behaviour goes in the entity's own

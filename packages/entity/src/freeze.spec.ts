@@ -171,3 +171,66 @@ test("a z.custom inside a record value stays writable", () => {
   Job.make({ id: jobId, cfgs: { a: caller } }).getOrThrow();
   expect(Object.isFrozen(caller)).toBe(false);
 });
+
+/**
+ * The walk must not lose schema context at a union boundary: `childSchema` had
+ * no `"union"` case, so a `z.custom` nested in an object *inside a branch* was
+ * walked with no context and frozen — the caller-owned mutation the module's
+ * own docstring calls the worse of the two errors.
+ */
+test("a z.custom nested in an object under a union branch stays writable", () => {
+  const Wrapped = z
+    .union([z.object({ cfg: CfgSchema, k: z.literal("a") }), z.literal("none")])
+    .brand("Wrapped");
+  class Job extends Entity("Job4")({ id: JobId, wrapper: Wrapped }) {}
+
+  const caller = cfg();
+  const job = Job.make({ id: jobId, wrapper: { cfg: caller, k: "a" } }).getOrThrow();
+
+  expect(Object.isFrozen(caller)).toBe(false);
+  caller.retries = 5;
+  expect(caller.retries).toBe(5);
+  // the branch's own object is decoded data, and is still frozen
+  expect(Object.isFrozen(job.wrapper)).toBe(true);
+});
+
+test("a z.custom behind a pipe is recognised through the out side", () => {
+  const schema = z.object({ cfg: z.unknown().pipe(CfgSchema) });
+  const caller = cfg();
+  const value = { cfg: caller };
+  deepFreeze(value, undefined, schema);
+  expect(Object.isFrozen(value)).toBe(true);
+  expect(Object.isFrozen(caller)).toBe(false);
+});
+
+test("an intersection whose side is passthrough leaves the value alone", () => {
+  const schema = z.object({
+    wrap: z.intersection(
+      CfgSchema,
+      z.custom<Cfg>(() => true),
+    ),
+  });
+  const caller = cfg();
+  deepFreeze({ wrap: caller }, undefined, schema);
+  expect(Object.isFrozen(caller)).toBe(false);
+});
+
+test("a z.custom inside one side of an intersection stays writable", () => {
+  const schema = z.intersection(z.object({ cfg: CfgSchema }), z.object({ n: z.number() }));
+  const caller = cfg();
+  const value = { cfg: caller, n: 1 };
+  deepFreeze(value, undefined, schema);
+  expect(Object.isFrozen(value)).toBe(true);
+  expect(Object.isFrozen(caller)).toBe(false);
+});
+
+test("a z.custom in a tuple slot is skipped while the other slots freeze", () => {
+  const schema = z.tuple([CfgSchema, z.object({ a: z.number() })]);
+  const caller = cfg();
+  const other = { a: 1 };
+  const value = [caller, other];
+  deepFreeze(value, undefined, schema);
+  expect(Object.isFrozen(value)).toBe(true);
+  expect(Object.isFrozen(caller)).toBe(false);
+  expect(Object.isFrozen(other)).toBe(true);
+});

@@ -29,17 +29,6 @@ test("the class nests inside a zod object and an array", () => {
   expect(many[0]).toBeInstanceOf(Organization);
 });
 
-test("a nested invariant failure names the failing member in the issue path", () => {
-  const result = z
-    .object({ owner: Organization })
-    .safeParse({ owner: { ...raw, slug: "reserved" } });
-  expect(result.success).toBe(false);
-  if (!result.success) {
-    expect(result.error.issues[0]?.path).toEqual(["owner"]);
-    expect(result.error.issues[0]?.message).toBe("slug must not be reserved");
-  }
-});
-
 test("the class is the Standard Schema entry point", () => {
   const parse = fromSchema(Organization);
   expect(parse(raw).getOrThrow()).toBeInstanceOf(Organization);

@@ -57,10 +57,17 @@ Returns a **new** entity. Re-runs the invariants and re-derives the computed
 fields. `immutable` and `computed` fields are absent from the patch type and
 dropped at runtime.
 
-## `entity.toJSON()` → the stored shape
+## `entity.toJSON()` → `DeepReadonly<Output>`
 
 Projects exactly `output`'s keys. Excludes `_tag` and any class-body fields.
 Called implicitly by `JSON.stringify`.
+
+The return type is `DeepReadonly` because the projection is shallow: the
+top-level object is fresh, but every nested container is the instance's own
+frozen reference. Typed as the plain mutable shape,
+`org.toJSON().tags.push(…)` compiled and threw `object is not extensible` at
+runtime — the readonly type makes the freeze visible at compile time. Need a
+mutable copy? Clone: `structuredClone(org.toJSON())`.
 
 ## `entity.equals(other)` → `boolean`
 

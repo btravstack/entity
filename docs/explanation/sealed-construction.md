@@ -13,6 +13,12 @@ run and the stored data is exactly what `output` describes.
 The seal is a type, not a runtime check, because a runtime guard would mean
 throwing — which this package exists to avoid.
 
+The sealing property is named so the compile error carries the fix:
+`new SomeEntity(...)` fails with
+`Property '__useMakeOrFactoryInstead' is missing …` — the diagnostic tells the
+reader what to do, the same trick the field rules play by making
+`DomainFieldMustBeBrandedOrAnEntity` the rejection type's name.
+
 Two alternatives were measured and rejected:
 
 - **`private constructor`** → `TS2675: Cannot extend a class 'Base'`. The

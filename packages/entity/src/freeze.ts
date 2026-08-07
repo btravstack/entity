@@ -68,6 +68,10 @@ const unwrap = (schema: Schema | undefined): Schema | undefined => {
       const getter = def["getter"];
       return typeof getter === "function" ? unwrap(asSchema((getter as () => unknown)())) : schema;
     }
+    // the value being frozen is what parsing *produced*, and a pipe's output
+    // is described by its out side
+    case "pipe":
+      return unwrap(asSchema(def["out"]));
     default:
       return schema;
   }
@@ -89,14 +93,34 @@ const isPassthrough = (schema: Schema | undefined): boolean => {
     const options = def["options"];
     return Array.isArray(options) && options.some((o) => isPassthrough(asSchema(o)));
   }
+  // an intersection's value satisfied both sides, so if either side hands the
+  // caller's reference through, the value may still be caller-owned
+  if (def.type === "intersection") {
+    return isPassthrough(asSchema(def["left"])) || isPassthrough(asSchema(def["right"]));
+  }
   return false;
 };
 
 /**
+ * One schema context standing for several candidates, for the positions where
+ * the walk cannot know which branch produced the value. A synthetic `union`
+ * def, so `isPassthrough` treats it as passthrough when *any* candidate is —
+ * freezing an object the caller still owns is the worse of the two errors, and
+ * ambiguity resolves toward skipping.
+ */
+const anyOf = (candidates: readonly (Schema | undefined)[]): Schema | undefined => {
+  const children = candidates.filter((c): c is Schema => c !== undefined);
+  if (children.length === 0) return undefined;
+  if (children.length === 1) return children[0];
+  return { _zod: { def: { type: "union", options: children } } };
+};
+
+/**
  * The schema describing `value[key]`, or `undefined` when the shape is one this
- * cannot follow — an intersection, say. `undefined` means "no schema context",
- * and the traversal then freezes as it always did, so an unhandled container is
- * a missed skip rather than a crash.
+ * cannot follow. `undefined` means "no schema context", and the traversal then
+ * freezes as it always did — safe only because every container a passthrough
+ * value can legally sit under has a case here; an unhandled *leaf* is a missed
+ * skip rather than a crash.
  */
 const childSchema = (schema: Schema | undefined, key: string | number): Schema | undefined => {
   const def = defOf(unwrap(schema));
@@ -118,6 +142,19 @@ const childSchema = (schema: Schema | undefined, key: string | number): Schema |
       const item = Array.isArray(items) ? items[Number(key)] : undefined;
       return asSchema(item ?? def["rest"]);
     }
+    // the walk cannot know which branch produced the value, so the child
+    // context is "any of these" — see `anyOf`
+    case "union": {
+      const options = def["options"];
+      return Array.isArray(options)
+        ? anyOf(options.map((o) => childSchema(asSchema(o), key)))
+        : undefined;
+    }
+    case "intersection":
+      return anyOf([
+        childSchema(asSchema(def["left"]), key),
+        childSchema(asSchema(def["right"]), key),
+      ]);
     default:
       return undefined;
   }

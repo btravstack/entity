@@ -5,17 +5,24 @@
   "out": "api/entity",
   "categoryOrder": ["Facade", "Declaration", "Entry points", "Types", "Errors", "*"],
   "intentionallyNotExported": [
+    "AsyncEntityFactory",
+    "AsyncGenerators",
     "BaseInstanceSrc",
     "ComputedField",
     "ComputedFieldSrc",
     "ComputedOf",
+    "ConstructedInstance",
     "ConstructionKeySrc",
+    "CreateInputOf",
+    "DeepReadonly",
     "DomainFieldMustBeBrandedOrAnEntity",
-    "EntityStatic",
-    "EntityUnion",
+    "EntityFactory",
+    "EntityStaticSrc",
     "EntityUnionSrc",
     "Fields",
+    "Generators",
     "InputOf",
+    "InstanceOf",
     "InvalidEntity",
     "Invariant",
     "InvariantSrc",
@@ -24,6 +31,6 @@
     "OutputOf",
     "PatchOf",
     "SealedSrc",
-    "UnionMember"
+    "UpdateInputShapeOf"
   ]
 }

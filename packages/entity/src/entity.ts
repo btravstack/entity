@@ -7,7 +7,7 @@ import { deepEqual } from "./equal.js";
 import { InvalidEntity } from "./errors.js";
 import { deepFreeze } from "./freeze.js";
 import { invariant, type Invariant } from "./invariant.js";
-import { renderIssue } from "./issues.js";
+import { keysOf, renderIssue } from "./issues.js";
 import { attachSchema } from "./schema.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
@@ -308,9 +308,17 @@ export function Entity<Tag extends string>(tag: Tag) {
        * a domain name. One that existed here was removed: two public spellings
        * of one projection is the alias CONTRIBUTING tells us to resist, and a
        * repository write reads perfectly well as `db.insert(org.toJSON())`.
+       *
+       * `DeepReadonly`, because the projection is shallow: the top-level object
+       * is fresh, but every nested container is the instance's own frozen
+       * reference. Typed as the plain mutable shape, `toJSON().tags.push(…)`
+       * compiled and threw `object is not extensible` at runtime — measured.
        */
-      toJSON(): OutputShape {
-        return project(this);
+      toJSON(): DeepReadonly<OutputShape> {
+        // through `unknown`: checking `OutputShape` against its own
+        // `DeepReadonly` while the shape is still generic makes TS build the
+        // full compatibility union and give up (TS2590)
+        return project(this) as unknown as DeepReadonly<OutputShape>;
       }
 
       /**
@@ -449,6 +457,12 @@ Entity.computed = computed;
 Entity.invariant = invariant;
 Entity.union = union;
 Entity.InvalidEntity = InvalidEntity;
+// The issue helpers an adapter needs to turn an `InvalidEntity` into a
+// response body: `keysOf` normalises a Standard Schema path (bare key or
+// `{ key }` wrapper) to plain keys, `renderIssue` is the human spelling —
+// the same one `InvalidEntity.message` is built from.
+Entity.keysOf = keysOf;
+Entity.renderIssue = renderIssue;
 
 /**
  * Source aliases for the namespace below. The `Src` suffix is load bearing.
@@ -460,8 +474,8 @@ Entity.InvalidEntity = InvalidEntity;
  * loudly; the type just degenerates. Measured against tsdown + typescript
  * 7.0.2: spelling this member `import("./types.js").ConstructionKey` voided the
  * construction seal, and the only signal was the consumer fixture's
- * `@ts-expect-error` on a forged key going *unused*. An unused directive under
- * `consumer/` is a failure here, not noise.
+ * `@ts-expect-error` on a forged key going *unused*. An unused directive in
+ * `examples/billing-domain/src/emit-guards.ts` is a failure here, not noise.
  */
 type ComputedFieldSrc<T extends z.core.$ZodType, D> = ComputedField<T, D>;
 type InvariantSrc<D> = Invariant<D>;

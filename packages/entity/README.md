@@ -58,13 +58,13 @@ const loaded = Organization.make(row).getOrThrow(); // rows, imports, event fold
 const renamed = loaded.update({ name: next }).getOrThrow(); // a NEW entity
 ```
 
-| Schema member | For                                                  |
-| ------------- | ---------------------------------------------------- |
-| `input`       | everything `make()` accepts                          |
-| `output`      | stored state and response body                       |
-| `createInput` | create request — `input` minus `generated`           |
-| `updateInput` | update request — `output` minus `immutable`, partial |
-| _the class_   | parses to an instance; valid as a field              |
+| Schema member | For                                                                 |
+| ------------- | ------------------------------------------------------------------- |
+| `input`       | everything `make()` accepts                                         |
+| `output`      | stored state and response body                                      |
+| `createInput` | create request — `input` minus `generated`                          |
+| `updateInput` | update request — `output` minus `immutable` and `computed`, partial |
+| _the class_   | parses to an instance; valid as a field                             |
 
 Also `Entity.union(...)` for a union that is itself entity-like, and
 `SomeEntity.extend(tag)(fields)` to build a new entity from an existing one.
