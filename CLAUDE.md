@@ -66,10 +66,15 @@ Eight source modules under `packages/entity/src`, split by what they own:
   `Sealed<D>`, the module-private `unique symbol` that makes `new X(...)` a
   compile error. Written independently of the builder's body-local values so
   `EntityStatic` can serve as the builder's explicit return annotation.
-- **`instance.ts`** — `attachInstance` installs `instance` and `~standard` as
-  lazy, self-overwriting accessor getters. The getter (not a plain value) is
-  what makes `X.instance.parse(...)` build an `X` rather than the base class,
-  since the subclass does not exist when the builder runs.
+- **`instance.ts`** — `attachInstance` installs `instance` as a lazy,
+  self-overwriting accessor getter. The getter (not a plain value) is what
+  makes `X.instance.parse(...)` build an `X` rather than the base class, since
+  the subclass does not exist when the builder runs. `instance` is a zod
+  schema, so it is already a Standard Schema; the class carries no `~standard`
+  of its own.
+- **`union.ts`** — `Entity.union(discriminant, members)`. Dispatches on the
+  declared discriminant rather than trying each branch, so a failing member
+  reports its own issues.
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
   fields, and `shape()`, the only sanctioned way to build a domain object.
 - **`issues.ts`** — `keysOf` and `renderIssue`. Standard Schema permits a path

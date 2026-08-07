@@ -62,18 +62,17 @@ class name it labels, ahead of the field map.
 
 ## Statics
 
-| Static               | Kind            | Purpose                                                                           |
-| -------------------- | --------------- | --------------------------------------------------------------------------------- |
-| `entityName`         | `string`        | the tag passed to `Entity(tag)`                                                   |
-| `input`              | `ZodObject`     | the full wire object                                                              |
-| `output`             | `ZodObject`     | stored state and response body                                                    |
-| `createInput`        | `ZodObject`     | create request — `input` minus `generated`                                        |
-| `updateInput`        | `ZodObject`     | update request — `output` minus `immutable`, partial                              |
-| `instance`           | `ZodType`       | parses straight to a class instance; valid as a field, so aggregates are entities |
-| `~standard`          | Standard Schema | `instance`'s Standard Schema entry point                                          |
-| `make(state)`        | method          | already-stored state → entity, for row mappers and event folds                    |
-| `factory(gens)`      | method          | binds the generated fields' sources → `{ create(input) }`                         |
-| `factoryAsync(gens)` | method          | same, for promise-returning generators → `{ create(input): AsyncResult }`         |
+| Static               | Kind        | Purpose                                                                           |
+| -------------------- | ----------- | --------------------------------------------------------------------------------- |
+| `entityName`         | `string`    | the tag passed to `Entity(tag)`                                                   |
+| `input`              | `ZodObject` | the full wire object                                                              |
+| `output`             | `ZodObject` | stored state and response body                                                    |
+| `createInput`        | `ZodObject` | create request — `input` minus `generated`                                        |
+| `updateInput`        | `ZodObject` | update request — `output` minus `immutable`, partial                              |
+| `instance`           | `ZodType`   | parses straight to a class instance; valid as a field, so aggregates are entities |
+| `make(state)`        | method      | already-stored state → entity, for row mappers and event folds                    |
+| `factory(gens)`      | method      | binds the generated fields' sources → `{ create(input) }`                         |
+| `factoryAsync(gens)` | method      | same, for promise-returning generators → `{ create(input): AsyncResult }`         |
 
 **Contracts compose the four `ZodObject`s (`input`, `output`, `createInput`,
 `updateInput`); domain code composes `instance`.** All four `ZodObject`s

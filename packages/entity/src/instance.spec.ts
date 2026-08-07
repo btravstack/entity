@@ -37,19 +37,22 @@ test("a nested invariant failure names the failing member in the issue path", ()
   }
 });
 
-test("the class itself is a Standard Schema", () => {
-  const parse = fromSchema(Organization);
+test("instance is the Standard Schema entry point", () => {
+  const parse = fromSchema(Organization.instance);
   expect(parse(raw).getOrThrow()).toBeInstanceOf(Organization);
   expect(parse({ id: "nope", slug: "" }).isErr()).toBe(true);
 });
 
-test("the standard-schema property is not enumerable", () => {
-  expect(Object.keys(Organization)).not.toContain("~standard");
+test("instance is not enumerable on the class", () => {
+  expect(Object.keys(Organization)).not.toContain("instance");
 });
 
-test("instance and ~standard are built once and reused", () => {
+test("instance is built once and reused", () => {
   expect(Organization.instance).toBe(Organization.instance);
-  expect(Organization["~standard"]).toBe(Organization["~standard"]);
+});
+
+test("instance is a Standard Schema, so it is what a framework receives", () => {
+  expect("~standard" in (Organization.instance as object)).toBe(true);
 });
 
 test("a defect during make propagates instead of becoming a validation issue", () => {
