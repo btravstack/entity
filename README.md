@@ -1,9 +1,23 @@
-# @btravstack/entity
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-dark.svg">
+  <img src="docs/public/logo-light.svg" alt="entity" width="170" height="114" />
+</picture>
+
+# entity
 
 **A domain-entity builder for [TypeScript](https://www.typescriptlang.org/), on [zod](https://zod.dev) v4 — branded fields, immutable data, sealed construction, and `Result` instead of throws.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/btravstack/entity/actions/workflows/ci.yml/badge.svg)](https://github.com/btravstack/entity/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/%40btravstack%2Fentity.svg?logo=npm)](https://www.npmjs.com/package/@btravstack/entity)
+[![npm downloads](https://img.shields.io/npm/dm/%40btravstack%2Fentity.svg)](https://www.npmjs.com/package/@btravstack/entity)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[**Reference**](./docs/reference.md) · [**Explanation**](./docs/explanation.md) · [**How-to guides**](./docs/how-to)
+
+</div>
 
 One declaration gives you a type, four request/response schemas, behaviour, and
 a class that is itself a zod schema — so entities nest inside each other
