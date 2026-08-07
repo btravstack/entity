@@ -610,10 +610,40 @@ org.cachedSummary = "computed"; // ✓ still writable — it isn't declared data
 org.toJSON(); // does NOT include cachedSummary — toJSON() projects only the declared schema's keys
 ```
 
+## `extend`
+
+An entity can be extended into a **new** entity carrying its fields plus more:
+
+```ts
+class Person extends Entity("Person")({ id: PersonId, name: Name }) {}
+
+class PersonWithAge extends Person.extend("PersonWithAge")({ age: Age }) {
+  get isAdult(): boolean {
+    return this.age >= 18;
+  }
+}
+```
+
+The result is its own entity, not a variant of `Person`: its own tag, its own
+schemas, and its own identity under `equals` — `child.equals(parent)` is
+`false` even when the shared fields match. That is the difference between this
+and the bare subclassing below, which has none of those and is refused.
+
+The parent's options are **inherited and merged per key, child winning**, so an
+extension is never quietly laxer than what it extends — `immutable`,
+`invariants` and `computed` all carry over unless the child names them. An
+extension can itself be extended.
+
+One limit worth knowing: `extend` rebuilds from the **declaration** — the field
+map and the options. A getter written in the parent's class body is part of
+neither, so it does not come along. Re-declare it on the extension, or put
+shared behaviour in a plain function.
+
 ## Entities are not subclassable
 
-One `extends` is the declaration form. Subclassing the result is not
-supported, and fails at construction with a `Defect`:
+One `extends` is the declaration form, and `extend` above builds a new entity
+from an existing one. Subclassing the _result_ is neither, and fails at
+construction with a `Defect`:
 
 ```ts
 class Sub extends Organization {}
