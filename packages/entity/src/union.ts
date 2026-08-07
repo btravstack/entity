@@ -9,8 +9,8 @@ import { InvalidEntity } from "./errors.js";
  */
 type UnionMember = {
   readonly entityName: string;
-  readonly input: z.ZodType;
-  readonly output: z.ZodType;
+  readonly input: z.ZodObject<z.core.$ZodLooseShape>;
+  readonly output: z.ZodObject<z.core.$ZodLooseShape>;
   readonly instance: z.ZodType;
   make(state: unknown): Result<unknown, InvalidEntity>;
 };
@@ -72,11 +72,7 @@ export function union<
   );
 
   const byValue = new Map<unknown, UnionMember>(
-    members.map((m) => [
-      ((m.input as z.ZodObject<z.core.$ZodLooseShape>).shape[discriminant] as z.ZodLiteral<string>)
-        .value,
-      m,
-    ]),
+    members.map((m) => [(m.input.shape[discriminant] as z.ZodLiteral<string>).value, m]),
   );
 
   const entity = members.map((m) => m.entityName).join(" | ");

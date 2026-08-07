@@ -444,7 +444,7 @@ class ServiceAccount extends Entity("ServiceAccount")({
   label: Label,
 }) {}
 
-const Member = union("kind", [User, ServiceAccount]);
+const Member = Entity.union("kind", [User, ServiceAccount]);
 ```
 
 `union` gives you one artifact with both halves, rather than making you choose:

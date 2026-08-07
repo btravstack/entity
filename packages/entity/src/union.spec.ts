@@ -2,7 +2,7 @@ import { match, P } from "unthrown";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { Entity, union } from "./index.js";
+import { Entity } from "./index.js";
 
 const UserId = z.uuid().brand("UserId");
 const SvcId = z.uuid().brand("SvcId");
@@ -21,7 +21,7 @@ class ServiceAccount extends Entity("ServiceAccount")({
   label: Label,
 }) {}
 
-const Member = union("kind", [User, ServiceAccount]);
+const Member = Entity.union("kind", [User, ServiceAccount]);
 
 const userRow = { kind: "user", id: "0199b1f4-1b1e-7000-8000-000000000000", email: "a@b.com" };
 const svcRow = {

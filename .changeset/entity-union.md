@@ -2,11 +2,12 @@
 "@btravstack/entity": minor
 ---
 
-New `union(discriminant, members)`: a union of entities that is itself
-entity-like.
+New `Entity.union(discriminant, members)`: a union of entities that is itself
+entity-like. Grouped under `Entity` rather than exported loose — `union` alone
+is too generic a name to take from a consumer's import scope.
 
 ```ts
-const Member = union("kind", [User, ServiceAccount]);
+const Member = Entity.union("kind", [User, ServiceAccount]);
 
 Member.make(row).getOrThrow(); // User | ServiceAccount
 Member.input; // discriminated union, one branch per member

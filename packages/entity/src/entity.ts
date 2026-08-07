@@ -22,6 +22,7 @@ import type {
   Sealed,
   UpdateInputShapeOf,
 } from "./types.js";
+import { union } from "./union.js";
 
 /** Calls every generator once, in declaration order. */
 const callAll = (generators: Record<string, () => unknown>): Record<string, unknown> =>
@@ -355,6 +356,13 @@ export function Entity<Tag extends string>(tag: Tag) {
     return Base as unknown as EntityStatic<Tag, S, A, G, I>;
   };
 }
+
+/**
+ * Grouped under `Entity` rather than exported loose: `union` alone is too
+ * generic a name to take from a consumer's import scope, and it reads as
+ * `z.union`'s sibling when it is nothing of the sort.
+ */
+Entity.union = union;
 
 /** What the wire sends — for mapper and request signatures. */
 export type Input<E extends { readonly __input: unknown }> = E["__input"];
