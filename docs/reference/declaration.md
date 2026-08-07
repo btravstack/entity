@@ -43,12 +43,12 @@ Four names are reserved, because an entity installs them on every instance:
 
 ### `options`
 
-| Option       | Type                               | Effect                                                                           |
-| ------------ | ---------------------------------- | -------------------------------------------------------------------------------- |
-| `generated`  | `readonly (keyof fields)[]`        | omitted from `createInput`; supplied by a factory's generators                   |
-| `immutable`  | `readonly (keyof output)[]`        | omitted from `updateInput`; `update()` drops them even if smuggled in at runtime |
-| `computed`   | `{ [name]: Entity.ComputedField }` | derived fields; added to `output`, re-derived on every construction              |
-| `invariants` | `readonly Entity.Invariant[]`      | rules spanning two or more declared fields; any failing rule rejects             |
+| Option       | Type                               | Effect                                                                             |
+| ------------ | ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `generated`  | `readonly (keyof fields)[]`        | omitted from `createInput`; supplied by a factory's generators                     |
+| `immutable`  | `readonly (keyof output)[]`        | omitted from `updateInput`; `update()` rejects them even if smuggled past the type |
+| `computed`   | `{ [name]: Entity.ComputedField }` | derived fields; added to `output`, re-derived on every construction                |
+| `invariants` | `readonly Entity.Invariant[]`      | rules spanning two or more declared fields; any failing rule rejects               |
 
 `generated` and `immutable` are keyed off the field names, so a typo is a
 compile error rather than a silently-inert entry.

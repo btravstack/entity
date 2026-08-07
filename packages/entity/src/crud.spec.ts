@@ -72,10 +72,51 @@ test("update returns a new instance and leaves the original untouched", () => {
   expect(renamed.id).toBe(org.id);
 });
 
-test("update ignores an immutable field smuggled in at runtime", () => {
+/** Every issue a rejected patch reported, as `path: message` pairs. */
+const rejectionOf = (result: ReturnType<Organization["update"]>): readonly string[] =>
+  result.match({
+    ok: () => ["WRONGLY ACCEPTED"],
+    errCases: (m) =>
+      m.with(P.tag("InvalidEntity"), (e) =>
+        e.issues.map((i) => `${String(i.path?.[0] ?? "")}: ${i.message}`),
+      ),
+    defect: () => ["DEFECT"],
+  });
+
+test("update rejects an immutable field smuggled in at runtime", () => {
   const org = createOrg(input).getOrThrow();
-  const updated = org.update({ slug: "other" } as never).getOrThrow();
-  expect(updated.slug).toBe("acme");
+  const rejected = org.update({ slug: "other" } as never);
+  // dropping it silently was the old behaviour: the caller asked for a change,
+  // got `Ok`, and the change never happened
+  expect(rejectionOf(rejected)).toEqual(["slug: Immutable field — cannot be patched"]);
+  expect(org.slug).toBe("acme");
+});
+
+test("update rejects a key the entity does not declare", () => {
+  const org = createOrg(input).getOrThrow();
+  // the reported case: an adapter builds `Record<string, unknown>`, so no
+  // excess-property check fires, and the key used to vanish into a passing
+  // `Result`
+  expect(rejectionOf(org.update({ calculatedAmount: 500 } as never))).toEqual([
+    "calculatedAmount: Unknown field for Organization",
+  ]);
+});
+
+test("update reports every unpatchable key at once, like the invariants do", () => {
+  const org = createOrg(input).getOrThrow();
+  expect(
+    rejectionOf(org.update({ slug: "other", nope: 1, name: "Fine" } as never)).toSorted(),
+  ).toEqual(
+    [
+      "slug: Immutable field — cannot be patched",
+      "nope: Unknown field for Organization",
+    ].toSorted(),
+  );
+});
+
+test("a patch of only declared, mutable fields is unaffected", () => {
+  const org = createOrg(input).getOrThrow();
+  expect(org.update({ name: "Renamed" as never }).getOrThrow().name).toBe("Renamed");
 });
 
 test("update re-runs invariants", () => {

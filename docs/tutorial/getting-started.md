@@ -89,8 +89,9 @@ class Organization extends Entity("Organization")(
 
 - `generated` drops those fields from `createInput` — a create request cannot
   carry them.
-- `immutable` drops them from `updateInput` — and `update()` discards them at
-  runtime even if something smuggles them past the type.
+- `immutable` drops them from `updateInput` — and `update()` rejects them at
+  runtime even if something smuggles them past the type, so a change that
+  cannot happen is reported rather than quietly ignored.
 
 Both are keyed off the field names, so a typo is a compile error rather than a
 silently-inert entry.

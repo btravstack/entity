@@ -54,8 +54,21 @@ carrying computed columns round-trips.
 ## `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>`
 
 Returns a **new** entity. Re-runs the invariants and re-derives the computed
-fields. `immutable` and `computed` fields are absent from the patch type and
-dropped at runtime.
+fields.
+
+The patch must contain only keys `updateInput` accepts. A key that is
+`immutable`, `computed`, or not a field of the entity at all is **rejected**
+with an `InvalidEntity` carrying that key in `path` — every offending key
+reports, not just the first. They are absent from the patch type too, but the
+compile-time guard only fires on object literals: an adapter that builds its
+patch as a `Record<string, unknown>` gets no excess-property check, which is
+why the runtime check exists.
+
+This is the opposite of `make`, deliberately. `make` ignores extra keys so a
+stored row carrying computed columns round-trips; `update` refuses them so a
+change the caller asked for cannot silently not happen. Rehydrating data and
+patching it are different acts: one heals what is already written, the other
+states an intent.
 
 ## `entity.toJSON()` → `DeepReadonly<Output>`
 
