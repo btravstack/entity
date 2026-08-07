@@ -203,8 +203,16 @@ export default defineConfig({
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:site_name", content: "entity" }],
     ["meta", { property: "og:locale", content: "en_US" }],
-    ["meta", { property: "og:image", content: `${SITE_URL}logo-light.svg` }],
-    ["meta", { property: "og:image:type", content: "image/svg+xml" }],
+    // 1280x640, rendered from docs/og/card.html — see the comment there.
+    // SVG is not a valid og:image: X, Slack, LinkedIn and Discord all refuse to
+    // render one, which is why pointing this at the logo produced no preview at
+    // all rather than a small one.
+    ["meta", { property: "og:image", content: `${SITE_URL}og-entity.png` }],
+    ["meta", { property: "og:image:type", content: "image/png" }],
+    // The card's true size. The sibling sites declare 1200x630 (the size the OG
+    // docs recommend) while shipping a 1280x640 file; these are measured.
+    ["meta", { property: "og:image:width", content: "1280" }],
+    ["meta", { property: "og:image:height", content: "640" }],
     [
       "meta",
       {
@@ -213,8 +221,10 @@ export default defineConfig({
       },
     ],
     // Twitter Card
-    ["meta", { name: "twitter:card", content: "summary" }],
-    ["meta", { name: "twitter:image", content: `${SITE_URL}logo-light.svg` }],
+    // summary_large_image is the wide banner; plain `summary` crops to a square
+    // thumbnail beside the title and wastes the card.
+    ["meta", { name: "twitter:card", content: "summary_large_image" }],
+    ["meta", { name: "twitter:image", content: `${SITE_URL}og-entity.png` }],
     [
       "meta",
       {
