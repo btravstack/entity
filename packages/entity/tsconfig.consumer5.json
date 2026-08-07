@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.consumer.json",
+  "compilerOptions": {
+    "outDir": "./node_modules/.consumer5-check"
+  }
+}

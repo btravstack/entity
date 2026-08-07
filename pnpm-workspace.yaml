@@ -40,6 +40,13 @@ catalog:
   # const CtorKey: unique symbol` carried module-local into the emitted
   # `types.d.ts`). Kept in step with that measurement rather than trailing it.
   typescript: 7.0.2
+  # The TypeScript consumers actually build with, for the second declaration-emit
+  # pass (`tsconfig.consumer5.json`). The native port above does **not** enforce
+  # the 5.x serialised-type ceiling, so `TS7056` is invisible to it: issue #31
+  # reproduced on 5.9.3 against a 30-member domain enum while the repo's own
+  # consumer pass stayed green on 7.0.2. Aliased because one `package.json`
+  # cannot name `typescript` twice.
+  typescript-consumer: "npm:typescript@5.9.3"
   unthrown: 5.1.0
   "@vitest/coverage-v8": 4.1.10
   vitepress: 1.6.4

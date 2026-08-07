@@ -20,8 +20,14 @@ Scripts are in `package.json`; the root ones delegate to turbo. Three things
 that are not derivable from there:
 
 - **The gate CI runs, in order**: `format --check`, `lint`, `typecheck`,
-  `test`, `knip`, `build`. `typecheck` is three passes — the main `tsc`, the
-  `.test-d.ts` pass, and the consumer declaration-emit pass.
+  `test`, `knip`, `build`. `typecheck` is four passes — the main `tsc`, the
+  `.test-d.ts` pass, and the consumer declaration-emit pass run **twice**: once
+  on the repo's TypeScript (7.0.2, the native port) and once on 5.9.3 through
+  the `typescript-consumer` alias. The second is not redundant. The native port
+  does not enforce the 5.x ceiling on serialised type length, so `TS7056` is
+  invisible to it — that gap shipped two declaration-emit bugs to a consumer
+  (#31, #32) while this repo's own gate stayed green. Consumers build with 5.x;
+  the gate has to as well.
 - **A single test file runs from inside `packages/entity`**, not the root.
 - **The docs site runs from inside `docs`**: `pnpm --filter ./docs dev`.
   `pnpm build` at the root builds it too, since it is a workspace.

@@ -473,6 +473,13 @@ type BaseInstanceSrc<
   A extends Fields,
   I extends readonly (keyof OutputOf<S, A>)[],
 > = BaseInstance<S, A, I>;
+type EntityStaticSrc<
+  Tag extends string,
+  S extends Fields,
+  A extends Fields,
+  G extends readonly (keyof S)[],
+  I extends readonly (keyof OutputOf<S, A>)[],
+> = EntityStatic<Tag, S, A, G, I>;
 
 export declare namespace Entity {
   /** What the wire sends — for mapper and request signatures. */
@@ -511,4 +518,19 @@ export declare namespace Entity {
   > = BaseInstanceSrc<S, A, I>;
   export type ConstructionKey = ConstructionKeySrc;
   export type Sealed<D> = SealedSrc<D>;
+
+  /**
+   * What `Entity(tag)(fields, options)` returns — the static surface itself.
+   *
+   * Exported for the same reason as the three above: a consumer's emitted
+   * declarations have to name it, and the cost of them not being able to was
+   * two build failures rather than a verbose `.d.ts`. See `index.ts`.
+   */
+  export type Static<
+    Tag extends string,
+    S extends Fields,
+    A extends Fields,
+    G extends readonly (keyof S)[],
+    I extends readonly (keyof OutputOf<S, A>)[],
+  > = EntityStaticSrc<Tag, S, A, G, I>;
 }
