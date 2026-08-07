@@ -1,6 +1,7 @@
 import type { AsyncResult, Result } from "unthrown";
 import type { z } from "zod";
 
+import type { ComputedField as ComputedFieldOf } from "./computed.js";
 import type { InvalidEntity } from "./errors.js";
 
 export type Fields = Record<string, z.ZodTypeAny>;
@@ -285,6 +286,35 @@ export type EntityStatic<
   readonly __createInput: CreateInputOf<S, G>;
   readonly __patch: PatchOf<S, A, I>;
   make<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
+  /**
+   * A new entity with this one's fields plus more, under its own tag.
+   *
+   * The parent's options are inherited and merged per key, child winning, so
+   * an extension is never quietly laxer than what it extends. It is a fresh
+   * entity, not a subclass: distinct tag, distinct `equals` identity, its own
+   * schemas.
+   */
+  extend<Tag2 extends string>(
+    tag: Tag2,
+  ): <
+    S2 extends Fields,
+    A2 extends Fields = A,
+    const G2 extends readonly (keyof (S & S2))[] = G,
+    const I2 extends readonly (keyof OutputOf<S & S2, A2>)[] = I extends readonly (keyof OutputOf<
+      S & S2,
+      A2
+    >)[]
+      ? I
+      : [],
+  >(
+    fields: S2,
+    options?: {
+      readonly generated?: G2;
+      readonly immutable?: I2;
+      readonly computed?: { [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<S & S2>> };
+      readonly invariants?: (d: OutputOf<S & S2, A2>) => readonly string[];
+    },
+  ) => EntityStatic<Tag2, S & S2, A2, G2, I2>;
   factory<T>(
     this: new (d: Sealed<OutputOf<S, A>>) => T,
     generators: Generators<S, G>,
