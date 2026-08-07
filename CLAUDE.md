@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `@btravstack/entity` — a domain-entity builder on zod v4. One declaration
 (`class X extends Entity("X")(fields, options)`) yields a type, four plain
-`ZodObject` validators, behaviour, and a composable `instance` schema. Every
+`ZodObject` validators, behaviour, and a class that is itself a zod schema. Every
 fallible operation returns an `unthrown` `Result<T, InvalidEntity>` instead of
 throwing.
 

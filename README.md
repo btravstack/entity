@@ -738,7 +738,7 @@ and real `Result`s built from _your_ copies of those packages — if this
 package pinned its own instead, a consumer would end up with two copies of
 `zod` (or `unthrown`) in the dependency tree, and identity checks like
 `result instanceof Result`, `schema instanceof z.ZodType`, or composing this
-package's `instance` schema into the consumer's own `z.object({...})` can
+package's entity class into the consumer's own `z.object({...})` can
 silently misbehave across the module boundary between two copies of the same
 package.
 
