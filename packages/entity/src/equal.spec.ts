@@ -91,3 +91,50 @@ test("two separate Entity(...) calls never compare equal", () => {
   class B extends Entity("B")({ id: Id }) {}
   expect(A.make({ id }).getOrThrow().equals(B.make({ id }).getOrThrow())).toBe(false);
 });
+
+/**
+ * `deepFreeze` guards cycles and names the sources — "a `z.custom` field or a
+ * caller-supplied object can close a loop". The same applies to comparison, and
+ * more so now that a `z.custom` value is not frozen. Unguarded, this died with
+ * `RangeError: Maximum call stack size exceeded`.
+ */
+type Node = { name: string; self?: Node; peer?: Node };
+const NodeSchema = z.custom<Node>((v) => typeof v === "object" && v !== null).brand("Node");
+
+test("a cyclic field compares instead of exhausting the stack", () => {
+  class Tree extends Entity("Tree")({ id: Id, root: NodeSchema }) {}
+  const cyclic = (name: string): Node => {
+    const n: Node = { name };
+    n.self = n;
+    return n;
+  };
+
+  const a = Tree.make({ id, root: cyclic("root") }).getOrThrow();
+  const same = Tree.make({ id, root: cyclic("root") }).getOrThrow();
+  const different = Tree.make({ id, root: cyclic("other") }).getOrThrow();
+
+  expect(a.equals(same)).toBe(true);
+  expect(a.equals(different)).toBe(false);
+});
+
+test("a cycle does not mask a difference reachable only through it", () => {
+  class Tree extends Entity("Tree")({ id: Id, root: NodeSchema }) {}
+  const linked = (peerName: string): Node => {
+    const root: Node = { name: "root" };
+    const peer: Node = { name: peerName, peer: root };
+    root.peer = peer;
+    return root;
+  };
+
+  const a = Tree.make({ id, root: linked("x") }).getOrThrow();
+  const b = Tree.make({ id, root: linked("y") }).getOrThrow();
+  expect(a.equals(b)).toBe(false);
+});
+
+test("the same object compared against two different values is not confused", () => {
+  const Bag = z.object({ n: z.number() }).brand("Bag");
+  class Holder extends Entity("Holder")({ id: Id, left: Bag, right: Bag }) {}
+  const a = Holder.make({ id, left: { n: 1 }, right: { n: 1 } }).getOrThrow();
+  const b = Holder.make({ id, left: { n: 1 }, right: { n: 2 } }).getOrThrow();
+  expect(a.equals(b)).toBe(false);
+});

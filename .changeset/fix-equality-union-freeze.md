@@ -30,9 +30,15 @@ object under three names, so anything keying off schema identity collapsed —
 registering them under distinct ids in `z.globalRegistry` silently kept only the
 last, and `z.toJSONSchema` emitted a single `$def` all three `$ref`'d.
 
-**A `z.custom` / `z.instanceof` field is no longer frozen.** The freeze
+**A `z.custom` / `z.instanceof` value is no longer frozen, at any depth.** The freeze
 dispatched on runtime shape, so a plain-object custom value — the caller's own
 reference, handed straight back — was deep-frozen in place, and the caller's
 next write threw. Which fields to skip is now decided by the schema, which is
 the only thing that knows what was passed through. This is what the
-documentation already promised.
+documentation already promised. The walk carries each field's schema down with
+its value, so a custom value nested inside an object, array, tuple or record —
+and behind `optional`/`default`/`nullable`/`lazy` wrappers — is skipped too.
+
+Comparison also guards cycles. A cyclic value reaching `equals` exhausted the
+stack, which matters more now that a `z.custom` value is not frozen and so is
+free to close a loop.

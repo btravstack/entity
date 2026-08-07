@@ -39,7 +39,96 @@ const isPlainObject = (value: object): boolean => {
   return proto === Object.prototype || proto === null;
 };
 
-const freezeInto = (value: object, seen: WeakSet<object>): void => {
+type Def = { readonly type: string } & Record<string, unknown>;
+type Schema = { readonly _zod: { readonly def: Def } };
+
+const defOf = (schema: Schema | undefined): Def | undefined => schema?._zod.def;
+
+const asSchema = (value: unknown): Schema | undefined =>
+  typeof value === "object" && value !== null && "_zod" in value ? (value as Schema) : undefined;
+
+/**
+ * Follows the single-child wrappers to the schema that actually describes the
+ * value. `.brand()` needs no case: it is type-level in zod v4 and adds no
+ * wrapper, so a branded `z.custom` still reports `custom`.
+ */
+const unwrap = (schema: Schema | undefined): Schema | undefined => {
+  const def = defOf(schema);
+  if (def === undefined) return schema;
+  switch (def.type) {
+    case "optional":
+    case "nullable":
+    case "default":
+    case "prefault":
+    case "readonly":
+    case "nonoptional":
+    case "catch":
+      return unwrap(asSchema(def["innerType"]));
+    case "lazy": {
+      const getter = def["getter"];
+      return typeof getter === "function" ? unwrap(asSchema((getter as () => unknown)())) : schema;
+    }
+    default:
+      return schema;
+  }
+};
+
+/**
+ * Whether a value described by this schema was handed through untouched, and so
+ * may still be referenced by the caller who passed it in.
+ *
+ * A union counts if **any** branch is `custom`: the schema cannot say which
+ * branch produced this value, and freezing an object the caller still owns is
+ * the worse of the two errors.
+ */
+const isPassthrough = (schema: Schema | undefined): boolean => {
+  const def = defOf(unwrap(schema));
+  if (def === undefined) return false;
+  if (def.type === "custom") return true;
+  if (def.type === "union") {
+    const options = def["options"];
+    return Array.isArray(options) && options.some((o) => isPassthrough(asSchema(o)));
+  }
+  return false;
+};
+
+/**
+ * The schema describing `value[key]`, or `undefined` when the shape is one this
+ * cannot follow — an intersection, say. `undefined` means "no schema context",
+ * and the traversal then freezes as it always did, so an unhandled container is
+ * a missed skip rather than a crash.
+ */
+const childSchema = (schema: Schema | undefined, key: string | number): Schema | undefined => {
+  const def = defOf(unwrap(schema));
+  if (def === undefined) return undefined;
+  switch (def.type) {
+    case "object":
+    case "interface": {
+      const shape = def["shape"];
+      return typeof shape === "object" && shape !== null
+        ? asSchema((shape as Record<string, unknown>)[String(key)])
+        : undefined;
+    }
+    case "array":
+      return asSchema(def["element"]);
+    case "record":
+      return asSchema(def["valueType"]);
+    case "tuple": {
+      const items = def["items"];
+      const item = Array.isArray(items) ? items[Number(key)] : undefined;
+      return asSchema(item ?? def["rest"]);
+    }
+    default:
+      return undefined;
+  }
+};
+
+const freezeInto = (value: object, schema: Schema | undefined, seen: WeakSet<object>): void => {
+  // Decided by the schema, never by the runtime shape: `z.custom` hands the
+  // caller's own reference straight back, and a plain-object one is
+  // indistinguishable from decoded data once it reaches here.
+  if (isPassthrough(schema)) return;
+
   // `seen` guards the cyclic case — entity data is normally a tree, but a
   // `z.custom` field or a caller-supplied object can close a loop, and a
   // shared subtree would otherwise be walked once per reference.
@@ -48,9 +137,9 @@ const freezeInto = (value: object, seen: WeakSet<object>): void => {
 
   if (Array.isArray(value)) {
     Object.freeze(value);
-    for (const element of value as readonly unknown[]) {
-      if (isObject(element)) freezeInto(element, seen);
-    }
+    (value as readonly unknown[]).forEach((element, i) => {
+      if (isObject(element)) freezeInto(element, childSchema(schema, i), seen);
+    });
     return;
   }
 
@@ -62,8 +151,8 @@ const freezeInto = (value: object, seen: WeakSet<object>): void => {
   if (!isPlainObject(value)) return;
 
   Object.freeze(value);
-  for (const property of Object.values(value)) {
-    if (isObject(property)) freezeInto(property, seen);
+  for (const [key, property] of Object.entries(value)) {
+    if (isObject(property)) freezeInto(property, childSchema(schema, key), seen);
   }
 };
 
@@ -81,8 +170,14 @@ const freezeInto = (value: object, seen: WeakSet<object>): void => {
  * traversal. It is allocated lazily rather than as a default parameter,
  * because a default is evaluated before the `isObject` guard and would
  * allocate for every primitive field.
+ *
+ * `schema` is what lets the walk skip a passed-through value at any depth, not
+ * only when it is the whole field. Omit it and the traversal freezes exactly as
+ * it did before — which is what the standalone tests below rely on. It sits
+ * *after* `seen` deliberately: typed `unknown`, it would otherwise silently
+ * swallow a `seen` argument passed in the old position.
  */
-export const deepFreeze = <T>(value: T, seen?: WeakSet<object>): T => {
-  if (isObject(value)) freezeInto(value, seen ?? new WeakSet<object>());
+export const deepFreeze = <T>(value: T, seen?: WeakSet<object>, schema?: unknown): T => {
+  if (isObject(value)) freezeInto(value, asSchema(schema), seen ?? new WeakSet<object>());
   return value;
 };

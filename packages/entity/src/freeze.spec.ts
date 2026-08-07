@@ -118,3 +118,56 @@ test("an ordinary object field is still deep-frozen", () => {
   const p = Place.make({ id: jobId, address: { city: "Paris" } }).getOrThrow();
   expect(Object.isFrozen(p.address)).toBe(true);
 });
+
+/**
+ * The skip has to work at any depth, not only when the custom value *is* the
+ * field: the walk carries the schema down with the value. Reported in review
+ * after the first fix, which only compared top-level field schemas.
+ */
+type Cfg = { retries: number; nested: { a: number } };
+const CfgSchema = z.custom<Cfg>((v) => typeof v === "object" && v !== null);
+const cfg = (): Cfg => ({ retries: 1, nested: { a: 1 } });
+
+test("a z.custom nested in an object field stays writable", () => {
+  const Wrapper = z.object({ cfg: CfgSchema, label: z.string() }).brand("Wrapper");
+  class Job extends Entity("Job")({ id: JobId, wrapper: Wrapper }) {}
+
+  const caller = cfg();
+  const job = Job.make({ id: jobId, wrapper: { cfg: caller, label: "x" } }).getOrThrow();
+
+  expect(Object.isFrozen(caller)).toBe(false);
+  caller.retries = 5;
+  expect(caller.retries).toBe(5);
+  // the wrapper itself is ordinary decoded data, so it is still frozen
+  expect(Object.isFrozen(job.wrapper)).toBe(true);
+});
+
+test("a z.custom inside an array field stays writable", () => {
+  const List = z.array(CfgSchema.brand("Cfg")).brand("List");
+  class Job extends Entity("Job")({ id: JobId, list: List }) {}
+
+  const caller = cfg();
+  const job = Job.make({ id: jobId, list: [caller] }).getOrThrow();
+
+  expect(Object.isFrozen(caller)).toBe(false);
+  // the array holding it is decoded data, and is frozen
+  expect(Object.isFrozen(job.list)).toBe(true);
+});
+
+test("a z.custom behind optional/default wrappers is still recognised", () => {
+  const Wrapper = z.object({ cfg: CfgSchema.optional() }).brand("Wrapper2");
+  class Job extends Entity("Job2")({ id: JobId, wrapper: Wrapper }) {}
+
+  const caller = cfg();
+  Job.make({ id: jobId, wrapper: { cfg: caller } }).getOrThrow();
+  expect(Object.isFrozen(caller)).toBe(false);
+});
+
+test("a z.custom inside a record value stays writable", () => {
+  const Map_ = z.record(z.string(), CfgSchema).brand("CfgMap");
+  class Job extends Entity("Job3")({ id: JobId, cfgs: Map_ }) {}
+
+  const caller = cfg();
+  Job.make({ id: jobId, cfgs: { a: caller } }).getOrThrow();
+  expect(Object.isFrozen(caller)).toBe(false);
+});

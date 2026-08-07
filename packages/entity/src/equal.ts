@@ -44,6 +44,26 @@ const keysOf = (value: object): readonly string[] => Object.keys(value);
  * collections, and the alternative — hashing arbitrary deep values — would need
  * a canonical form this module deliberately does not define.
  */
+/**
+ * Pairs already being compared further up the stack.
+ *
+ * `deepFreeze` guards cycles with a `WeakSet` and its docstring names the
+ * sources: "a `z.custom` field or a caller-supplied object can close a loop".
+ * That applies here too, and more so now that a `z.custom` value is no longer
+ * frozen — measured, an unguarded compare of two cyclic values died with
+ * `RangeError: Maximum call stack size exceeded`, which is exactly the escaping
+ * throw this module exists to remove.
+ *
+ * Keyed by the left value, holding the right ones it is already being compared
+ * against, so the guard is per *pair*: `a` may legitimately be compared with
+ * several different values in one traversal.
+ *
+ * Assuming a revisited pair is equal is the standard co-inductive reading —
+ * two structures are equal if assuming their cycles match leads to no
+ * contradiction elsewhere.
+ */
+type Seen = WeakMap<object, WeakSet<object>>;
+
 const unorderedEqual = (
   left: readonly unknown[],
   right: readonly unknown[],
@@ -72,12 +92,22 @@ const unorderedEqual = (
  * Two values of different runtime kinds are never equal, so a `Map` never
  * compares equal to the plain object with the same entries.
  */
-export const deepEqual = (a: unknown, b: unknown): boolean => {
+export const deepEqual = (a: unknown, b: unknown): boolean =>
+  equalWith(a, b, new WeakMap<object, WeakSet<object>>());
+
+const equalWith = (a: unknown, b: unknown, seen: Seen): boolean => {
   if (sameValueZero(a, b)) return true;
   if (!isObject(a) || !isObject(b)) return false;
 
   const tag = tagOf(a);
   if (tag !== tagOf(b)) return false;
+
+  const against = seen.get(a);
+  if (against?.has(b) === true) return true;
+  if (against === undefined) seen.set(a, new WeakSet<object>([b]));
+  else against.add(b);
+
+  const deepEqual = (l: unknown, r: unknown): boolean => equalWith(l, r, seen);
 
   switch (tag) {
     case "[object Date]":

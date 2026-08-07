@@ -138,27 +138,14 @@ export function Entity<Tag extends string>(tag: Tag) {
 
     const dataKeys = Object.keys(output.shape) as unknown as readonly (keyof OutputShape)[];
 
-    /**
-     * Fields the freeze must not touch, decided by their **schema** rather than
-     * by the runtime shape of what came back.
-     *
-     * `freeze.ts` documents that a `z.custom(...)`/`z.instanceof(...)` value is
-     * left alone, precisely because "the value may still be referenced by the
-     * caller who passed it in". That promise was false: `z.custom` returns the
-     * caller's reference unchanged, so a plain-object one satisfied
-     * `isPlainObject` and was deep-frozen in place — measured, the caller's own
-     * later `config.retries = 5` threw `Cannot assign to read only property`.
-     * The runtime cannot tell a passed-through object from decoded data; only
-     * the schema can, so the decision is made here and passed down.
-     *
-     * `z.custom`, `z.instanceof` and a branded `z.custom` all report `custom`:
-     * brand is type-level in zod v4 and adds no wrapper.
-     */
-    const passthroughKeys = new Set(
-      Object.entries(output.shape as Record<string, z.core.$ZodType>)
-        .filter(([, schema]) => schema._zod.def.type === "custom")
-        .map(([key]) => key),
-    );
+    // Each field's schema goes to `deepFreeze` with its value, so the walk can
+    // skip a passed-through value wherever it sits — not only when it *is* the
+    // field. `freeze.ts` promises a `z.custom(...)`/`z.instanceof(...)` value is
+    // left alone because "the value may still be referenced by the caller who
+    // passed it in", and deciding from the runtime shape broke that: `z.custom`
+    // returns the caller's reference, a plain-object one satisfied
+    // `isPlainObject`, and the caller's own later write threw
+    // `Cannot assign to read only property`.
 
     /**
      * Projects an instance down to exactly the `output` schema's keys.
@@ -293,9 +280,11 @@ export function Entity<Tag extends string>(tag: Tag) {
             // initialisers run after `super()` returns, so the instance
             // itself must stay extensible (pinned by a test in
             // `entity.spec.ts`).
-            value: passthroughKeys.has(k as string)
-              ? source[k as PropertyKey]
-              : deepFreeze(source[k as PropertyKey], seen),
+            value: deepFreeze(
+              source[k as PropertyKey],
+              seen,
+              (output.shape as Record<string, unknown>)[k as string],
+            ),
             writable: false,
             enumerable: true,
           });
