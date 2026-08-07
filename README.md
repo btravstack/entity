@@ -140,7 +140,7 @@ This is the rule the whole design turns on, and it comes from a real
 constraint in zod's schema-to-JSON-Schema conversion:
 
 A schema that carries a `.transform()` — which is what turns parsed data into
-a class instance — **has no output representation**. `instance` does exactly
+a class instance — **has no output representation**. The class does exactly
 that (it parses to `Organization`, not to plain data), so:
 
 ```ts
@@ -252,8 +252,8 @@ never send them.
 function. Rehydrating a database row and validating an untrusted import differ
 in where the data came from, not in what has to happen to it — parse against
 `input`, re-derive the computed fields, check the invariants, construct. A
-second name for that would be an alias, so there is one: `make`. `instance`
-runs it under the hood, which is why nesting works.
+second name for that would be an alias, so there is one: `make`. The class as
+a schema runs it under the hood, which is why nesting works.
 
 `update` returns a **new** entity — data is immutable — and re-runs
 `invariants`, so a patch where every individual field is valid but the
