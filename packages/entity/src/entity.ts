@@ -381,8 +381,8 @@ export function Entity<Tag extends string>(tag: Tag) {
       value: (nextTag: string) => (nextFields: Fields, nextOptions?: Record<string, unknown>) => {
         const parent = declarations.get(Base);
         return (Entity as (t: string) => (f: Fields, o?: unknown) => unknown)(nextTag)(
-          { ...(parent?.fields ?? {}), ...nextFields },
-          { ...(parent?.options ?? {}), ...(nextOptions ?? {}) },
+          { ...parent?.fields, ...nextFields },
+          { ...parent?.options, ...nextOptions },
         );
       },
     });
