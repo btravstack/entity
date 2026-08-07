@@ -71,7 +71,7 @@ z.toJSONSchema(Organization, { io: "output" }); // ✗ throws — the class carr
 
 ## Entry points
 
-### `SomeEntity.factory(generators)` → `(input) => Result<Entity, InvalidEntity>`
+### `SomeEntity.factory(generators)` → `(input) => Result<SomeEntity, InvalidEntity>`
 
 Binds the `generated` fields' sources. Generators are **functions**, called
 once per create.
@@ -86,7 +86,7 @@ createOrg({ slug, name }); // Result<Organization, InvalidEntity>
 
 Pass an arrow, not a bare method reference — `{ id: ids.next }` loses `this`.
 
-### `SomeEntity.factoryAsync(generators)` → `(input) => AsyncResult<Entity, InvalidEntity>`
+### `SomeEntity.factoryAsync(generators)` → `(input) => AsyncResult<SomeEntity, InvalidEntity>`
 
 The same for promise-returning generators — an id from a database sequence,
 say. A generator that **rejects** surfaces as a `Defect`, not an
@@ -100,13 +100,13 @@ const createOrgAsync = Organization.factoryAsync({
 (await createOrgAsync({ slug, name })).getOrThrow();
 ```
 
-### `SomeEntity.make(data)` → `Result<Entity, InvalidEntity>`
+### `SomeEntity.make(data)` → `Result<SomeEntity, InvalidEntity>`
 
 The only way in. Validates against `input`, re-derives the computed fields,
 checks the invariants, constructs. Extra keys are ignored, so a stored row
 carrying computed columns round-trips.
 
-### `entity.update(patch)` → `Result<Entity, InvalidEntity>`
+### `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>`
 
 Returns a **new** entity. Re-runs the invariants and re-derives the computed
 fields. `immutable` and `computed` fields are absent from the patch type and

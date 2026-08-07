@@ -94,7 +94,7 @@ org.slug = otherSlug; // ✗ compile error — read-only property
 
 // on a `Team` declared with `tags: z.array(Tag)` and `address: Address`
 team.tags.push(tag); // ✗ compile error — tags is `readonly Tag[]`
-(team.tags as never as string[]).push("hacked"); // TypeError: object is not extensible
+(team.tags as never as string[]).push("hacked"); // TypeError — the array is frozen
 team.address.city = "Paris"; // ✗ compile error — nested objects are readonly too
 ```
 
