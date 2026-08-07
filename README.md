@@ -52,11 +52,11 @@ That one declaration gives you:
   branded (nominal) type;
 - **validators** — `Organization.input` / `.output` / `.createInput` /
   `.updateInput`, four plain `ZodObject`s a contract layer can hand straight
-  to a JSON Schema converter, plus `Organization.instance` for decoding
-  straight to a class instance;
+  to a JSON Schema converter, while the class itself is a zod schema that
+  parses straight to an instance;
 - **behaviour** — the class body (`greeting` above) plus built-in
   `update`/`encode`/`toJSON`/`equals`;
-- **composability** — `Organization.instance` is a field like any other, so an
+- **composability** — `Organization` is a field like any other, so an
   aggregate is itself an entity rather than a bare schema, and the entities
   inside it keep their behaviour.
 
@@ -124,27 +124,28 @@ Organization.make(rawJson);
 `new Organization(...)` does not compile — construction is **sealed**; see
 [Sealed construction](#sealed-construction).
 
-## The five schema members
+## The four schema members, and the class itself
 
 ```ts
 Organization.input; // ZodObject — everything make() accepts
-Organization.output; // ZodObject — stored state and response body; make() accepts
+Organization.output; // ZodObject — stored state and response body
 Organization.createInput; // ZodObject — input minus generated
 Organization.updateInput; // ZodObject — output minus immutable, partial
-Organization.instance; // ZodType<Organization> — parses to a class instance
+
+Organization; // …is itself a zod schema, parsing to a class instance
 ```
 
-**Contracts compose the four `ZodObject`s. Domain code composes `instance`.**
+**Contracts compose the four `ZodObject`s. Domain code composes the class.**
 This is the rule the whole design turns on, and it comes from a real
 constraint in zod's schema-to-JSON-Schema conversion:
 
 A schema that carries a `.transform()` — which is what turns parsed data into
-a class instance — **has no output representation**. `instance` does exactly
+a class instance — **has no output representation**. The class does exactly
 that (it parses to `Organization`, not to plain data), so:
 
 ```ts
 z.toJSONSchema(Organization.output, { io: "output" }); // ✓ real JSON Schema
-z.toJSONSchema(Organization.instance, { io: "output" }); // ✗ throws — by design
+z.toJSONSchema(Organization, { io: "output" }); // ✗ throws — by design
 ```
 
 The four plain `ZodObject`s (`input`, `output`, `createInput`,
@@ -158,7 +159,7 @@ const UpdateBody = Organization.updateInput;
 const ResponseBody = Organization.output;
 ```
 
-`instance` is the composable surface for domain code — the only member that
+The class is the composable surface for domain code — the only one that
 produces real class instances. It is a valid **field**, so an aggregate is an
 entity in its own right, with the invariants, immutability and entry points
 that implies:
@@ -166,8 +167,8 @@ that implies:
 ```ts
 class Order extends Entity("Order")({
   id: OrderId,
-  customer: Customer.instance,
-  watchers: z.array(Customer.instance),
+  customer: Customer,
+  watchers: z.array(Customer),
 }) {}
 
 const order = Order.make(row).getOrThrow();
@@ -178,27 +179,39 @@ order.customer._tag; // and its tag, for `P.tag(...)` matching
 
 An invariant can span the outer entity and a nested one, a nested failure
 reports the full path (`["customer", "name"]`), and `JSON.stringify` walks the
-whole tree down to plain data. It still composes into a plain `z.object(...)`
-too, when what you want is a schema rather than an entity:
+whole tree down to plain data.
+
+The same class composes anywhere zod takes a schema:
 
 ```ts
-const Aggregate = z.object({ organization: Organization.instance });
-Aggregate.parse(raw).organization instanceof Organization; // true
+z.object({ organization: Organization });
+z.array(Organization);
+z.optional(Organization); // the function forms — see below
 ```
 
-`instance` is also a [Standard Schema](https://standardschema.dev), being a
-zod schema, so it hands straight to anything that accepts one — a router, a
-form library, `@unthrown/standard-schema`'s `fromSchema`:
+and, being a zod schema, it is a [Standard Schema](https://standardschema.dev),
+so it hands straight to a router, a form library, or
+`@unthrown/standard-schema`'s `fromSchema`:
 
 ```ts
 import { fromSchema } from "@unthrown/standard-schema";
 
-const parseOrg = fromSchema(Organization.instance);
+const parseOrg = fromSchema(Organization);
 parseOrg(raw).getOrThrow(); // Organization
 ```
 
-It does **not** make `z.object({ owner: Organization })` work — zod requires
-a real `ZodType`, so nesting always goes through `Organization.instance`.
+**The class carries zod's slots, not zod's methods.** That is deliberate:
+inheriting the full `ZodType` surface would put a throwing `.parse()` on every
+entity, beside the `make` that returns a `Result` — the exact thing this
+package exists to avoid. So use `make` to parse directly, and zod's _function_
+forms to wrap:
+
+```ts
+Organization.make(raw); // ✓ Result<Organization, InvalidEntity>
+z.optional(Organization); // ✓
+Organization.parse(raw); // ✗ does not exist
+Organization.optional(); // ✗ does not exist
+```
 
 ## The three entry points
 
@@ -239,8 +252,8 @@ never send them.
 function. Rehydrating a database row and validating an untrusted import differ
 in where the data came from, not in what has to happen to it — parse against
 `input`, re-derive the computed fields, check the invariants, construct. A
-second name for that would be an alias, so there is one: `make`. `instance`
-runs it under the hood, which is why nesting works.
+second name for that would be an alias, so there is one: `make`. The class as
+a schema runs it under the hood, which is why nesting works.
 
 `update` returns a **new** entity — data is immutable — and re-runs
 `invariants`, so a patch where every individual field is valid but the
@@ -452,7 +465,7 @@ const Member = Entity.union("kind", [User, ServiceAccount]);
 Member.make(row).getOrThrow(); // User | ServiceAccount — the real class
 Member.input; // discriminated union, one branch per member
 Member.output; // ditto — JSON Schema in both directions
-Member.instance; // parses to the member class; nests like any other
+Member; // …is itself a schema; parses to the member class, nests like any other
 Member.members; // the tuple, for registries and exhaustiveness
 ```
 
@@ -464,7 +477,7 @@ discriminant names the key and lists what was expected.
 A union is a valid field too, so an aggregate can hold one:
 
 ```ts
-class Audit extends Entity("Audit")({ id: AuditId, actor: Member.instance }) {}
+class Audit extends Entity("Audit")({ id: AuditId, actor: Member }) {}
 ```
 
 **Why the discriminant is a declared field and not the tag.** `_tag` is
@@ -507,7 +520,7 @@ class InvalidEntity extends TaggedError("InvalidEntity")<{
 | schema validation (a field fails its own zod check) | `InvalidEntity`, issue has a `path`  | bad input, expected                                                                         |
 | a broken `invariants` rule                          | `InvalidEntity`, issue has no `path` | bad input, expected — the rule spans the entity, not one field                              |
 | `add`'s output failing its own declared schema      | **defect**                           | `add` is pure, total, and typed — a violation is a bug in domain code, not bad caller input |
-| any of the above, reached through `instance`        | zod issues, paths composed           | a nested field failure reports the full path                                                |
+| any of the above, reached through the class         | zod issues, paths composed           | a nested field failure reports the full path                                                |
 
 `issues` is carried **structured**, exactly as the validator produced it, not
 rendered into prose — so keying a field-level error response is a `path`
@@ -528,16 +541,16 @@ Trial.make(brokenRow);
 //   issues: [{ message: "trialEndsAt must be after createdAt" }], // an invariant: no path
 // })
 
-// through `instance`, paths compose with the position of the nested entity:
-z.object({ owner: Organization.instance }).safeParse({ owner: { slug: "" } });
+// nested, paths compose with the position of the nested entity:
+z.object({ owner: Organization }).safeParse({ owner: { slug: "" } });
 // issues: [{ path: ["owner", "slug"], message: "Too small: …" }]
-z.object({ owner: Organization.instance }).safeParse({ owner: brokenRow });
+z.object({ owner: Organization }).safeParse({ owner: brokenRow });
 // issues: [{ path: ["owner"], message: "trialEndsAt must be after createdAt" }]
 ```
 
 A `Defect` — the unexpected-failure channel `unthrown`'s `Result` reserves
 separately from `E` — is never folded into an ordinary validation issue, even
-through `instance`: an unmodelled bug in domain code stays distinguishable
+when nested: an unmodelled bug in domain code stays distinguishable
 from bad caller input all the way to the edge.
 
 ## Sealed construction
@@ -725,7 +738,7 @@ and real `Result`s built from _your_ copies of those packages — if this
 package pinned its own instead, a consumer would end up with two copies of
 `zod` (or `unthrown`) in the dependency tree, and identity checks like
 `result instanceof Result`, `schema instanceof z.ZodType`, or composing this
-package's `instance` schema into the consumer's own `z.object({...})` can
+package's entity class into the consumer's own `z.object({...})` can
 silently misbehave across the module boundary between two copies of the same
 package.
 

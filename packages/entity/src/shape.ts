@@ -28,7 +28,8 @@ type IsNarrowLiteral<T> = T extends string
 type StripUndefined<T> = T extends undefined ? never : T;
 
 /**
- * Another entity, reached through its `.instance` schema.
+ * Another entity. The class is itself a schema, so it appears in a field
+ * map directly.
  *
  * Checked structurally rather than against `BaseInstance` itself: that
  * interface is generic in the entity's own shape, and there is no argument
@@ -84,7 +85,7 @@ type FieldNameIsReservedByEntity = {
  */
 type ReservedFieldName = "_tag" | "equals" | "toJSON" | "update";
 
-type OnlyNominal<T extends Record<string, z.ZodTypeAny>> = {
+type OnlyNominal<T extends Record<string, z.core.$ZodType>> = {
   [K in keyof T]: K extends ReservedFieldName
     ? FieldNameIsReservedByEntity
     : IsNominalField<z.infer<T[K]>> extends true
@@ -93,7 +94,7 @@ type OnlyNominal<T extends Record<string, z.ZodTypeAny>> = {
 };
 
 /** The only sanctioned way to declare a domain shape. */
-export function shape<T extends Record<string, z.ZodTypeAny>>(
+export function shape<T extends Record<string, z.core.$ZodType>>(
   fields: T & OnlyNominal<T>,
 ): z.ZodObject<T> {
   return z.object(fields as T);

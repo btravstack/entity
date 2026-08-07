@@ -1,7 +1,8 @@
-import { Err, type Result } from "unthrown";
+import { Err, P, type Result } from "unthrown";
 import { z } from "zod";
 
 import { InvalidEntity } from "./errors.js";
+import { keysOf } from "./issues.js";
 
 /**
  * The part of an entity a union needs. Typed loosely — `EntityStatic` is
@@ -11,25 +12,24 @@ type UnionMember = {
   readonly entityName: string;
   readonly input: z.ZodObject<z.core.$ZodLooseShape>;
   readonly output: z.ZodObject<z.core.$ZodLooseShape>;
-  readonly instance: z.ZodType;
   make(state: unknown): Result<unknown, InvalidEntity>;
-};
+} & z.core.$ZodType;
 
 /**
- * The member's instance type, read off `instance` rather than off `make`.
- * `make` is generic in a `this` parameter, which cannot be inferred through a
- * loosened member type; `instance` states the same type plainly.
+ * The member's instance type, read off the member itself — an entity class is
+ * a schema, so `z.infer` gives what parsing it yields. Not read off `make`,
+ * which is generic in a `this` parameter and cannot be inferred through a
+ * loosened member type.
  */
-type InstanceOf<M extends UnionMember> = z.infer<M["instance"]>;
+type InstanceOf<M extends UnionMember> = z.infer<M>;
 
 export type EntityUnion<K extends string, M extends readonly UnionMember[]> = {
   readonly discriminant: K;
   readonly members: M;
   readonly input: z.ZodType<unknown>;
   readonly output: z.ZodType<unknown>;
-  readonly instance: z.ZodType<InstanceOf<M[number]>>;
   make(state: unknown): Result<InstanceOf<M[number]>, InvalidEntity>;
-};
+} & Pick<z.ZodType<InstanceOf<M[number]>>, "_zod" | "~standard">;
 
 /**
  * `z.discriminatedUnion` constrains its branches to `$ZodTypeDiscriminable<K>`,
@@ -104,15 +104,32 @@ export function union<
       ctx.addIssue({ code: "custom", message: issue.message, path: [discriminant] });
       return z.NEVER;
     }
-    const parsed = member.instance.safeParse(raw);
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        ctx.addIssue({ code: "custom", message: issue.message, path: [...issue.path] });
-      }
-      return z.NEVER;
-    }
-    return parsed.data as InstanceOf<M[number]>;
+    // through `make`, not a parse method: a member is an entity class, which
+    // carries zod's slots rather than its methods. Mirrors `instance.ts` — a
+    // Defect is left unrecovered so it panics rather than becoming an issue.
+    return member
+      .make(raw)
+      .recoverErrCases((m) =>
+        m.with(P.tag("InvalidEntity"), (invalid) => {
+          for (const issue of invalid.issues) {
+            ctx.addIssue({ code: "custom", message: issue.message, path: keysOf(issue) });
+          }
+          return z.NEVER;
+        }),
+      )
+      .get() as InstanceOf<M[number]>;
   }) as unknown as z.ZodType<InstanceOf<M[number]>>;
 
-  return { discriminant, members, input, output, instance, make };
+  // the same two slots an entity carries, so a union composes identically —
+  // `z.object({ member: Member })`, or as a field of another entity
+  const slots = instance as unknown as Record<string, unknown>;
+  return {
+    discriminant,
+    members,
+    input,
+    output,
+    make,
+    _zod: slots["_zod"],
+    "~standard": slots["~standard"],
+  } as EntityUnion<K, M>;
 }

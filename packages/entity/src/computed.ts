@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { OnlyNominal } from "./shape.js";
 
 /** One derived field: its schema, and the function that produces it. */
-export type ComputedField<T extends z.ZodTypeAny, D> = {
+export type ComputedField<T extends z.core.$ZodType, D> = {
   readonly schema: T;
   readonly from: (d: D) => z.infer<T>;
 };
@@ -24,7 +24,7 @@ export type ComputedField<T extends z.ZodTypeAny, D> = {
  * type is checked against *this* field's schema — a wrong brand reports on the
  * field that produced it rather than on the whole map.
  */
-export function computed<T extends z.ZodTypeAny, D>(
+export function computed<T extends z.core.$ZodType, D>(
   schema: T & OnlyNominal<{ value: T }>["value"],
   from: (d: D) => z.infer<T>,
 ): ComputedField<T, D> {

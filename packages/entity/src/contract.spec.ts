@@ -65,8 +65,8 @@ test("all four ZodObject members convert in both directions", () => {
   }
 });
 
-test("the instance surface has no output representation, which is why it is separate", () => {
-  expect(() => z.toJSONSchema(ApiKey.instance as never, { io: "output" })).toThrow();
+test("the class-as-schema has no output representation, which is why contracts use the four", () => {
+  expect(() => z.toJSONSchema(ApiKey as never, { io: "output" })).toThrow();
 });
 
 test("no schema leaks the runtime tag", () => {

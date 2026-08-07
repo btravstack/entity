@@ -18,8 +18,8 @@ class Customer extends Entity("Customer")(
 /** An aggregate: an entity whose fields are other entities. */
 class Order extends Entity("Order")({
   id: OrderId,
-  customer: Customer.instance,
-  watchers: z.array(Customer.instance),
+  customer: Customer,
+  watchers: z.array(Customer),
   note: Line,
 }) {}
 
@@ -90,7 +90,7 @@ test("updating a sibling field leaves the nested entity intact", () => {
 
 test("an invariant can span the outer entity and a nested one", () => {
   class Checked extends Entity("Checked")(
-    { id: OrderId, customer: Customer.instance, note: Line },
+    { id: OrderId, customer: Customer, note: Line },
     {
       invariants: (d) =>
         d.note.length >= d.customer.name.length
