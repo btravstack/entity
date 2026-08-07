@@ -50,6 +50,18 @@ const GUIDE_SIDEBAR = [
   },
 ];
 
+// The runnable packages under `examples/`. Unlike every fenced block in the
+// guide, that code compiles and its specs run in CI.
+const EXAMPLES_SECTION = {
+  text: "Examples",
+  items: [
+    { text: "Overview", link: "/examples/" },
+    { text: "Billing domain", link: "/examples/billing-domain" },
+    { text: "HTTP contract", link: "/examples/billing-api" },
+    { text: "Persistence", link: "/examples/billing-persistence" },
+  ],
+};
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "entity",
@@ -125,6 +137,7 @@ export default defineConfig({
           { text: "Explanation", link: "/explanation/why-entity" },
         ],
       },
+      { text: "Examples", link: "/examples/" },
       { text: "API", link: "/api/" },
       {
         text: "Changelog",
@@ -143,6 +156,10 @@ export default defineConfig({
           GUIDE_SIDEBAR,
         ]),
       ),
+      // The examples carry the guide sidebar too, with their own section on
+      // top: they are walkthroughs of the same material, so a reader landing on
+      // one should still reach every page of the guide.
+      "/examples/": [EXAMPLES_SECTION, ...GUIDE_SIDEBAR],
       "/api/": [
         {
           text: "API Reference",
