@@ -113,7 +113,8 @@ design — `contract.spec.ts` pins that both ways.
   `private`/`protected` constructors were measured to break the declaration
   form (TS2675) and the statics (TS2684) respectively.
 - **No I/O.** The package reads no clock and generates no id. `create` lives on
-  a factory (`Entity.factory(generators)` / `factoryAsync`), bound at the
+  a factory (`Entity.factory(generators)` / `factoryAsync`) — a function you
+  call with the caller's fields — bound at the
   composition root; generators are functions, called once per `create`. A
   rejecting async generator is a Defect, not an `InvalidEntity`.
 - `zod`, `unthrown` and `@unthrown/standard-schema` are peer dependencies to

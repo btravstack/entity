@@ -345,12 +345,17 @@ export type AsyncGenerators<S extends Fields, G extends readonly (keyof S)[]> = 
   [K in keyof GeneratedOf<S, G>]: () => PromiseLike<GeneratedOf<S, G>[K]>;
 };
 
-/** An entity bound to its effect sources. `create` is the only member: nothing
- * else consumes generators, and `make`/`decode` stay on the class. */
-export type EntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = {
-  create(input: CreateInputOf<S, G>): Result<T, InvalidEntity>;
-};
+/**
+ * An entity bound to its effect sources: call it with the caller's fields.
+ *
+ * A plain function rather than an object with one method — nothing else
+ * consumes generators, so `.create` was ceremony around the only thing a
+ * factory does. `make` stays on the class.
+ */
+export type EntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = (
+  input: CreateInputOf<S, G>,
+) => Result<T, InvalidEntity>;
 
-export type AsyncEntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = {
-  create(input: CreateInputOf<S, G>): AsyncResult<T, InvalidEntity>;
-};
+export type AsyncEntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = (
+  input: CreateInputOf<S, G>,
+) => AsyncResult<T, InvalidEntity>;

@@ -23,27 +23,28 @@ const input = {
   name: "Acme",
   trialEndsAt: "2026-09-01T09:00:00Z",
 } as never;
-const orgs = Organization.factory({
+const createOrg = Organization.factory({
   id: () => "0199b1f4-1b1e-7000-8000-000000000000" as never,
   createdAt: () => "2026-08-06T09:00:00Z" as never,
 });
 
 test("create applies the generated values", () => {
-  const org = orgs.create(input).getOrThrow();
+  const org = createOrg(input).getOrThrow();
   expect(org.id).toBe("0199b1f4-1b1e-7000-8000-000000000000");
   expect(org.createdAt).toBe("2026-08-06T09:00:00Z");
   expect(org.slug).toBe("acme");
 });
 
 test("create ignores a generated field smuggled in by a caller", () => {
-  const org = orgs
-    .create({ ...(input as object), id: "0199b1f4-1b1e-7000-8000-999999999999" } as never)
-    .getOrThrow();
+  const org = createOrg({
+    ...(input as object),
+    id: "0199b1f4-1b1e-7000-8000-999999999999",
+  } as never).getOrThrow();
   expect(org.id).toBe("0199b1f4-1b1e-7000-8000-000000000000");
 });
 
 test("create enforces invariants", () => {
-  const bad = orgs.create({ ...(input as object), trialEndsAt: "2026-01-01T09:00:00Z" } as never);
+  const bad = createOrg({ ...(input as object), trialEndsAt: "2026-01-01T09:00:00Z" } as never);
   expect(bad.isErr()).toBe(true);
 });
 
@@ -61,7 +62,7 @@ test("updateInput is partial and omits the immutable fields", () => {
 });
 
 test("update returns a new instance and leaves the original untouched", () => {
-  const org = orgs.create(input).getOrThrow();
+  const org = createOrg(input).getOrThrow();
   const renamed = org.update({ name: "Renamed" as never }).getOrThrow();
   expect(renamed).not.toBe(org);
   expect(renamed.name).toBe("Renamed");
@@ -70,13 +71,13 @@ test("update returns a new instance and leaves the original untouched", () => {
 });
 
 test("update ignores an immutable field smuggled in at runtime", () => {
-  const org = orgs.create(input).getOrThrow();
+  const org = createOrg(input).getOrThrow();
   const updated = org.update({ slug: "other" } as never).getOrThrow();
   expect(updated.slug).toBe("acme");
 });
 
 test("update re-runs invariants", () => {
-  const org = orgs.create(input).getOrThrow();
+  const org = createOrg(input).getOrThrow();
   const issues = org.update({ trialEndsAt: "2026-01-01T09:00:00Z" as never }).match({
     ok: () => [] as readonly string[],
     errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues.map((i) => i.message)),
@@ -93,32 +94,32 @@ test("an entity with no generated or immutable options still exposes both schema
 
 test("a generator runs once per create, not once per factory", () => {
   let n = 0;
-  const counted = Organization.factory({
+  const countedCreate = Organization.factory({
     id: () => `0199b1f4-1b1e-7000-8000-00000000000${(n += 1)}` as never,
     createdAt: () => "2026-08-06T09:00:00Z" as never,
   });
-  const a = counted.create(input).getOrThrow();
-  const b = counted.create(input).getOrThrow();
+  const a = countedCreate(input).getOrThrow();
+  const b = countedCreate(input).getOrThrow();
   expect(a.id).not.toBe(b.id);
   expect(n).toBe(2);
 });
 
 test("an async factory awaits its generators", async () => {
-  const asyncOrgs = Organization.factoryAsync({
+  const createOrgAsync = Organization.factoryAsync({
     id: () => Promise.resolve("0199b1f4-1b1e-7000-8000-000000000000" as never),
     createdAt: () => Promise.resolve("2026-08-06T09:00:00Z" as never),
   });
-  const org = (await asyncOrgs.create(input)).getOrThrow();
+  const org = (await createOrgAsync(input)).getOrThrow();
   expect(org.id).toBe("0199b1f4-1b1e-7000-8000-000000000000");
 });
 
 test("an async factory still reports invariant failures as InvalidEntity", async () => {
-  const asyncOrgs = Organization.factoryAsync({
+  const createOrgAsync = Organization.factoryAsync({
     id: () => Promise.resolve("0199b1f4-1b1e-7000-8000-000000000000" as never),
     createdAt: () => Promise.resolve("2026-08-06T09:00:00Z" as never),
   });
   const outcome = (
-    await asyncOrgs.create({ ...(input as object), trialEndsAt: "2026-01-01T09:00:00Z" } as never)
+    await createOrgAsync({ ...(input as object), trialEndsAt: "2026-01-01T09:00:00Z" } as never)
   ).match({
     ok: () => "WRONGLY ACCEPTED",
     errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
@@ -128,11 +129,11 @@ test("an async factory still reports invariant failures as InvalidEntity", async
 });
 
 test("a rejecting generator is a defect, not an InvalidEntity", async () => {
-  const broken = Organization.factoryAsync({
+  const createBroken = Organization.factoryAsync({
     id: () => Promise.reject(new Error("id source unreachable")),
     createdAt: () => Promise.resolve("2026-08-06T09:00:00Z" as never),
   });
-  const outcome = (await broken.create(input)).match({
+  const outcome = (await createBroken(input)).match({
     ok: () => "WRONGLY ACCEPTED",
     errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
     defect: () => "defect",
