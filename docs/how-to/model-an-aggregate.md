@@ -51,7 +51,7 @@ const order = Order.make(row).getOrThrow();
 order.customer instanceof Customer; // true
 order.customer.shout; // its computed fields
 order.customer._tag; // its tag, for P.tag(...) matching
-order.watchers[0].equals(other); // its behaviour
+order.watchers.at(0)?.equals(other); // its behaviour
 ```
 
 ## Invariants can span the boundary
@@ -116,7 +116,13 @@ Member.make(row).getOrThrow(); // User | ServiceAccount — the real class
 
 The union dispatches on the discriminant rather than trying each branch, so a
 member whose own validation fails reports _its_ issues rather than every
-branch's.
+branch's. A payload whose discriminant matches no member fails as an
+`InvalidEntity` whose one issue sits at `path: ["kind"]` and lists the values
+the union knows.
+
+Two members claiming the same discriminant value is a bug in the declaration,
+not bad input, so `Entity.union` throws at declaration time, naming both
+members — left silent, the last member would win and `make` would misroute.
 
 The discriminant is a declared field, not `_tag`, because `_tag` is
 non-enumerable and absent after serialisation — a union built on it could not

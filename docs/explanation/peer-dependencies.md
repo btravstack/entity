@@ -18,3 +18,8 @@ So all four are installed together:
 ```sh
 pnpm add @btravstack/entity zod unthrown @unthrown/standard-schema
 ```
+
+The declared zod range is `^4.3.0`, and the floor is measured rather than
+guessed: the full surface typechecks, emits declarations and passes its runtime
+assertions on 4.3.0. Nothing here needs a later minor, and monorepos commonly
+pin one zod across every package, so the range is kept as wide as it is true.

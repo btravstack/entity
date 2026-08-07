@@ -18,7 +18,7 @@ Every entity carries four plain `ZodObject`s as statics, plus the class itself.
 Organization.input; // ZodObject — everything make() accepts
 Organization.output; // ZodObject — stored state and response body
 Organization.createInput; // ZodObject — input minus generated
-Organization.updateInput; // ZodObject — output minus immutable, partial
+Organization.updateInput; // ZodObject — output minus immutable and computed, partial
 Organization.entityName; // the tag, as a literal type
 Organization; // …is itself a zod schema, parsing to an instance
 ```

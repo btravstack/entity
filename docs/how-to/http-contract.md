@@ -13,7 +13,7 @@ from the model.
 >
 > ```ts
 > import { z } from "zod";
-> import { match, P } from "unthrown";
+> import { P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
 
@@ -21,7 +21,7 @@ from the model.
 
 ```ts
 const CreateBody = Organization.createInput; // input minus generated
-const UpdateBody = Organization.updateInput; // output minus immutable, partial
+const UpdateBody = Organization.updateInput; // output minus immutable and computed, partial
 const ResponseBody = Organization.output; // stored state
 ```
 
@@ -76,7 +76,11 @@ const Listing = z.object({
 ## Handle failures at the edge
 
 Issues are structured, so a field-keyed error response is a lookup rather than
-a string parse:
+a string parse. `Entity.keysOf` normalises an issue's path to plain keys —
+Standard Schema permits a segment to be a bare key or a `{ key }` wrapper, and
+the helper absorbs both — and `Entity.renderIssue` is the human spelling of one
+issue, the same one
+[`InvalidEntity.message`](/reference/errors#entity-invalidentity) is built from:
 
 ```ts
 const result = Organization.make(await request.json());
@@ -87,7 +91,7 @@ return result.match({
     m.with(P.tag("InvalidEntity"), (e) =>
       json(422, {
         errors: e.issues.map((i) => ({
-          field: (i.path ?? []).join("."), // "" for a whole-entity rule
+          field: Entity.keysOf(i).join("."), // "" for a whole-entity rule
           message: i.message,
         })),
       }),
@@ -98,6 +102,10 @@ return result.match({
   },
 });
 ```
+
+When the response is a flat list of strings rather than field-keyed objects,
+`e.issues.map(Entity.renderIssue)` is the whole mapping — `"slug: Too small: …"`
+per issue, path prefix included.
 
 An issue with an empty `path` came from `invariants` — a rule spanning the whole
 entity rather than one field. That distinction is what lets you decide whether

@@ -14,7 +14,6 @@ helpers that go inside them. For _why_ it is shaped this way, see
 >
 > ```ts
 > import { z } from "zod";
-> import { match, P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
 
@@ -31,6 +30,12 @@ class Organization extends Entity("Organization")(fields, options) {}
 A map of field name to schema. Every field must be **nominal** — a branded
 schema, a narrow literal union, a boolean, or another entity class. A bare
 `z.string()` is a compile error naming `DomainFieldMustBeBrandedOrAnEntity`.
+([Why](/explanation/branded-fields).)
+
+The check looks through two wrappers: `.optional()` is stripped, and one array
+level is unwrapped. So `z.array(Customer)`, `z.optional(Slug)` and even
+`z.array(Slug).optional()` are all accepted — the rule applies to the element,
+not the container.
 
 Four names are reserved, because an entity installs them on every instance:
 `_tag`, `equals`, `toJSON`, `update`. Using one is a compile error naming
@@ -151,6 +156,19 @@ Member.discriminant; // "kind"
 `discriminant` names a declared domain field, not `_tag`. The union dispatches
 on it rather than trying each branch, so a failing member reports its own
 issues. The union is a schema too, so it nests as a field.
+
+A payload whose discriminant matches no member fails as an `InvalidEntity`
+whose one issue carries `path: [discriminant]` — see
+[Errors](/reference/errors#which-channel-a-failure-takes). Two members claiming
+the same discriminant value is a **declaration-time defect**: `Entity.union`
+throws, naming both members, rather than letting the last one silently win the
+dispatch table.
+
+```ts
+Entity.union("kind", [User, AlsoUser]);
+// throws: union("kind"): members "User" and "AlsoUser"
+//         both claim discriminant value "user"
+```
 
 `_tag` cannot serve as the discriminant here, and that is not an oversight —
 [it never reaches the wire](/explanation/tags-and-identity).

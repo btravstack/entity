@@ -20,6 +20,7 @@ const GUIDE_SIDEBAR = [
     items: [
       { text: "Expose an HTTP contract", link: "/how-to/http-contract" },
       { text: "Persist and rehydrate", link: "/how-to/persist-and-rehydrate" },
+      { text: "Evolve an entity", link: "/how-to/evolve-an-entity" },
       { text: "Model an aggregate", link: "/how-to/model-an-aggregate" },
       { text: "Test domain logic", link: "/how-to/test-domain-logic" },
     ],
@@ -39,6 +40,7 @@ const GUIDE_SIDEBAR = [
     text: "Explanation",
     items: [
       { text: "Why entity?", link: "/explanation/why-entity" },
+      { text: "Branded fields", link: "/explanation/branded-fields" },
       { text: "No I/O, by design", link: "/explanation/no-io" },
       { text: "Sealed construction", link: "/explanation/sealed-construction" },
       { text: "Immutability", link: "/explanation/immutability" },

@@ -4,8 +4,9 @@ Generated from the source with [TypeDoc](https://typedoc.org/) — every exporte
 symbol, with its signature and TSDoc.
 
 - **[`@btravstack/entity`](/api/entity/)** — `Entity`, the merged `Entity`
-  namespace, and the three seal names (`BaseInstance`, `ConstructionKey`,
-  `Sealed`) the published declarations force out.
+  namespace, and the six type names (`BaseInstance`, `ConstructionKey`,
+  `EntityStatic`, `EntityUnion`, `Sealed`, `UnionMember`) the published
+  declarations force out.
 
 ::: tip Looking for prose?
 The generated pages document _signatures_. For what each member is **for**, with
@@ -22,9 +23,10 @@ _why_ the surface is shaped this way, read the
 import { Entity } from "@btravstack/entity";
 ```
 
-`Entity.computed`, `Entity.invariant`, `Entity.union` and `Entity.InvalidEntity`
-hang off it as values, and every public type lives in a merged
-`declare namespace Entity`. A bare `computed` or `union` would be too generic to
-take from a consumer's import scope, so nothing else is exported — with one
-measured exception, [`BaseInstance` / `ConstructionKey` /
-`Sealed`](/reference/types#the-seal-names).
+`Entity.computed`, `Entity.invariant`, `Entity.union`, `Entity.InvalidEntity`,
+`Entity.keysOf` and `Entity.renderIssue` hang off it as values, and every
+public type lives in a merged `declare namespace Entity`. A bare `computed` or
+`union` would be too generic to take from a consumer's import scope, so nothing
+else is exported — with one measured exception, the
+[six declaration-emit type names](/reference/types#the-declaration-emit-names)
+a consumer's own `.d.ts` has to be able to write.
