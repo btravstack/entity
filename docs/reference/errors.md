@@ -74,12 +74,20 @@ uses both.
 | ------------------------------------------------- | ---------------------------------------------- |
 | a field fails its own schema                      | `InvalidEntity`, issue has a `path`            |
 | a broken `invariants` rule                        | `InvalidEntity`, issue has no `path`           |
+| a patch key `updateInput` does not accept         | `InvalidEntity`, one issue per key at `[key]`  |
 | a union payload's discriminant matches nobody     | `InvalidEntity`, one issue at `[discriminant]` |
 | `computed` output failing its own schema          | **defect**                                     |
 | a `computed` function throwing                    | **defect**                                     |
 | an async generator rejecting                      | **defect**                                     |
 | subclassing an entity                             | **defect**                                     |
 | two union members claiming one discriminant value | **defect**, thrown at declaration time         |
+
+A rejected patch key reports which of the three kinds it is — `Immutable field
+— cannot be patched`, `Computed field — cannot be patched, it is re-derived
+from its sources`, or `Unknown field for Rental` — at the key's own path, so a
+`PATCH` adapter maps it to a 422 naming the field. See
+[`entity.update(patch)`](/reference/entry-points#entity-update-patch-result-someentity-invalidentity)
+for why this is stricter than `make`.
 
 The union's "Invalid discriminant" issue lists the values it knows —
 `Invalid discriminant "robot"; expected one of "user", "service_account"` —

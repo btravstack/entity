@@ -72,11 +72,26 @@ test("make heals a row written before the computed field existed", () => {
   expect(p.initials).toBe("AL");
 });
 
-test("computed fields are absent from updateInput and dropped if smuggled in", () => {
+test("computed fields are absent from updateInput and rejected if smuggled in", () => {
   expect(Object.keys(Person.updateInput.shape).toSorted()).toEqual(["first", "last"]);
   const p = Person.make(raw).getOrThrow();
-  const lied = p.update({ fullName: "LIES" } as never).getOrThrow();
-  expect(lied.fullName).toBe("Ada Lovelace");
+  // patching a derived value is a contradiction — it would be overwritten by
+  // the next derivation — so it is reported rather than quietly discarded
+  const messages = p.update({ fullName: "LIES" } as never).match({
+    ok: () => ["WRONGLY ACCEPTED"],
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues.map((i) => i.message)),
+    defect: () => ["DEFECT"],
+  });
+  expect(messages).toEqual([
+    "Computed field — cannot be patched, it is re-derived from its sources",
+  ]);
+  expect(p.fullName).toBe("Ada Lovelace");
+});
+
+test("make still ignores extra keys, so a stored row round-trips", () => {
+  // `update` is strict about caller intent; `make` stays lenient about stored
+  // data, which carries computed columns and may predate a field
+  expect(Person.make({ ...raw, legacyColumn: "x" }).getOrThrow().fullName).toBe("Ada Lovelace");
 });
 
 test("toJSON round-trips through make", () => {

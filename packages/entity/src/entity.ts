@@ -112,12 +112,11 @@ export function Entity<Tag extends string>(tag: Tag) {
     const immutableKeys = options?.immutable ?? [];
 
     /**
-     * Every key `update` refuses: the declared immutable ones, plus the
+     * Every key `updateInput` omits: the declared immutable ones, plus the
      * computed ones. A computed field is not patchable because it is derived —
      * `update` re-runs `from` like every other construction path, so patching
      * it would only be overwritten. Typed at the widened runtime element type
-     * so both uses below — the `.omit()` mask and `update`'s drop-list — take
-     * it without a cast.
+     * so the `.omit()` mask takes it without a cast.
      */
     const frozenKeys: readonly PropertyKey[] = [
       ...immutableKeys,
@@ -137,6 +136,34 @@ export function Entity<Tag extends string>(tag: Tag) {
     type InputShape = InputOf<S>;
 
     const dataKeys = Object.keys(output.shape) as unknown as readonly (keyof OutputShape)[];
+
+    /**
+     * Why `update` refuses this key, or `undefined` if it accepts it.
+     *
+     * The three answers are the three ways a patch key can fail to be part of
+     * `updateInput`, which is the schema of what a caller may send to update.
+     * All three were silently dropped before, which is the one outcome that is
+     * neither the change the caller asked for nor an error: an adapter that
+     * builds its patch as a `Record<string, unknown>` gets no excess-property
+     * check, so the key vanished into a passing `Result` and surfaced later as
+     * missing data. Reported here, it lands at the call site.
+     *
+     * `make` deliberately stays lenient in the other direction — a stored row
+     * carries computed columns and may predate a field, so extra keys are
+     * ignored there. Rehydrating data and patching it are different acts: one
+     * heals what is already written, the other states an intent.
+     */
+    const immutableNames = new Set<string>(immutableKeys as readonly string[]);
+    const computedNames = new Set(computedFields.map(([key]) => key));
+    const declaredNames = new Set(dataKeys.map(String));
+
+    const unpatchable = (key: string): string | undefined => {
+      if (immutableNames.has(key)) return "Immutable field — cannot be patched";
+      if (computedNames.has(key)) {
+        return "Computed field — cannot be patched, it is re-derived from its sources";
+      }
+      return declaredNames.has(key) ? undefined : `Unknown field for ${tag}`;
+    };
 
     // Each field's schema goes to `deepFreeze` with its value, so the walk can
     // skip a passed-through value wherever it sits — not only when it *is* the
@@ -384,15 +411,19 @@ export function Entity<Tag extends string>(tag: Tag) {
 
       /** a partial of the mutable fields → a NEW entity */
       update(this: Base, patch: PatchOf<S, A, I>): Result<Base, InvalidEntity> {
-        const current = project(this) as Record<PropertyKey, unknown>;
-        const applied = { ...current };
-        for (const [k, v] of Object.entries(patch as object)) {
-          // frozen keys — declared immutable, or computed — are a
-          // compile error already; drop them at runtime too, so a patch that
-          // reached here as `unknown` cannot desynchronise a computed field
-          // from the source it was derived from.
-          if (!frozenKeys.includes(k)) applied[k] = v;
+        const entries = Object.entries(patch as object);
+        // Every offending key reports, not just the first — the same rule the
+        // invariants follow. `path` carries the key, so an adapter can key a
+        // field-level response off it exactly as it does for a parse failure.
+        const rejected = entries
+          .map(([key]) => [key, unpatchable(key)] as const)
+          .filter((pair): pair is readonly [string, string] => pair[1] !== undefined)
+          .map(([key, message]) => ({ path: [key] as readonly PropertyKey[], message }));
+        if (rejected.length > 0) {
+          return Err(new InvalidEntity({ entity: tag, issues: rejected }));
         }
+        const applied = { ...(project(this) as Record<PropertyKey, unknown>) };
+        for (const [k, v] of entries) applied[k] = v;
         const Ctor = this.constructor as unknown as {
           make: (state: unknown) => Result<Base, InvalidEntity>;
         };
