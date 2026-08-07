@@ -10,7 +10,9 @@ factory, seen a bad value come back as a `Result` instead of an exception,
 updated it into a new instance, and projected it to the shape you would store or
 respond with.
 
-Everything here runs. Paste it into a `.ts` file and follow along.
+The snippets build on one another, so follow along in a `.ts` file. Each step
+shows only what changed; the two lines marked `// ✗` are meant not to compile,
+and that is the point of them.
 
 ## Install
 
@@ -130,13 +132,13 @@ The entity is immutable in both halves — the binding is non-writable and the
 value is deep-frozen:
 
 ```ts
-org.name = other; // ✗ compile error — read-only property
+org.name = "Other" as z.infer<typeof DisplayName>; // ✗ compile error — read-only property
 ```
 
 And you cannot sidestep the entry points:
 
 ```ts
-new Organization({ id, slug, name, createdAt }); // ✗ does not compile
+new Organization(org.toJSON()); // ✗ does not compile — the constructor is sealed
 ```
 
 The constructor takes a value no outside code can produce. That is what
@@ -160,7 +162,10 @@ const outcome = Organization.make({
 }).match({
   ok: (o) => `created ${o.slug}`,
   errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
-  defect: (cause) => report(cause),
+  defect: (cause) => {
+    console.error(cause);
+    return "bug";
+  },
 });
 ```
 
@@ -256,8 +261,8 @@ renamed.equals(org); // false
 never anything your class body added:
 
 ```ts
-await db.insert("organizations", renamed.toJSON());
-// { id, slug, name, createdAt, shout }
+console.log(renamed.toJSON());
+// { id, slug, name, createdAt, shout } — that object is what you store or respond with
 ```
 
 And the four schema members are plain `ZodObject`s, so a contract layer converts

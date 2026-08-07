@@ -57,6 +57,31 @@ catalogs:
   typedoc:
     typescript: 6.0.3
 
+# Force patched versions of vulnerable transitive dependencies. Every advisory
+# below reaches us only through dev/build tooling (never the published package's
+# runtime deps, which are the three peers). Each selector is version-scoped so
+# only the affected line moves and unrelated lines are untouched.
+overrides:
+  # GHSA-fx2h-pf6j-xcff (High, `server.fs.deny` bypass on Windows alternate data
+  # streams) plus three moderates on the same line: GHSA path traversal in
+  # optimized deps, launch-editor NTLMv2 disclosure, and the esbuild dev-server
+  # advisory reached through vite's own dependency. All four are dev-server-only;
+  # the docs ship as static HTML. They reach us via docs > vitepress > vite:
+  # vitepress 1.6.x pins `vite ^5.4.14`, and the 5.x line has no patched release,
+  # so lift any pre-6.4.3 vite to 6.4.3 (the first fixed version). That also
+  # drags esbuild up to a patched 0.25.x. `vitepress build` and `vitepress dev`
+  # are both verified against it.
+  #
+  # Side effect, measured and accepted: vitest's own vite was resolving to 8.2.0,
+  # and pnpm dedupes it onto this 6.4.3 rather than keeping a second copy —
+  # vitest 4.1.10 declares `vite: "^6.0.0 || ^7.0.0 || ^8.0.0"`, so 6.4.3 is
+  # inside its supported range and the suite passes on it. Path-scoped selectors
+  # (`vitepress>vite`) were tried and produce the byte-identical tree, because
+  # the dedupe is resolution, not the selector — so the simpler form is kept.
+  # Pinning vitest's vite apart would mean an inline `vite` devDependency on the
+  # library package for a purely transitive concern; not worth it.
+  "vite@<6.4.3": "6.4.3"
+
 peerDependencyRules:
   ignoreMissing:
     # Optional analytics peer of VitePress's bundled Algolia DocSearch.
