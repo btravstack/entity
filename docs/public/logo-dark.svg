@@ -25,7 +25,7 @@
     <path d="M106,86 L128,86"/>
   </g>
   <!-- validation stamp: tilted double ring, worn ink gaps, check for "validated" -->
-  <g transform="translate(140,107) rotate(-14)" stroke="#CE3D80" fill="none" stroke-linecap="round">
+  <g transform="translate(140,107) rotate(-14)" stroke="#C8871F" fill="none" stroke-linecap="round">
     <circle r="15.5" stroke-width="3.2" stroke-dasharray="22 3.5 28 3.5 30 3.5"/>
     <circle r="10.5" stroke-width="2"/>
     <path d="M-4.2,0.3 L-1.4,3.2 L4.6,-3.4" stroke-width="2.6" stroke-linejoin="round"/>

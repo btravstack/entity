@@ -1,9 +1,10 @@
-/* entity accent — the mascotte's blush pink. The shared @btravstack/theme
- * derives every accent shade (deep/hover/soft/washes/hero glow/feature icons/AA
- * text) from this single token, including the darkened --text-accent that keeps
- * accent-coloured text readable on the light canvas. */
+/* entity accent — amber. Amber encases and preserves: a thing suspended intact,
+ * permanently. That is sealed construction and immutable data. The blush pink it
+ * replaces was --bt-pink-soft, the org accent, which the multi-accent rule
+ * reserves for org chrome. @btravstack/theme derives the accent shades from this
+ * token; public/icons/*.svg do NOT — they hardcode the hex. */
 :root {
-  --accent: #ee9cc4;
+  --accent: #c8871f;
 }
 
 /* Hero name in the package accent — the BtravStack multi-accent rule: the
