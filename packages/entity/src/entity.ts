@@ -70,7 +70,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       // field — see `invariant.ts` for why that is both sound and necessary.
       readonly invariants?: readonly Invariant<InputOf<S>>[];
     },
-  ): EntityStatic<Tag, S, A, G, I> {
+  ): EntityStatic<Tag, S, A, G[number], I[number]> {
     const input = shape<S>(fields);
 
     // `.omit()`'s mask can't be satisfied by a mask built from a generic key
@@ -122,7 +122,7 @@ export function Entity<Tag extends string>(tag: Tag) {
     >;
     /** what a caller may send to update */
     const updateInput = omitBy(output as z.ZodObject<Fields>, frozenKeys).partial() as z.ZodObject<
-      UpdateInputShapeOf<S, A, I>
+      UpdateInputShapeOf<S, A, I[number]>
     >;
 
     type OutputShape = OutputOf<S, A>;
@@ -382,8 +382,8 @@ export function Entity<Tag extends string>(tag: Tag) {
       /** caller fields + domain-generated fields → entity */
       static factory<T>(
         this: new (d: Sealed<OutputShape>) => T,
-        generators: Generators<S, G>,
-      ): EntityFactory<T, S, G> {
+        generators: Generators<S, G[number]>,
+      ): EntityFactory<T, S, G[number]> {
         const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
         // generated spreads last, so a caller cannot override a domain-owned field
         return (input) => Ctor.make({ ...(input as object), ...callAll(generators) });
@@ -391,8 +391,8 @@ export function Entity<Tag extends string>(tag: Tag) {
 
       static factoryAsync<T>(
         this: new (d: Sealed<OutputShape>) => T,
-        generators: AsyncGenerators<S, G>,
-      ): AsyncEntityFactory<T, S, G> {
+        generators: AsyncGenerators<S, G[number]>,
+      ): AsyncEntityFactory<T, S, G[number]> {
         const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
         // a generator that rejects is infrastructure failing, not bad domain
         // input, so it stays a Defect rather than becoming an InvalidEntity
@@ -403,7 +403,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
 
       /** a partial of the mutable fields → a NEW entity */
-      update(this: Base, patch: PatchOf<S, A, I>): Result<Base, InvalidEntity> {
+      update(this: Base, patch: PatchOf<S, A, I[number]>): Result<Base, InvalidEntity> {
         const entries = Object.entries(patch as object);
         // Every offending key reports, not just the first — the same rule the
         // invariants follow. `path` carries the key, so an adapter can key a
@@ -427,7 +427,7 @@ export function Entity<Tag extends string>(tag: Tag) {
     attachSchema<Base & DeepReadonly<OutputShape>>(Base, input);
     record(Base, fields, options as Record<string, unknown> | undefined);
 
-    return Base as unknown as EntityStatic<Tag, S, A, G, I>;
+    return Base as unknown as EntityStatic<Tag, S, A, G[number], I[number]>;
   };
 }
 
@@ -469,24 +469,24 @@ type InvariantSrc<D> = Invariant<D>;
 type EntityUnionSrc<K extends string, M extends readonly UnionMember[]> = EntityUnion<K, M>;
 type ConstructionKeySrc = ConstructionKey;
 type SealedSrc<D> = Sealed<D>;
-type BaseInstanceSrc<
-  S extends Fields,
-  A extends Fields,
-  I extends readonly (keyof OutputOf<S, A>)[],
-> = BaseInstance<S, A, I>;
+type BaseInstanceSrc<S extends Fields, A extends Fields, I extends PropertyKey> = BaseInstance<
+  S,
+  A,
+  I
+>;
 type AbstractEntitySrc<
   Name extends string,
   S extends Fields,
   A extends Fields,
-  G extends readonly (keyof S)[],
-  I extends readonly (keyof OutputOf<S, A>)[],
+  G extends PropertyKey,
+  I extends PropertyKey,
 > = AbstractEntity<Name, S, A, G, I>;
 type EntityStaticSrc<
   Tag extends string,
   S extends Fields,
   A extends Fields,
-  G extends readonly (keyof S)[],
-  I extends readonly (keyof OutputOf<S, A>)[],
+  G extends PropertyKey,
+  I extends PropertyKey,
 > = EntityStatic<Tag, S, A, G, I>;
 
 export declare namespace Entity {
@@ -522,7 +522,7 @@ export declare namespace Entity {
   export type BaseInstance<
     S extends Fields,
     A extends Fields,
-    I extends readonly (keyof OutputOf<S, A>)[],
+    I extends PropertyKey,
   > = BaseInstanceSrc<S, A, I>;
   export type ConstructionKey = ConstructionKeySrc;
   export type Sealed<D> = SealedSrc<D>;
@@ -538,8 +538,8 @@ export declare namespace Entity {
     Tag extends string,
     S extends Fields,
     A extends Fields,
-    G extends readonly (keyof S)[],
-    I extends readonly (keyof OutputOf<S, A>)[],
+    G extends PropertyKey,
+    I extends PropertyKey,
   > = EntityStaticSrc<Tag, S, A, G, I>;
 
   /** What `Entity.abstract(name)(fields, options)` returns. */
@@ -547,8 +547,8 @@ export declare namespace Entity {
     Name extends string,
     S extends Fields,
     A extends Fields,
-    G extends readonly (keyof S)[],
-    I extends readonly (keyof OutputOf<S, A>)[],
+    G extends PropertyKey,
+    I extends PropertyKey,
   > = AbstractEntitySrc<Name, S, A, G, I>;
 
   /**

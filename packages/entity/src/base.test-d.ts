@@ -6,10 +6,16 @@ import { Entity } from "./index.js";
 
 const AccountId = z.uuid().brand("AccountId");
 const Label = z.string().min(1).brand("Label");
+const Upper = z.string().min(1).brand("Upper");
 
 abstract class AccountBase extends Entity.abstract("Account")(
   { id: AccountId, label: Label },
-  { immutable: ["id"] },
+  {
+    immutable: ["id"],
+    computed: {
+      shout: Entity.computed(Upper, (d) => d.label.toUpperCase() as z.infer<typeof Upper>),
+    },
+  },
 ) {
   abstract describe(): string;
   get slug(): string {
@@ -92,6 +98,49 @@ test("a root enforces the same field rules as a fresh declaration", () => {
   AccountBase.extend("Unbranded")({ plain: z.string() });
   // @ts-expect-error a reserved name is rejected, exactly as in Entity(...)
   AccountBase.extend("Reserved")({ update: Label });
+});
+
+test("a variant cannot shed the root's immutable keys", () => {
+  class Noted extends AccountBase.extend("Noted")({ note: Label }, { immutable: ["note"] }) {
+    override describe(): string {
+      return "noted";
+    }
+  }
+  const n = Noted.make({}).getOrThrow();
+  n.update({ label: "x" as z.infer<typeof Label> });
+  // @ts-expect-error `id` is the root's immutable, and declaring our own cannot shed it
+  n.update({ id: n.id });
+  // @ts-expect-error `note` is the variant's own immutable
+  n.update({ note: n.note });
+});
+
+test("a redefined computed key takes the variant's type, not an intersection", () => {
+  class Louder extends AccountBase.extend("Louder")(
+    { note: Label },
+    {
+      computed: {
+        shout: Entity.computed(Label, (d) => d.label.toLowerCase() as z.infer<typeof Label>),
+      },
+    },
+  ) {
+    override describe(): string {
+      return "louder";
+    }
+  }
+  // Read off `Entity.Output`, which is `OutputOf<S, A>` alone. An *instance* is
+  // that intersected with `BehaviourOf<This>`, and a root's instance type
+  // carries the root's data as well as its behaviour — so `l.shout` is measured
+  // as `Label & Upper` whatever the computed merge says, and subtracting the
+  // data is what TS2425 forbids (see `BehaviourOf` in `types.ts`). Every surface
+  // reading `A` on its own — `__output`, `toJSON()`, `output.shape` — is clean.
+  type Out = Entity.Output<typeof Louder>;
+  // the root typed `shout` as Upper; the variant retypes it as Label. Under a
+  // plain `A & A2` this would be `Upper & Label` and neither line would compile.
+  const asLabel: z.infer<typeof Label> = null as unknown as Out["shout"];
+  void asLabel;
+  // @ts-expect-error the root's `Upper` brand is gone, not intersected in
+  const asUpper: z.infer<typeof Upper> = null as unknown as Out["shout"];
+  void asUpper;
 });
 
 void Business;

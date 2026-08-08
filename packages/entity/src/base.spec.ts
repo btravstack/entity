@@ -166,16 +166,17 @@ test("a variant's own schemas include both halves", () => {
   expect(Object.keys(Personal.output.shape).toSorted()).toEqual(["id", "kind", "label", "shout"]);
 });
 
-test("a variant option overrides the root's for that key", () => {
+test("a variant's option adds to the root's, it does not replace", () => {
   class Loose extends AccountBase.extend("Loose")({ note: Label }, { immutable: [] }) {
     override describe(): string {
       return "loose";
     }
   }
-  expect(Object.keys(Loose.updateInput.shape).toSorted()).toEqual(["id", "label", "note"]);
+  // the root declared `id` immutable; declaring an empty list cannot shed it
+  expect(Object.keys(Loose.updateInput.shape).toSorted()).toEqual(["label", "note"]);
 });
 
-test("a variant declaring computed replaces the root's, it does not add to them", () => {
+test("a variant declaring computed keeps the root's", () => {
   class Quiet extends AccountBase.extend("Quiet")(
     { note: Label },
     {
@@ -188,13 +189,17 @@ test("a variant declaring computed replaces the root's, it does not add to them"
       return "quiet";
     }
   }
-  // `computed` replaces like every option but `invariants`, so the root's
-  // `shout` is gone — a derived column is easy to lose this way. Re-state the
-  // root's entries alongside the variant's to keep both.
-  expect(Object.keys(Quiet.output.shape).toSorted()).toEqual(["id", "label", "murmur", "note"]);
+  // `computed` is a map, so it merges per key — the root's `shout` survives
+  expect(Object.keys(Quiet.output.shape).toSorted()).toEqual([
+    "id",
+    "label",
+    "murmur",
+    "note",
+    "shout",
+  ]);
 });
 
-test("invariants are the exception: a variant adds to the root's, never replaces", () => {
+test("a variant adds to the root's invariants, never replaces", () => {
   const Score = z.number().int().brand("Score");
   class Stricter extends AccountBase.extend("Stricter")(
     { score: Score },
@@ -254,4 +259,45 @@ test("a variant is still sealed and still refuses a bare subclass", () => {
     defect: () => "defect",
   });
   expect(outcome).toBe("defect");
+});
+
+test("immutable accumulates through a behaviour-only intermediate root", () => {
+  // Entities are final, so options never chain root → variant → variant. The
+  // only multi-level shape is root → intermediate root → variant, and
+  // `Auditable` is already declared above as exactly that.
+  class Audited extends Auditable.extend("Audited")({ note: Label }, { immutable: ["note"] }) {
+    override describe(): string {
+      return "audited";
+    }
+  }
+  // `id` from AccountBase, `note` from here — `label` is all that is left
+  expect(Object.keys(Audited.updateInput.shape).toSorted()).toEqual(["label"]);
+});
+
+test("generated accumulates, so a variant cannot make a root's key caller-supplied", () => {
+  abstract class Stamped extends Entity.abstract("Stamped")(
+    { id: AccountId, at: Label },
+    { generated: ["at"] },
+  ) {}
+  class Doc extends Stamped.extend("Doc")({ note: Label }, { generated: ["id"] }) {}
+  // `at` is the root's, `id` is the variant's — `createInput` keeps neither
+  expect(Object.keys(Doc.createInput.shape).toSorted()).toEqual(["note"]);
+});
+
+test("a variant redefining one computed key overrides that entry only", () => {
+  class Louder extends AccountBase.extend("Louder")(
+    { note: Label },
+    {
+      computed: {
+        shout: Entity.computed(Upper, (d) => `${d.label}!`.toUpperCase() as z.infer<typeof Upper>),
+      },
+    },
+  ) {
+    override describe(): string {
+      return "louder";
+    }
+  }
+  const l = Louder.make({ id, label: "Ada", note: "n" }).getOrThrow();
+  expect(l.shout).toBe("ADA!");
+  expect(Object.keys(Louder.output.shape).toSorted()).toEqual(["id", "label", "note", "shout"]);
 });

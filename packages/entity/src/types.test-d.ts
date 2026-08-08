@@ -57,17 +57,17 @@ test("OutputOf with no computed fields is the encoded object", () => {
 });
 
 test("CreateInputOf drops the generated fields, GeneratedOf keeps exactly them", () => {
-  type C = CreateInputOf<S, ["id", "createdAt"]>;
+  type C = CreateInputOf<S, "id" | "createdAt">;
   expectTypeOf<C>().not.toHaveProperty("id");
   expectTypeOf<C["slug"]>().toEqualTypeOf<z.infer<typeof Slug>>();
 
-  type G = GeneratedOf<S, ["id", "createdAt"]>;
+  type G = GeneratedOf<S, "id" | "createdAt">;
   expectTypeOf<G["id"]>().toEqualTypeOf<z.infer<typeof OrgId>>();
   expectTypeOf<G>().not.toHaveProperty("slug");
 });
 
 test("PatchOf is partial and drops the immutable fields", () => {
-  type P = PatchOf<S, A, ["id", "createdAt"]>;
+  type P = PatchOf<S, A, "id" | "createdAt">;
   expectTypeOf<P>().not.toHaveProperty("id");
   expectTypeOf<P["slug"]>().toEqualTypeOf<z.infer<typeof Slug> | undefined>();
   // `fingerprint` is not in the immutable list, yet it is still gone: a

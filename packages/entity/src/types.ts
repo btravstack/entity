@@ -45,22 +45,21 @@ export type ComputedOf<A extends Fields> = [keyof A] extends [never]
 export type OutputOf<S extends Fields, A extends Fields> = InputOf<S> & ComputedOf<A>;
 
 /** What `create` accepts from a caller: everything the domain does not generate. */
-export type CreateInputOf<S extends Fields, G extends readonly (keyof S)[]> = Omit<
-  InputOf<S>,
-  G[number]
->;
+export type CreateInputOf<S extends Fields, G extends PropertyKey> = Omit<InputOf<S>, G>;
 
 /**
  * What `create` requires the use case to supply.
  *
  * `Pick` constrains its second parameter to `keyof T`, and TypeScript cannot
- * prove `G[number]` — which is `keyof S` — satisfies `keyof InputOf<S>`
+ * prove `G` — which is `keyof S` — satisfies `keyof InputOf<S>`
  * through zod's inference chain. This mapped type with key remapping achieves
  * the same semantics. `CreateInputOf` uses `Omit` (no such constraint);
- * `GeneratedOf` uses this mapped form for that reason.
+ * `GeneratedOf` uses this mapped form for that reason. The same unprovable
+ * subset relation is why `G` is a key union and not a tuple: the accumulating
+ * `readonly [...G, ...G2]` spelling is rejected with `TS2344`.
  */
-export type GeneratedOf<S extends Fields, G extends readonly (keyof S)[]> = {
-  [K in keyof InputOf<S> as K extends G[number] ? K : never]: InputOf<S>[K];
+export type GeneratedOf<S extends Fields, G extends PropertyKey> = {
+  [K in keyof InputOf<S> as K extends G ? K : never]: InputOf<S>[K];
 };
 
 /**
@@ -137,11 +136,9 @@ export type DeepReadonly<T> = T extends Immutable
  * supplied. `update` re-runs every derivation like any other construction
  * path, so a patched value would only be overwritten by the next one.
  */
-export type PatchOf<
-  S extends Fields,
-  A extends Fields,
-  I extends readonly (keyof OutputOf<S, A>)[],
-> = Partial<Omit<OutputOf<S, A>, I[number] | keyof A>>;
+export type PatchOf<S extends Fields, A extends Fields, I extends PropertyKey> = Partial<
+  Omit<OutputOf<S, A>, I | keyof A>
+>;
 
 /**
  * The field *schemas* `updateInput` is built from: the output field map
@@ -153,12 +150,8 @@ export type PatchOf<
  * signature, so `Organization.updateInput.shape.name` is a named property
  * access, not one this repo's `noPropertyAccessFromIndexSignature` rejects.
  */
-export type UpdateInputShapeOf<
-  S extends Fields,
-  A extends Fields,
-  I extends readonly (keyof OutputOf<S, A>)[],
-> = {
-  [Key in Exclude<keyof (S & A), I[number] | keyof A>]: z.ZodOptional<(S & A)[Key]>;
+export type UpdateInputShapeOf<S extends Fields, A extends Fields, I extends PropertyKey> = {
+  [Key in Exclude<keyof (S & A), I | keyof A>]: z.ZodOptional<(S & A)[Key]>;
 };
 
 /**
@@ -209,11 +202,7 @@ export type Sealed<D> = D & { readonly __useMakeOrFactoryInstead: ConstructionKe
 // converting this one to a `type` reintroduces exactly the TS2526 this
 // package's other `interface`-avoidance already worked around elsewhere.
 // oxlint-disable-next-line typescript/consistent-type-definitions
-export interface BaseInstance<
-  S extends Fields,
-  A extends Fields,
-  I extends readonly (keyof OutputOf<S, A>)[],
-> {
+export interface BaseInstance<S extends Fields, A extends Fields, I extends PropertyKey> {
   toJSON(): DeepReadonly<OutputOf<S, A>>;
   equals(other: unknown): boolean;
   update(patch: PatchOf<S, A, I>): Result<this, InvalidEntity>;
@@ -239,7 +228,7 @@ type ConstructedInstance<
   Tag extends string,
   S extends Fields,
   A extends Fields,
-  I extends readonly (keyof OutputOf<S, A>)[],
+  I extends PropertyKey,
 > = BaseInstance<S, A, I> &
   DeepReadonly<OutputOf<S, A>> & {
     readonly _tag: Tag;
@@ -255,11 +244,12 @@ type ConstructedInstance<
  * (TS2509). `string & "Personal"` reduces to `"Personal"`, which is exactly
  * what the variant needs.
  */
-export type RootInstance<
-  S extends Fields,
-  A extends Fields,
-  I extends readonly (keyof OutputOf<S, A>)[],
-> = BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: string };
+export type RootInstance<S extends Fields, A extends Fields, I extends PropertyKey> = BaseInstance<
+  S,
+  A,
+  I
+> &
+  DeepReadonly<OutputOf<S, A>> & { readonly _tag: string };
 
 /**
  * Whatever the receiver's own class body added, carried **unmapped**.
@@ -288,8 +278,8 @@ export type AbstractEntity<
   Name extends string,
   S extends Fields,
   A extends Fields,
-  G extends readonly (keyof S)[],
-  I extends readonly (keyof OutputOf<S, A>)[],
+  G extends PropertyKey,
+  I extends PropertyKey,
 > = {
   new (d: Sealed<OutputOf<S, A>>): RootInstance<S, A, I>;
   readonly entityName: Name;
@@ -309,14 +299,9 @@ export type AbstractEntity<
     tag: Tag2,
   ): <
     S2 extends Fields,
-    A2 extends Fields = A,
-    const G2 extends readonly (keyof (S & S2))[] = G,
-    const I2 extends readonly (keyof OutputOf<S & S2, A2>)[] = I extends readonly (keyof OutputOf<
-      S & S2,
-      A2
-    >)[]
-      ? I
-      : [],
+    A2 extends Fields = Record<never, never>,
+    const G2 extends readonly (keyof (S & S2))[] = [],
+    const I2 extends readonly (keyof OutputOf<S & S2, Omit<A, keyof A2> & A2>)[] = [],
   >(
     fields: S2 & OnlyNominal<S2>,
     options?: {
@@ -325,7 +310,17 @@ export type AbstractEntity<
       readonly computed?: { [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<S & S2>> };
       readonly invariants?: readonly InvariantOf<InputOf<S & S2>>[];
     },
-  ) => EntityStatic<Tag2, S & S2, A2, G2, I2, BehaviourOf<This>>;
+    // `Omit<A, keyof A2> & A2`, never `A & A2`: the runtime spread lets a
+    // variant's computed key win, and a plain intersection would type a
+    // redefined key as `Upper & Lower` while the value is `Lower`.
+  ) => EntityStatic<
+    Tag2,
+    S & S2,
+    Omit<A, keyof A2> & A2,
+    G | G2[number],
+    I | I2[number],
+    BehaviourOf<This>
+  >;
 };
 
 /**
@@ -344,8 +339,13 @@ export type EntityStatic<
   Tag extends string,
   S extends Fields,
   A extends Fields,
-  G extends readonly (keyof S)[],
-  I extends readonly (keyof OutputOf<S, A>)[],
+  // `G`/`I` are unions of keys, not tuples. The tuple form cannot express the
+  // merge: `readonly [...I, ...I2]` is rejected with `TS2344`, because
+  // TypeScript will not prove the parent's key set is a subset of the child's
+  // through zod's inference chain. Measured — see `GeneratedOf` for the same
+  // failure in its `Pick` form.
+  G extends PropertyKey,
+  I extends PropertyKey,
   // What the abstract root's class body contributed, or nothing. Defaulted so
   // every existing five-argument spelling keeps compiling.
   //
@@ -364,7 +364,7 @@ export type EntityStatic<
   readonly entityName: Tag;
   readonly input: z.ZodObject<S>;
   readonly output: z.ZodObject<S & A>;
-  readonly createInput: z.ZodObject<Omit<S, G[number]>>;
+  readonly createInput: z.ZodObject<Omit<S, G>>;
   readonly updateInput: z.ZodObject<UpdateInputShapeOf<S, A, I>>;
   /**
    * The zod slots that make the class itself a schema, so it composes
@@ -410,11 +410,11 @@ export type EntityStatic<
  * each is called once per `create`, so a factory built at the composition root
  * yields a fresh id and timestamp every time.
  */
-export type Generators<S extends Fields, G extends readonly (keyof S)[]> = {
+export type Generators<S extends Fields, G extends PropertyKey> = {
   [K in keyof GeneratedOf<S, G>]: () => GeneratedOf<S, G>[K];
 };
 
-export type AsyncGenerators<S extends Fields, G extends readonly (keyof S)[]> = {
+export type AsyncGenerators<S extends Fields, G extends PropertyKey> = {
   [K in keyof GeneratedOf<S, G>]: () => PromiseLike<GeneratedOf<S, G>[K]>;
 };
 
@@ -425,10 +425,10 @@ export type AsyncGenerators<S extends Fields, G extends readonly (keyof S)[]> = 
  * consumes generators, so `.create` was ceremony around the only thing a
  * factory does. `make` stays on the class.
  */
-export type EntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = (
+export type EntityFactory<T, S extends Fields, G extends PropertyKey> = (
   input: CreateInputOf<S, G>,
 ) => Result<T, InvalidEntity>;
 
-export type AsyncEntityFactory<T, S extends Fields, G extends readonly (keyof S)[]> = (
+export type AsyncEntityFactory<T, S extends Fields, G extends PropertyKey> = (
   input: CreateInputOf<S, G>,
 ) => AsyncResult<T, InvalidEntity>;
