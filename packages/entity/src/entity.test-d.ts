@@ -263,6 +263,15 @@ test("update() preserves the subclass type and its methods", () => {
   void tag;
 });
 
+test("an entity is final: extend lives on an abstract root", () => {
+  class Final extends Entity("Final")({ id: z.uuid().brand("FinalId") }) {}
+  // A concrete entity cannot carry behaviour into an extension at the type
+  // level — `"Final" & "Extended"` reduces to `never` (TS2509) — and a runtime
+  // that carried what the type did not would be worse than not carrying it.
+  // @ts-expect-error
+  Final.extend("Extended")({});
+});
+
 test("the helper types name each shape", () => {
   const Instant = z.iso.datetime().brand("Instant");
   class Org extends Entity("Org")(

@@ -117,7 +117,7 @@ to attach the message to a form field or to the form.
 polymorphic endpoint keeps its contract:
 
 ```ts
-const Member = Entity.union("kind", [User, ServiceAccount]);
+class Member extends Entity.union("kind", [User, ServiceAccount]) {}
 
 const Body = Member.input; // z.discriminatedUnion("kind", [...])
 z.toJSONSchema(Body, { io: "input" }); // one branch per member

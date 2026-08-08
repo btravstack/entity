@@ -94,24 +94,56 @@ Order.make(json).getOrThrow().customer instanceof Customer; // true
 
 ## Model a union of entities
 
-When a field can be one of several entities, declare the discriminant as an
-ordinary domain field and use `Entity.union`:
+When a field can be one of several entities, put what they share on a root,
+give each variant its own discriminant field, and gather them with
+`Entity.union`:
 
 ```ts
-class User extends Entity("User")({
-  kind: z.literal("user"),
-  id: UserId,
-  email: Email,
-}) {}
-class ServiceAccount extends Entity("ServiceAccount")({
-  kind: z.literal("service_account"),
-  id: SvcId,
-  label: Label,
-}) {}
+abstract class MemberBase extends Entity.abstract("Member")({ id: MemberId }) {
+  /** every variant owes the caller a display label */
+  abstract label(): string;
+}
 
-const Member = Entity.union("kind", [User, ServiceAccount]);
+class User extends MemberBase.extend("User")({
+  kind: z.literal("user"),
+  email: Email,
+}) {
+  override label(): string {
+    return this.email;
+  }
+}
+
+class ServiceAccount extends MemberBase.extend("ServiceAccount")({
+  kind: z.literal("service_account"),
+  name: Name,
+}) {
+  override label(): string {
+    return this.name;
+  }
+}
+
+class Member extends Entity.union("kind", [User, ServiceAccount]) {}
 
 Member.make(row).getOrThrow(); // User | ServiceAccount — the real class
+```
+
+The discriminant is an ordinary declared field. The root is what lets the two
+variants share `id` and the `label()` contract — declaring `abstract label()`
+there makes a variant that forgets it a compile error, not a runtime surprise.
+
+## Put statics, not methods, in the union's body
+
+Nothing is ever an instance of a union: `make` dispatches to a member and
+constructs **that** class. An instance method written in the union's body could
+never reach a member, and `new Member(...)` is a defect. Statics are what the
+body is for — the same declaration, with an entry point on it:
+
+```ts
+class Member extends Entity.union("kind", [User, ServiceAccount]) {
+  static fromRow(row: unknown) {
+    return Member.make(row);
+  }
+}
 ```
 
 The union dispatches on the discriminant rather than trying each branch, so a
@@ -135,25 +167,46 @@ A union is a schema too, so it nests:
 class Audit extends Entity("Audit")({ id: AuditId, actor: Member }) {}
 ```
 
+## Name what comes back
+
+`Member` as a **type** is `MemberBase`, the root its members share — a base
+class cannot be a union type, so that is what the class can claim. Ask for the
+exact union by name instead:
+
+```ts
+type AnyMember = Entity.Instance<typeof Member>; // User | ServiceAccount
+```
+
+Either annotation is usable: the root gives you `label()` and `id`, the member
+union gives you each variant's own fields.
+([Why the two differ](/explanation/unions-and-roots).)
+
 ## Match exhaustively on what comes back
 
 ```ts
-const describe = (m: User | ServiceAccount) =>
+const describe = (m: AnyMember) =>
   match(m)
     .with(P.tag("User"), (u) => `user:${u.email}`)
-    .with(P.tag("ServiceAccount"), (s) => `svc:${s.label}`)
+    .with(P.tag("ServiceAccount"), (s) => `svc:${s.name}`)
     .exhaustive();
 ```
 
-## When to reach for `extend` instead
+## When to reach for a root instead
 
 If the relationship is "the same thing with more fields" rather than "contains
-a thing", extend rather than nest:
+a thing", share a root rather than nest:
 
 ```ts
-class PersonWithAge extends Person.extend("PersonWithAge")({ age: Age }) {}
+abstract class PersonBase extends Entity.abstract("Person")({
+  id: PersonId,
+  name: Name,
+}) {}
+
+class Person extends PersonBase.extend("Person")({}) {}
+class PersonWithAge extends PersonBase.extend("PersonWithAge")({ age: Age }) {}
 ```
 
-That produces a new entity with its own tag and identity — not a variant of
-`Person`, and not a subclass, which is
-[refused](/explanation/sealed-construction#entities-are-not-subclassable).
+Each variant is a genuine entity with its own tag, schemas and `equals`
+identity. `PersonWithAge` is not a subclass of `Person` — an entity is
+[final](/explanation/sealed-construction#an-entity-is-final) — but both are
+instances of `PersonBase`, so code holding the root works on either.

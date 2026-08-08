@@ -23,10 +23,10 @@ _why_ the surface is shaped this way, read the
 import { Entity } from "@btravstack/entity";
 ```
 
-`Entity.computed`, `Entity.invariant`, `Entity.union`, `Entity.InvalidEntity`,
-`Entity.keysOf` and `Entity.renderIssue` hang off it as values, and every
-public type lives in a merged `declare namespace Entity`. A bare `computed` or
-`union` would be too generic to take from a consumer's import scope, so nothing
-else is exported — with one measured exception, the
-[six declaration-emit type names](/reference/types#the-declaration-emit-names)
+`Entity.computed`, `Entity.invariant`, `Entity.abstract`, `Entity.union`,
+`Entity.InvalidEntity`, `Entity.keysOf` and `Entity.renderIssue` hang off it as
+values, and every public type lives in a merged `declare namespace Entity`. A
+bare `computed` or `union` would be too generic to take from a consumer's import
+scope, so nothing else is exported — with one measured exception, the
+[seven declaration-emit type names](/reference/types#the-declaration-emit-names)
 a consumer's own `.d.ts` has to be able to write.

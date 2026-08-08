@@ -94,6 +94,57 @@ Retiring is also what makes the **declaration-first** habit safe: a field the
 model no longer names cannot be read, so any code still using it fails to
 compile at the moment of the change, not in production.
 
+## Split one entity into variants
+
+When one entity has grown two shapes, move the shared half onto an
+[abstract root](/reference/declaration#entity-abstract-name-fields-options) and
+declare each shape as a variant of it. An entity is final, so this is the
+extension point:
+
+```ts
+// before
+class Document extends Entity("Document")({ id: DocId, total: Cents }) {}
+
+// after
+abstract class DocumentBase extends Entity.abstract("Document")({
+  id: DocId,
+  total: Cents,
+}) {
+  /** shared behaviour lives on the root, and each variant owes this one */
+  abstract signedAmount(): number;
+}
+
+class Invoice extends DocumentBase.extend("Invoice")({
+  kind: z.literal("INVOICE"),
+}) {
+  override signedAmount(): number {
+    return this.total;
+  }
+}
+
+class CreditNote extends DocumentBase.extend("CreditNote")({
+  kind: z.literal("CREDIT_NOTE"),
+}) {
+  override signedAmount(): number {
+    return -this.total;
+  }
+}
+```
+
+A variant's `input` is the root's fields plus its own, so the shared half of a
+stored row still validates unchanged. What is new is the **discriminant**, which
+is a required field like any other — backfill it, or default it on the variant
+that owns the old rows. See [Add a required field](#add-a-required-field).
+
+The old rows are otherwise untouched: `_tag` moves from `"Document"` to
+`"Invoice"`, but it is non-enumerable and never stored, so nothing on disk knows
+the difference. Anything reading `entityName`, or matching on `P.tag`, does.
+
+Options declared on the root are inherited, and `invariants` **concatenate** —
+a variant can add rules but never shed the root's. Every other option replaces
+the root's list for that key, so a variant declaring `generated` or `immutable`
+re-states every key it needs.
+
 ## Computed fields heal themselves
 
 A computed field needs no migration story at all: `make` validates the

@@ -46,6 +46,7 @@ const GUIDE_SIDEBAR = [
       { text: "Immutability", link: "/explanation/immutability" },
       { text: "Why computed re-derives", link: "/explanation/computed-fields" },
       { text: "Tags and identity", link: "/explanation/tags-and-identity" },
+      { text: "Unions and roots", link: "/explanation/unions-and-roots" },
       { text: "Errors are values", link: "/explanation/errors-are-values" },
       { text: "Peer dependencies", link: "/explanation/peer-dependencies" },
     ],

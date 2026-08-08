@@ -5,9 +5,11 @@
   "out": "api/entity",
   "categoryOrder": ["Facade", "Declaration", "Entry points", "Types", "Errors", "*"],
   "intentionallyNotExported": [
+    "AbstractEntitySrc",
     "AsyncEntityFactory",
     "AsyncGenerators",
     "BaseInstanceSrc",
+    "BehaviourOf",
     "ComputedField",
     "ComputedFieldSrc",
     "ComputedOf",
@@ -30,7 +32,9 @@
     "OnlyNominal",
     "OutputOf",
     "PatchOf",
+    "RootInstance",
     "SealedSrc",
+    "SharedBase",
     "UpdateInputShapeOf"
   ]
 }

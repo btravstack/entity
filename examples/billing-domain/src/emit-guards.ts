@@ -14,11 +14,16 @@
  *     signal. Every member of `Entity` is therefore named below, so
  *     declaration emit has to walk each one.
  *
- *  2. **The widths in `index.ts` are load bearing.** `TS7056` is a threshold on
- *     serialised *characters*, so `Invoice` needs its full dunning vocabulary,
- *     its branded timestamp and its six-member level union to stay above it.
- *     Measured: trimming them put the old fixture back under the ceiling,
- *     where it compiled happily and guarded nothing.
+ *  2. **The widths in `vocabulary.ts` are load bearing.** `TS7056` is a
+ *     threshold on serialised *characters*, so `Invoice` — declared in
+ *     `index.ts`, built from those schemas — needs its full dunning
+ *     vocabulary, its branded timestamp and its six-member level union to stay
+ *     above it. Measured: trimming them put the old fixture back under the
+ *     ceiling, where it compiled happily and guarded nothing. Splitting the
+ *     declarations out of `index.ts` did *not* shrink them — the emitter
+ *     expands each schema in anonymous type-argument position rather than
+ *     naming the binding, so `Invoice_base` still carries all thirty members
+ *     inline.
  *
  * What went wrong when nothing checked this: `EntityStatic` was unexported, so
  * TypeScript had no name to write for the builder's return type and serialised
@@ -34,7 +39,7 @@ import type { z } from "zod";
 // `Organization` is imported as a value: the sealed-construction assertion
 // below needs the runtime binding to write `new Organization(...)` at all.
 import { Organization } from "./index.js";
-import type { CreditNote, DisplayLabel, Invoice, Slug } from "./index.js";
+import type { BillingDocument, CreditNote, DisplayLabel, Invoice, Money, Slug } from "./index.js";
 
 /* ── Construction stays sealed from outside the package ───────────────── */
 
@@ -72,6 +77,15 @@ export type Static = Entity.Static<
   []
 >;
 export type Members = Entity.Union<"kind", [typeof Invoice, typeof CreditNote]>;
+export type AnyDocument = Entity.Instance<typeof BillingDocument>;
+export type OneInvoice = Entity.Instance<typeof Invoice>;
+export type Root = Entity.Abstract<
+  "BillingDocument",
+  { total: typeof Money },
+  Record<never, never>,
+  [],
+  []
+>;
 
 /** The error is reachable as both a value and a type. */
 export const isInvalid = (error: unknown): error is Entity.InvalidEntity =>

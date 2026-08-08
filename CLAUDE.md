@@ -34,6 +34,11 @@ that are not derivable from there:
   shape and reported only `TS4020`. Widen the entity and both report it. So a
   band of realistic domain widths fails for consumers and passes here —
   which is the band issues #31 and #32 shipped through.
+  That example keeps its abstract root in `src/root.ts`, exported, rather than
+  beside its variants: a root reaches a variant's `.d.ts` as a synthesised local
+  `declare abstract class` when the two share a module and as a **named import**
+  when they do not, and only the first path was compiled while the root lived in
+  `index.ts`.
 - **A `paths` mapping is not how the emit fixture resolves the package.**
   `examples/billing-domain` depends on `@btravstack/entity` as `workspace:*`
   and reaches `dist/index.d.mts` through its real `exports`, the way an actual
@@ -67,7 +72,8 @@ cannot run against it. Measured — the reason is inline in
 
 ## Architecture
 
-Ten source modules under `packages/entity/src`, split by what they own:
+Twelve source modules under `packages/entity/src` besides `index.ts`, split by
+what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
@@ -80,11 +86,31 @@ Ten source modules under `packages/entity/src`, split by what they own:
   `JSON.stringify`, or spread. `toJSON()` is the **only** public projection —
   it, `equals` and `update` all route through a module-private `project`, so
   there is no second public spelling of the same data. It also carries the
-  whole public surface: `Entity.computed` / `Entity.union` /
-  `Entity.InvalidEntity` as expando properties, and every public type in a
+  whole public surface: `Entity.computed` / `Entity.invariant` /
+  `Entity.abstract` / `Entity.union` / `Entity.InvalidEntity` as expando
+  properties, and every public type in a
   merged `declare namespace Entity`. Namespace members alias imported types
   through `*Src` names deliberately — see the comment there before renaming
   one.
+- **`base.ts`** — `Entity.abstract(name)(fields, options?)` and the `extend`
+  that lives on what it returns. A root is tagless, has no `make` and none of
+  the four schema members; it exists to be extended and to hold the behaviour
+  every variant shares. `extend` rebuilds a fresh entity from the declaration
+  record (a `WeakMap` keyed by the class, walked up the _static_ chain so a
+  user's own intermediate subclass still finds it), then rewires the new
+  prototype onto the receiver's — which is what makes `variant instanceof Root`
+  true, picks up a behaviour-only intermediate root, and leaves the entity's own
+  `toJSON`/`equals`/`update` shadowing anything a root declares under those
+  names. The rewiring is **instance-prototype only** — one `setPrototypeOf` on
+  `child.prototype` — and that single fact explains the rest: a root's
+  `static` members are not inherited (the static chain is untouched), a root's
+  class-body **field** is typed but never initialised (the variant's generated
+  base extends nothing, so a root's constructor never runs), and the
+  construction seal is unaffected. `docs/reference/declaration.md` states all
+  three; `base.spec.ts` pins them. Options merge per key, child winning, except
+  `invariants`, which concatenate — so a variant declaring `computed` **drops**
+  the root's derived fields. Built against a loosened `BuildEntity` passed in from
+  `entity.ts`, so this module imports no builder and there is no cycle.
 - **`equal.ts`** — `deepEqual`, the primitive behind `equals`. Not
   `JSON.stringify`: that **threw** on a `bigint` field, compared `Set`/`Map`/
   typed-array fields with different contents as **equal**, and reported a
@@ -99,7 +125,8 @@ Ten source modules under `packages/entity/src`, split by what they own:
   passes one `WeakSet` across every field, so a subtree two fields share is
   walked once.
 - **`types.ts`** — the whole type-level derivation (`OutputOf`,
-  `CreateInputOf`, `PatchOf`, `UpdateInputShapeOf`, `EntityStatic`), plus
+  `CreateInputOf`, `PatchOf`, `UpdateInputShapeOf`, `EntityStatic`,
+  `AbstractEntity`/`RootInstance`/`BehaviourOf`), plus
   `Sealed<D>`, the module-private `unique symbol` that makes `new X(...)` a
   compile error. Written independently of the builder's body-local values so
   `EntityStatic` can serve as the builder's explicit return annotation.
@@ -110,7 +137,13 @@ Ten source modules under `packages/entity/src`, split by what they own:
   makes a schema built from a subclass yield that subclass.
 - **`union.ts`** — `Entity.union(discriminant, members)`. Dispatches on the
   declared discriminant rather than trying each branch, so a failing member
-  reports its own issues.
+  reports its own issues. It returns a **class**, so the idiom is
+  `class Account extends Entity.union("kind", [Personal, Business]) {}` — a
+  union's class body is for statics, and its constructor defects. A base
+  constructor may not return a union (TS2509), so `SoleType` claims the root
+  the members share and falls back to the empty type when they share none;
+  `Plain` strips that root's abstractness, which a union could never implement.
+  `Entity.Instance<typeof Account>` is where the exact member union lives.
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
   fields, and `shape()`, which builds the validated field map. Both are
   internal; neither is exported from `index.ts`.
@@ -141,8 +174,15 @@ design — `contract.spec.ts` pins that both ways.
   carry a targeted `oxlint-disable` with a reason — several already exist for
   `no-catch-all-pattern` where `SchemaIssues` is a single non-union type.
 - **Comments recording measurements are regression guards.** Many comments
-  cite a specific TS diagnostic code (TS2411, TS2526, TS4020, TS4111) or a
-  measured library behaviour. Verify before "simplifying" them away — the
+  cite a specific TS diagnostic code (TS2411, TS2425, TS2509, TS2515, TS2526,
+  TS4020, TS4111) or a measured library behaviour. The four around roots and
+  unions: a base constructor may not return a union or a `never`-collapsed
+  intersection (**TS2509** — `SoleType`, and `RootInstance` widening `_tag` to
+  `string`), a mapped behaviour type turns a method into a property and breaks
+  a variant's `override` (**TS2425** — `BehaviourOf`, which must stay unmapped),
+  and abstractness **does** propagate through the intersection (**TS2515**),
+  which is why a root's `abstract` member binds every variant and why `Plain`
+  strips it back off for the union. Verify before "simplifying" them away — the
   catalog in `pnpm-workspace.yaml` pins `typescript` and `@orpc/zod` to the
   exact versions those measurements were taken against, with the reason inline.
 - **Type-level behaviour lives in `*.test-d.ts`**, checked by
@@ -154,17 +194,21 @@ design — `contract.spec.ts` pins that both ways.
   library can be "done". Resist convenience aliases.
 - **`index.ts` exports `Entity`, and nothing else you write against.** A bare
   `computed` or `union` is too generic to take from a consumer's import scope,
-  so everything hangs off the builder. The sole exception is `BaseInstance` /
-  `ConstructionKey` / `Sealed`, exported at the top level as well: a downstream
+  so everything hangs off the builder. The sole exception is the seven
+  declaration-emit names — `AbstractEntity`, `BaseInstance`, `ConstructionKey`,
+  `EntityStatic`, `EntityUnion`, `Sealed`, `UnionMember` — exported at the top
+  level as well: a downstream
   library compiling with `declaration: true` emits the _underlying_ name, not
   the namespace path aliasing it, so hiding them fails the consumer pass with
   `TS4020`. That is measured, not assumed — `examples/billing-domain/src/emit-guards.ts`
   names every namespace member for exactly this reason, and an **unused**
   `@ts-expect-error` there is a failure signal, not noise.
-- **Entities are not subclassable.** One `extends` is the declaration form;
-  `construct` defects on anything deeper. Behaviour goes in the entity's own
-  class body. This is runtime-only — TypeScript has no `final`, and
-  `private`/`protected` constructors were measured to break the declaration
+- **Entities are final.** One `extends` is the declaration form; `construct`
+  defects on anything deeper, and `EntityStatic` carries no `extend`. Behaviour
+  goes in the entity's own class body. Extension lives on `Entity.abstract`,
+  which is tagless and can therefore carry a class body into every variant —
+  `base.ts` above. The ban on a deeper `extends` is runtime-only: TypeScript has no `final`,
+  and `private`/`protected` constructors were measured to break the declaration
   form (TS2675) and the statics (TS2684) respectively.
 - **No I/O.** The package reads no clock and generates no id. `create` lives on
   a factory (`Entity.factory(generators)` / `factoryAsync`) — a function you

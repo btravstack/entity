@@ -152,3 +152,47 @@ test("a multi-value literal discriminant does not throw at construction", () => 
   const U = Entity.union("plan", [Member2Free, Wide]);
   expect(U.make({ id: paidRow.id, plan: "tin" }).getOrThrow()).toBeInstanceOf(Wide);
 });
+
+const AcctId = z.uuid().brand("AcctId");
+
+abstract class AccountBase extends Entity.abstract("Account")({ id: AcctId, label: Label }) {
+  abstract describe(): string;
+  get slug(): string {
+    return this.label.toLowerCase();
+  }
+}
+class Personal extends AccountBase.extend("Personal")({ kind: z.literal("personal") }) {
+  override describe(): string {
+    return `personal ${this.slug}`;
+  }
+}
+class Business extends AccountBase.extend("Business")({ kind: z.literal("business") }) {
+  override describe(): string {
+    return `business ${this.slug}`;
+  }
+}
+
+class Account extends Entity.union("kind", [Personal, Business]) {
+  static ofLabel(label: string) {
+    return Account.make({ id: "0199b1f4-1b1e-7000-8000-000000000002", label, kind: "personal" });
+  }
+}
+
+test("a union declared as a class still dispatches to the member", () => {
+  expect(Account.ofLabel("Ada").getOrThrow()).toBeInstanceOf(Personal);
+  expect(Account.discriminant).toBe("kind");
+  expect(Account.members.map((m) => m.entityName)).toEqual(["Personal", "Business"]);
+});
+
+test("a union declared as a class is still a schema", () => {
+  const row = { id: "0199b1f4-1b1e-7000-8000-000000000003", label: "Acme", kind: "business" };
+  expect(z.array(Account).parse([row])[0]).toBeInstanceOf(Business);
+});
+
+test("a union has no instances", () => {
+  const Ctor = Account as unknown as new () => unknown;
+  // A union's `make` dispatches to a member class, so nothing is ever an
+  // instance of the union itself — an instance method written in a union's
+  // class body would never reach a member, and this is what says so.
+  expect(() => new Ctor()).toThrow(/no instances/);
+});

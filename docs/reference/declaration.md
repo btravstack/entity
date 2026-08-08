@@ -1,6 +1,6 @@
 ---
 title: Declaring an entity
-description: Entity(tag)(fields, options), the field rules, the four options, and the Entity.computed / Entity.invariant / extend / union declaration helpers.
+description: Entity(tag)(fields, options), the field rules, the four options, and the Entity.computed / Entity.invariant / Entity.abstract / Entity.union declaration helpers.
 ---
 
 # Declaring an entity
@@ -24,6 +24,13 @@ Declares an entity. Curried on the tag so it reads next to the class name.
 ```ts
 class Organization extends Entity("Organization")(fields, options) {}
 ```
+
+The declared class is **final**. There is no `Organization.extend`, and a bare
+`class Sub extends Organization {}` is
+[rejected at construction](/explanation/sealed-construction#an-entity-is-final).
+Fields shared by several entities go on an
+[abstract root](#entity-abstract-name-fields-options); behaviour that belongs to
+this one entity goes in its own class body.
 
 ### `fields`
 
@@ -114,43 +121,188 @@ is already a Defect rather than something to re-check here.
 A predicate that throws is a Defect, not an `InvalidEntity`, on the same
 reasoning as `computed`.
 
-## `SomeEntity.extend(tag)(fields, options?)`
+## `Entity.abstract(name)(fields, options?)`
 
-A **new** entity carrying the parent's fields plus more, under its own tag —
-its own schemas, its own `equals` identity.
+A **root**: the fields and the behaviour several entities share, in a class that
+is extended rather than instantiated.
 
 ```ts
-class PersonWithAge extends Person.extend("PersonWithAge")({ age: Age }) {
-  get isAdult(): boolean {
-    return this.age >= 18;
+abstract class AccountBase extends Entity.abstract("Account")(
+  { id: AccountId, label: Label },
+  { immutable: ["id"] },
+) {
+  abstract describe(): string;
+
+  get slug(): string {
+    return this.label.toLowerCase();
+  }
+}
+```
+
+`fields` and `options` are exactly what `Entity(tag)(…)` takes — same field
+rules, same four options — and both are inherited by every entity extended from
+the root.
+
+A root is **not** an entity. It has no `make`, no `factory`, and none of the
+four schema members; those belong to a variant, which has a tag to build them
+under. Reaching its constructor is a defect:
+
+```
+Account: an abstract root has no instances — extend it and use make()
+```
+
+`name` is what labels the root in that message. It never reaches an instance:
+a variant's `_tag` is the variant's own, and on the root's instance type `_tag`
+is widened to `string` so shared behaviour can still read it.
+([Why](/explanation/unions-and-roots#why-the-root-carries-no-tag).)
+
+| On a root                                             |                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------ |
+| `abstract` members                                    | enforced on every variant — `TS2515` if one is missing |
+| methods and getters                                   | inherited by every variant                             |
+| **class-body fields** (`count = 0`)                   | typed, but **never initialised** — see below           |
+| **statics** (`static of() {}`)                        | **not** inherited; they stay on the root               |
+| `toJSON`, `equals`, `update`                          | callable, never overridable                            |
+| `variant instanceof Root`                             | `true`                                                 |
+| an intermediate `abstract class … {}` (no new fields) | inherited, behaviour and the root's fields both        |
+
+`extend` rewires the **instance prototype** and nothing else — one
+`setPrototypeOf` on the new entity's prototype. That single fact is behind every
+row above that is not plain inheritance.
+
+A class-body **field** is never initialised. The variant's generated base
+extends nothing, so a root's constructor never runs and no field initialiser
+fires:
+
+```ts
+abstract class WithField extends Entity.abstract("WithField")({ id }) {
+  counter = 0; // typed `number`; `undefined` at runtime, and not an own property
+}
+```
+
+Use a **getter or a method** for anything a root needs to hold. The type level
+cannot catch the field form: mapping the root's instance type is exactly what
+`TS2425` forbids, so the field's declared type survives into the variant intact.
+
+Visibility makes no difference, and `private` is the worst version of it. A
+`private cache = new Map()` on a root compiles, in the root and in every
+variant; the field is `undefined` at runtime; and the first root method that
+reads it fails at the point of use rather than at the declaration —
+measured: `TypeError: Cannot read properties of undefined (reading 'size')`.
+
+**Statics are not inherited either**, for the same reason: the static chain is
+untouched, so `Root.of(…)` is not `Variant.of(…)`. The type side agrees, so
+this surfaces as a compile error rather than an `undefined is not a function`.
+
+The three prototype methods are the one asymmetry in the other direction: the
+entity's own prototype sits above the root's, so a member declared under one of
+those names on a root compiles and is silently never called. Behaviour that must
+differ per variant goes in the variant's body — an `abstract` member on the root
+is how to require it.
+
+An intermediate root is an ordinary abstract class, so behaviour can be layered
+without another declaration:
+
+```ts
+abstract class Auditable extends AccountBase {
+  audit(): string {
+    return `${this._tag}:${this.id}`;
+  }
+}
+
+class Business extends Auditable.extend("Business")({
+  kind: z.literal("business"),
+}) {
+  override describe(): string {
+    return `business ${this.slug}`;
+  }
+}
+```
+
+An intermediate adds behaviour only. There is no way to declare further fields
+on one — fields come from a root's `fields` map and a variant's `extend` call,
+and nothing in between.
+
+### Where a root goes
+
+A root has to be **exported** for entities in another module to extend it:
+`extend` is a call on the value, so an unexported root can only be extended
+inside its own module.
+
+Both arrangements work, and this repo compiles both, because they emit
+differently. A root's instance type is the last type argument of every variant's
+`Entity.Static`, so it reaches the `.d.ts` of whatever module the variants are
+exported from — kept beside its variants, TypeScript synthesises a local
+`declare abstract class` for it; across a module boundary, the emitted
+declaration has to name the export, and opens with
+`import { AccountBase } from "./root.js"`.
+[`examples/billing-domain`](/examples/billing-domain) splits the two apart so
+the second path is covered by the two-compiler declaration pass.
+
+### `Root.extend(tag)(fields, options?)`
+
+A **new** entity carrying the root's fields plus more, under its own tag — its
+own schemas, its own `equals` identity — inheriting the **instance** half of the
+class body of whatever it was called on: its methods and accessors, but not its
+statics and not its field initialisers
+([above](#entity-abstract-name-fields-options)).
+
+```ts
+class Personal extends AccountBase.extend("Personal")({
+  kind: z.literal("personal"),
+}) {
+  override describe(): string {
+    return `personal ${this.slug}`;
   }
 }
 ```
 
 Options merge per key, child winning — **except `invariants`**, which
-concatenates parent-then-child. An extension can add rules; it cannot shed them,
-so it is never quietly laxer than what it extends. Declaring `invariants: []` on
-a child does not clear the parent's.
+concatenates root-then-variant. A variant can add rules; it cannot shed them, so
+it is never quietly laxer than its root. Declaring `invariants: []` on a variant
+does not clear the root's.
 
-`extend` rebuilds from the **declaration**, so class-body members do not carry
-over — re-declare them.
+Every other option — `generated`, `immutable` **and `computed`** — **replaces**
+the root's for that key. A variant declaring one of them re-states every entry
+it needs, including the root's; one that declares none inherits all three whole.
 
-This is the only supported way to build on an existing entity: a bare
-`class Sub extends Organization {}` is
-[rejected at construction](/explanation/sealed-construction#entities-are-not-subclassable).
+`computed` is the one worth watching, because what it drops is a column rather
+than a rule: a variant that declares a derived field of its own loses every
+derived field the root declared, and the loss is only visible in
+`Variant.output.shape`.
+
+`extend` lives only on a root. The entity it returns is final.
 
 ## `Entity.union(discriminant, members)`
 
-A union of entities that is itself entity-like.
+A union of entities, declared as a class.
 
 ```ts
-const Member = Entity.union("kind", [User, ServiceAccount]);
+class Account extends Entity.union("kind", [Personal, Business]) {
+  /** a union's class body is for statics — it has no instances */
+  static parse(row: unknown) {
+    return Account.make(row);
+  }
+}
 
-Member.make(row); // Result<User | ServiceAccount, InvalidEntity>
-Member.input; // discriminated union, one branch per member
-Member.output; // ditto — JSON Schema both directions
-Member.members; // the tuple, for registries and exhaustiveness
-Member.discriminant; // "kind"
+Account.make(row); // Result<Personal | Business, InvalidEntity>
+Account.input; // discriminated union, one branch per member
+Account.output; // ditto — JSON Schema both directions
+Account.members; // the tuple, for registries and exhaustiveness
+Account.discriminant; // "kind"
+```
+
+As a **type**, `Account` is the root its members share — `AccountBase` above —
+or the empty type when they share none. The exact member union is
+`Entity.Instance<typeof Account>`; `make` returns it either way.
+([Why](/explanation/unions-and-roots#why-a-union-s-type-is-its-members-root-not-its-members).)
+
+`new Account(...)` does not compile, and reaching the constructor at runtime is
+a defect — `make` dispatches to a member, so nothing is ever an instance of the
+union:
+
+```
+Personal | Business: a union has no instances — use make()
 ```
 
 `discriminant` names a declared domain field, not `_tag`. The union dispatches

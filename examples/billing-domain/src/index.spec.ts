@@ -95,6 +95,41 @@ test("a malformed row comes back as an error, not an exception", () => {
   expect(Organization.make({ slug: "", name: "" }).isErr()).toBe(true);
 });
 
+/* ── The root carries the fields and the behaviour both variants share ── */
+
+test("an invoice carries the root's behaviour", () => {
+  const drafted = invoice();
+  expect(drafted.counterpartySlug).toBe("acme");
+  expect(drafted.signedAmount()).toBe(12_00);
+});
+
+test("each variant signs the shared amount its own way", () => {
+  const note = createCreditNote({
+    issuedTo: org(),
+    against: InvoiceId.parse("33333333-3333-4333-8333-333333333333"),
+    total: money(500, "EUR"),
+  }).getOrThrow();
+
+  expect(note.signedAmount()).toBe(-500);
+  expect(note.counterpartySlug).toBe("acme");
+});
+
+test("the root's invariant guards a variant that declares none of its own", async () => {
+  // `CreditNote` no longer spells out "total must not be negative" — the root
+  // does. An extension can add rules; it cannot shed them.
+  const message = await createCreditNote({
+    issuedTo: org(),
+    against: InvoiceId.parse("33333333-3333-4333-8333-333333333333"),
+    total: money(-1, "EUR"),
+  }).match({
+    ok: () => "ok",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues[0]?.message ?? ""),
+    defect: () => "defect",
+  });
+
+  expect(message).toBe("total must not be negative");
+});
+
 /* ── The union dispatches on a DECLARED field, never on `_tag` ──────────
    These four are the tests whose absence let a broken union ship: the first
    version of this file discriminated on "_tag", which is non-enumerable and

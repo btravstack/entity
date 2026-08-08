@@ -1,16 +1,22 @@
 ---
 title: Billing domain example
-description: Declaring entities — branded fields, generated/immutable/computed, invariants, nesting, unions and factories — in a runnable package.
+description: Declaring entities — branded fields, generated/immutable/computed, invariants, nesting, abstract roots, unions and factories — in a runnable package.
 ---
 
 # Billing domain
 
 [`examples/billing-domain`](https://github.com/btravstack/entity/tree/main/examples/billing-domain)
-— the modelling half: two entities and the vocabulary they are built from.
+— the modelling half: one standalone entity, a root with two variants under a
+union, and the vocabulary they are all built from.
 
 ```sh
 pnpm --filter @btravstack/entity-example-billing-domain test
 ```
+
+Four modules, in dependency order: `vocabulary.ts`, `organization.ts`,
+`root.ts`, and `index.ts` — the two variants, the union over them, and the
+factories. The root sits in a module of its own on purpose;
+[why](#three-things-in-this-package-that-look-odd-on-purpose).
 
 ## The vocabulary comes first
 
@@ -75,10 +81,73 @@ label followed.
 Behaviour lives in the class body. This is a real class, not a record with
 functions bolted beside it.
 
+## What both documents share is a root
+
+An invoice and a credit note are siblings, not subtypes of one another: same
+counterparty and money, opposite direction, their own identities. What they
+share goes on an `Entity.abstract` root — tagless, with no `make` of its own,
+extended rather than instantiated:
+
+```ts
+// root.ts — exported, so entities in another module can extend it
+export abstract class BillingDocumentBase extends Entity.abstract(
+  "BillingDocument",
+)(
+  { issuedTo: Organization, total: Money, issuedAt: Instant },
+  {
+    generated: ["issuedAt"],
+    immutable: ["issuedAt", "issuedTo"],
+    invariants: [
+      Entity.invariant(
+        (d) => d.total.amount >= 0,
+        "total must not be negative",
+      ),
+    ],
+  },
+) {
+  /** what the document contributes to the ledger — declared once, signed per variant */
+  abstract signedAmount(): number;
+
+  get counterpartySlug(): string {
+    return this.issuedTo.slug;
+  }
+}
+
+// index.ts
+export class Invoice extends BillingDocumentBase.extend("Invoice")(
+  { id: InvoiceId, kind: z.literal("INVOICE") /* … */ },
+  {
+    generated: ["id", "issuedAt", "kind"],
+    immutable: ["id", "issuedAt", "issuedTo", "kind"],
+    /* … invariants, one of them */
+  },
+) {
+  override signedAmount(): number {
+    return this.total.amount;
+  }
+}
+```
+
+`abstract signedAmount()` is the point of the root: a variant that forgets it
+does not compile (`TS2515`). It is _declared_ once and _implemented_ twice, with
+opposite sign — a credit note returns `-this.total.amount`. `counterpartySlug`
+is the other half: behaviour written once and inherited, which is what a
+rebuilt-from-the-declaration extension could not carry. An entity itself is
+final; `extend` lives only here.
+
+Note what the variants re-state. `generated`, `immutable` and `computed`
+**replace** the root's entry for that key rather than adding to it — two key
+lists and a map of derived fields — so `Invoice` names `issuedAt` and
+`issuedTo` again alongside its own. Only `invariants`
+concatenate — the root's "total must not be negative" applies to both variants
+whether or not they declare rules of their own, and `Invoice` does declare one
+of its own ("a void invoice cannot be in dunning").
+
 ## Nesting, and the factory
 
-`Invoice.issuedTo` is an `Organization` used directly as a field. The class is
-itself a zod schema, so it parses back to a real instance:
+`issuedTo` is declared on the root, so every variant has one — and it is an
+`Organization`, an entity used directly as a field. The class is itself a zod
+schema, so it parses back to a real instance:
 
 ```ts
 const rehydrated = Invoice.make(invoice.toJSON()).getOrThrow();
@@ -98,7 +167,17 @@ export const createOrganization = Organization.factory({
 That is what leaves the entities trivially testable: nothing inside them reaches
 for ambient state.
 
-## Two things in this package that look odd on purpose
+## Three things in this package that look odd on purpose
+
+**The root is exported, and alone in `root.ts`.** A root's instance type is the
+last type argument of every variant's `Entity.Static`, so it reaches the `.d.ts`
+of whatever module the variants are exported from — and it reaches it two
+different ways. Beside its variants, TypeScript synthesises a local
+`declare abstract class`; across a module boundary it has to _name_ the export,
+and `index.d.ts` opens with `import { BillingDocumentBase } from "./root.js"`.
+While the root sat in `index.ts`, only the first path was ever compiled. Both
+are clean on TypeScript 7.0.2 and 5.9.3 — the split is what keeps the second one
+that way.
 
 **`DunningReason` has thirty members.** Vocabularies that wide are ordinary in
 billing, and this one is held at full width because it pins
@@ -116,11 +195,19 @@ self-alias still compiles and simply degenerates.
 ## The union discriminates data, not instances
 
 ```ts
-export const BillingDocument = Entity.union("kind", [
+export class BillingDocument extends Entity.union("kind", [
   Invoice,
   CreditNote,
-] as const);
+]) {}
 ```
+
+A class, not a value: `BillingDocument` is a type as well as a namespace for
+statics, and as a type it is `BillingDocumentBase` — the root both members
+share. `BillingDocument.make(row)` still returns the exact
+`Result<Invoice | CreditNote, InvalidEntity>` — the spec asserts which class
+comes back — and `Entity.Instance<typeof BillingDocument>` names that union,
+which `emit-guards.ts` pins. The body holds statics only; the union has no
+instances of its own.
 
 `kind` is a **declared domain field** — `z.literal("INVOICE")` on one member and
 `z.literal("CREDIT_NOTE")` on the other, both `generated` so no caller can supply
