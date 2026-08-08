@@ -34,6 +34,7 @@
     "PatchOf",
     "RootInstance",
     "SealedSrc",
+    "SharedBase",
     "UpdateInputShapeOf"
   ]
 }
