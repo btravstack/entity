@@ -16,6 +16,16 @@ export const DisplayLabel = z.string().min(1).brand("DisplayLabel");
 export const Instant = z.iso.datetime().brand("Instant");
 export const LineLabel = z.string().min(1).brand("LineLabel");
 
+/**
+ * The accounting period a document falls in — `2026-03`. Billing reports and
+ * revenue recognition both work per period, so it is derived from the issue
+ * date rather than stored beside it, where the two could disagree.
+ */
+export const AccountingPeriod = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/)
+  .brand("AccountingPeriod");
+
 export const Currency = z.enum(["EUR", "USD", "GBP"]);
 
 /**

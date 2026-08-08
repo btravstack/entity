@@ -114,6 +114,14 @@ test("each variant signs the shared amount its own way", () => {
   expect(note.counterpartySlug).toBe("acme");
 });
 
+test("a variant inherits the root's computed field without re-stating it", () => {
+  const drafted = invoice();
+  expect(drafted.period).toBe(drafted.issuedAt.slice(0, 7));
+  // Derived, so it is not patchable — and re-derived from whatever `issuedAt`
+  // the construction path produced, on every variant, `CreditNote` included.
+  expect(Object.keys(Invoice.updateInput.shape)).not.toContain("period");
+});
+
 test("the root's invariant guards a variant that declares none of its own", async () => {
   // `CreditNote` no longer spells out "total must not be negative" — the root
   // does. An extension can add rules; it cannot shed them.

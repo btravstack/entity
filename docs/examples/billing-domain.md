@@ -97,6 +97,12 @@ export abstract class BillingDocumentBase extends Entity.abstract(
   {
     generated: ["issuedAt"],
     immutable: ["issuedAt", "issuedTo"],
+    computed: {
+      period: Entity.computed(
+        AccountingPeriod,
+        (d) => d.issuedAt.slice(0, 7) as z.infer<typeof AccountingPeriod>,
+      ),
+    },
     invariants: [
       Entity.invariant(
         (d) => d.total.amount >= 0,
@@ -138,11 +144,15 @@ final; `extend` lives only here.
 Note what the variants do **not** state. Every option accumulates,
 root-then-variant, so `Invoice` names only the keys it introduces: `issuedAt` is
 generated and `issuedAt`/`issuedTo` immutable because the root said so, and the
-variant adding `id` and `kind` does not disturb that. `invariants` work the same
-way — the root's "total must not be negative" applies to both variants whether
-or not they declare rules of their own, and `Invoice` declares one of its own
-("a void invoice cannot be in dunning"). The spec pins the inheritance: patching
-`issuedAt` on an invoice is refused, though `Invoice` never mentions it.
+variant adding `id` and `kind` does not disturb that. `computed` accumulates too,
+merging per key rather than concatenating: `period` — the accounting period,
+derived from `issuedAt`, because reports work per period and a stored copy could
+disagree with the date — is on every variant without either of them naming it.
+`invariants` work the same way: the root's "total must not be negative" applies
+to both variants whether or not they declare rules of their own, and `Invoice`
+declares one of its own ("a void invoice cannot be in dunning"). The spec pins
+the inheritance both ways — patching `issuedAt` on an invoice is refused, and
+`invoice.period` is derived, though `Invoice` mentions neither.
 
 ## Nesting, and the factory
 

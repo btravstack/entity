@@ -1,7 +1,8 @@
 import { Entity } from "@btravstack/entity";
+import type { z } from "zod";
 
 import { Organization } from "./organization.js";
-import { Instant, Money } from "./vocabulary.js";
+import { AccountingPeriod, Instant, Money } from "./vocabulary.js";
 
 /**
  * What every billing document shares. A root rather than a third entity: it is
@@ -23,6 +24,15 @@ import { Instant, Money } from "./vocabulary.js";
  * 7.0.2 and 5.9.3: both paths emit clean, and `update`'s polymorphic `this`
  * survives both as `Result<Invoice, …>` rather than degrading.
  *
+ * **The `computed` block is load bearing too, and not only as illustration.**
+ * `extend`'s third type argument is `MergedComputed<A, A2>`, so a root that
+ * declares nothing only ever exercises it at `A = Record<never, never>` — the
+ * cheap branch, where the merge costs nothing whatever a variant declares. With
+ * a real map the root's every computed schema serialises into every variant's
+ * `.d.ts`, which is what spends the `TS7056` budget, and it grows with the
+ * root. Measured with `period` in place: both TypeScript 7.0.2 and 5.9.3 emit
+ * clean, and the emitted output type-checks on 5.9.3.
+ *
  * The user-facing rule is simpler than the emit is: a root has to be exported
  * for variants in another module to extend it at all, since `extend` is a call
  * on the value.
@@ -32,6 +42,12 @@ export abstract class BillingDocumentBase extends Entity.abstract("BillingDocume
   {
     generated: ["issuedAt"],
     immutable: ["issuedAt", "issuedTo"],
+    computed: {
+      period: Entity.computed(
+        AccountingPeriod,
+        (d) => d.issuedAt.slice(0, 7) as z.infer<typeof AccountingPeriod>,
+      ),
+    },
     invariants: [Entity.invariant((d) => d.total.amount >= 0, "total must not be negative")],
   },
 ) {
