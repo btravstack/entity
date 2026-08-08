@@ -2,6 +2,8 @@ import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
 import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthrown";
 import type { z } from "zod";
 
+import type { BuildEntity } from "./base.js";
+import { defineExtend, record } from "./base.js";
 import { computed, type ComputedField } from "./computed.js";
 import { deepEqual } from "./equal.js";
 import { InvalidEntity } from "./errors.js";
@@ -43,16 +45,6 @@ const resolveAll = async (
 
 const maskOf = (keys: readonly PropertyKey[]) =>
   Object.fromEntries(keys.map((k) => [k, true as const]));
-
-/**
- * What each entity was declared with, so `extend` can rebuild from it. Keyed
- * by the base class rather than stored on it, so nothing leaks onto the
- * public surface or into a consumer's declarations.
- */
-const declarations = new WeakMap<
-  object,
-  { readonly fields: Fields; readonly options: Record<string, unknown> | undefined }
->();
 
 /**
  * `class X extends Entity("X")({ …fields }) {}`
@@ -432,45 +424,8 @@ export function Entity<Tag extends string>(tag: Tag) {
     }
 
     attachSchema<Base & DeepReadonly<OutputShape>>(Base, input);
-    declarations.set(Base, { fields, options: options as Record<string, unknown> | undefined });
-
-    /**
-     * A *new* entity carrying this one's fields plus more, under its own tag.
-     *
-     * Not subclassing, which stays forbidden: the result is its own
-     * `Entity(...)` call, so it has a distinct tag, a distinct identity under
-     * `equals`, and its own schemas. `class X extends Parent {}` would have
-     * had none of those — same fields, same tag, no way to tell the two apart.
-     *
-     * Options merge per key, child winning — except `invariants`, which
-     * **concatenates** parent-then-child. Inheriting matters more than it might
-     * look: silently dropping the parent's `immutable` or `invariants` would
-     * leave the extension quietly laxer than what it extends, and child-wins on
-     * a list of rules is exactly how that happens. An extension can add rules;
-     * it cannot shed them. Chained extends compose without duplicating, because
-     * each `extend` stores the list it already merged.
-     */
-    Object.defineProperty(Base, "extend", {
-      enumerable: false,
-      value: (nextTag: string) => (nextFields: Fields, nextOptions?: Record<string, unknown>) => {
-        const parent = declarations.get(Base);
-        const parentOptions = parent?.options as
-          | { readonly invariants?: readonly Invariant<unknown>[] }
-          | undefined;
-        const childInvariants = (
-          nextOptions as { readonly invariants?: readonly Invariant<unknown>[] } | undefined
-        )?.invariants;
-        const invariants = [...(parentOptions?.invariants ?? []), ...(childInvariants ?? [])];
-        return (Entity as (t: string) => (f: Fields, o?: unknown) => unknown)(nextTag)(
-          { ...parent?.fields, ...nextFields },
-          {
-            ...parent?.options,
-            ...nextOptions,
-            ...(invariants.length > 0 ? { invariants } : {}),
-          },
-        );
-      },
-    });
+    record(Base, fields, options as Record<string, unknown> | undefined);
+    defineExtend(Base, Entity as unknown as BuildEntity);
 
     return Base as unknown as EntityStatic<Tag, S, A, G, I>;
   };
