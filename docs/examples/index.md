@@ -23,8 +23,9 @@ pnpm test
 ## [Billing domain](/examples/billing-domain)
 
 Declaring the entities: branded fields, `generated` / `immutable` / `computed`,
-invariants as values, one entity nested inside another, a discriminated union,
-and factories binding the id and clock the package refuses to read for itself.
+invariants as values, one entity nested inside another, an abstract root with
+two variants gathered under a discriminated union, and factories binding the id
+and clock the package refuses to read for itself.
 
 ## [HTTP contract](/examples/billing-api)
 

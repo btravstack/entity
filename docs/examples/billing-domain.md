@@ -1,12 +1,13 @@
 ---
 title: Billing domain example
-description: Declaring entities — branded fields, generated/immutable/computed, invariants, nesting, unions and factories — in a runnable package.
+description: Declaring entities — branded fields, generated/immutable/computed, invariants, nesting, abstract roots, unions and factories — in a runnable package.
 ---
 
 # Billing domain
 
 [`examples/billing-domain`](https://github.com/btravstack/entity/tree/main/examples/billing-domain)
-— the modelling half: two entities and the vocabulary they are built from.
+— the modelling half: one standalone entity, a root with two variants under a
+union, and the vocabulary they are all built from.
 
 ```sh
 pnpm --filter @btravstack/entity-example-billing-domain test
@@ -75,10 +76,64 @@ label followed.
 Behaviour lives in the class body. This is a real class, not a record with
 functions bolted beside it.
 
+## What both documents share is a root
+
+An invoice and a credit note are siblings, not subtypes of one another: same
+counterparty and money, opposite direction, their own identities. What they
+share goes on an `Entity.abstract` root — tagless, with no `make` of its own,
+extended rather than instantiated:
+
+```ts
+abstract class BillingDocumentBase extends Entity.abstract("BillingDocument")(
+  { issuedTo: Organization, total: Money, issuedAt: Instant },
+  {
+    generated: ["issuedAt"],
+    immutable: ["issuedAt", "issuedTo"],
+    invariants: [
+      Entity.invariant(
+        (d) => d.total.amount >= 0,
+        "total must not be negative",
+      ),
+    ],
+  },
+) {
+  /** the rule both variants owe the ledger */
+  abstract signedAmount(): number;
+
+  get counterpartySlug(): string {
+    return this.issuedTo.slug;
+  }
+}
+
+export class Invoice extends BillingDocumentBase.extend("Invoice")(
+  { id: InvoiceId, kind: z.literal("INVOICE") /* … */ },
+  {
+    generated: ["id", "issuedAt", "kind"],
+    immutable: ["id", "issuedAt", "issuedTo", "kind"],
+  },
+) {
+  override signedAmount(): number {
+    return this.total.amount;
+  }
+}
+```
+
+`abstract signedAmount()` is the point of the root: a variant that forgets it
+does not compile (`TS2515`). `counterpartySlug` is the other half — behaviour
+written once and inherited, which is what a rebuilt-from-the-declaration
+extension could not carry. An entity itself is final; `extend` lives only here.
+
+Note what the variants re-state. `generated` and `immutable` **replace** the
+root's list for that key rather than adding to it, so `Invoice` names `issuedAt`
+and `issuedTo` again alongside its own. Only `invariants` concatenate — the
+root's "total must not be negative" applies to both variants whether or not they
+declare rules of their own.
+
 ## Nesting, and the factory
 
-`Invoice.issuedTo` is an `Organization` used directly as a field. The class is
-itself a zod schema, so it parses back to a real instance:
+`issuedTo` is declared on the root, so every variant has one — and it is an
+`Organization`, an entity used directly as a field. The class is itself a zod
+schema, so it parses back to a real instance:
 
 ```ts
 const rehydrated = Invoice.make(invoice.toJSON()).getOrThrow();
@@ -116,11 +171,19 @@ self-alias still compiles and simply degenerates.
 ## The union discriminates data, not instances
 
 ```ts
-export const BillingDocument = Entity.union("kind", [
+export class BillingDocument extends Entity.union("kind", [
   Invoice,
   CreditNote,
-] as const);
+]) {}
 ```
+
+A class, not a value: `BillingDocument` is a type as well as a namespace for
+statics, and as a type it is `BillingDocumentBase` — the root both members
+share. `BillingDocument.make(row)` still returns the exact
+`Result<Invoice | CreditNote, InvalidEntity>` — the spec asserts which class
+comes back — and `Entity.Instance<typeof BillingDocument>` names that union,
+which `emit-guards.ts` pins. The body holds statics only; the union has no
+instances of its own.
 
 `kind` is a **declared domain field** — `z.literal("INVOICE")` on one member and
 `z.literal("CREDIT_NOTE")` on the other, both `generated` so no caller can supply

@@ -1,6 +1,6 @@
 ---
 title: Sealed construction
-description: Why new SomeEntity(…) does not compile, the two alternatives that were measured and rejected, and why entities are not subclassable.
+description: Why new SomeEntity(…) does not compile, the two alternatives that were measured and rejected, and why an entity is final.
 ---
 
 # Sealed construction
@@ -35,14 +35,16 @@ with `TS4020: 'extends' clause of exported class has or is using private name`.
 A fixture in CI compiles a consumer with declaration emit against the built
 types, so that cannot regress.
 
-## Entities are not subclassable
+## An entity is final
 
-`class Sub extends Organization {}` fails at construction with a `Defect`.
+`class Sub extends Organization {}` fails at construction with a `Defect`, and
+`Organization.extend` does not exist.
 
 A bare subclass is an alias you cannot tell apart from what it aliases: same
 tag, same schemas, indistinguishable under `equals`.
-[`extend`](/reference/declaration#someentity-extend-tag-fields-options) exists
-for the legitimate case and produces a genuine entity with its own identity.
+[`Entity.abstract`](/reference/declaration#entity-abstract-name-fields-options)
+exists for the legitimate case: extension lives on a root, which is tagless and
+therefore has an identity to give away rather than one to duplicate.
 
 The prohibition is runtime-only. TypeScript has no `final`, and the constructor
 accessibility modifiers that would express it break the declaration form or the

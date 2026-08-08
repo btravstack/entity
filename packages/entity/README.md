@@ -66,8 +66,31 @@ const renamed = loaded.update({ name: next }).getOrThrow(); // a NEW entity
 | `updateInput` | update request — `output` minus `immutable` and `computed`, partial |
 | _the class_   | parses to an instance; valid as a field                             |
 
-Also `Entity.union(...)` for a union that is itself entity-like, and
-`SomeEntity.extend(tag)(fields)` to build a new entity from an existing one.
+An entity is **final**. Fields and behaviour shared by several entities go on a
+root, `Entity.abstract(name)(fields)`, and extension lives there; a union of
+entities is declared as a class:
+
+```ts
+abstract class AccountBase extends Entity.abstract("Account")({
+  id: AccountId,
+  label: DisplayName,
+}) {
+  abstract describe(): string; // every variant owes this — the compiler checks
+}
+
+class Personal extends AccountBase.extend("Personal")({
+  kind: z.literal("personal"),
+}) {
+  override describe(): string {
+    return `personal ${this.label}`;
+  }
+}
+
+// `Business` is declared the same way, on the same root
+class Account extends Entity.union("kind", [Personal, Business]) {}
+
+Account.make(row); // Result<Personal | Business, InvalidEntity>
+```
 
 ## Documentation
 
