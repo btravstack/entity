@@ -174,3 +174,16 @@ test("an unknown discriminant is a reported error, not a silent miss", async () 
   expect(message).toContain('"INVOICE"');
   expect(message).toContain('"CREDIT_NOTE"');
 });
+
+test("a variant inherits the root's immutable keys without re-stating them", () => {
+  const drafted = invoice();
+  // `issuedAt` is immutable, so `PatchOf` omits it — smuggle it in like crud.spec.ts does.
+  const rejected = drafted.update({ issuedAt: drafted.issuedAt } as never);
+
+  const message = rejected.match({
+    ok: () => "WRONGLY ACCEPTED",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues[0]?.message ?? ""),
+    defect: () => "defect",
+  });
+  expect(message).toBe("Immutable field — cannot be patched");
+});

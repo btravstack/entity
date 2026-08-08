@@ -68,13 +68,14 @@ export type OrgPatch = Entity.Patch<typeof Organization>;
 export type Derived = Entity.ComputedField<typeof DisplayLabel, { slug: z.infer<typeof Slug> }>;
 export type Rule = Entity.Invariant<{ slug: z.infer<typeof Slug> }>;
 export type SealedRow = Entity.Sealed<Row>;
-export type Base = Entity.BaseInstance<{ slug: typeof Slug }, Record<never, never>, []>;
+export type Base = Entity.BaseInstance<{ slug: typeof Slug }, Record<never, never>, never>;
+// `G` and `I` are unions of keys, so the empty case is `never` rather than `[]`.
 export type Static = Entity.Static<
   "Organization",
   { slug: typeof Slug },
   Record<never, never>,
-  [],
-  []
+  never,
+  never
 >;
 export type Members = Entity.Union<"kind", [typeof Invoice, typeof CreditNote]>;
 export type AnyDocument = Entity.Instance<typeof BillingDocument>;
@@ -83,8 +84,8 @@ export type Root = Entity.Abstract<
   "BillingDocument",
   { total: typeof Money },
   Record<never, never>,
-  [],
-  []
+  never,
+  never
 >;
 
 /** The error is reachable as both a value and a type. */
