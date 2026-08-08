@@ -107,10 +107,12 @@ what they own:
   class-body **field** is typed but never initialised (the variant's generated
   base extends nothing, so a root's constructor never runs), and the
   construction seal is unaffected. `docs/reference/declaration.md` states all
-  three; `base.spec.ts` pins them. Options merge per key, child winning, except
-  `invariants`, which concatenate — so a variant declaring `computed` **drops**
-  the root's derived fields. Built against a loosened `BuildEntity` passed in from
-  `entity.ts`, so this module imports no builder and there is no cycle.
+  three; `base.spec.ts` pins them. Every option **accumulates** root-then-child:
+  `generated`, `immutable` and `invariants` concatenate, and `computed` merges
+  **per key**, so a variant can add or redefine a derived field but never drop
+  the root's. Relaxing is not expressible — `immutable: []` on a variant is a
+  no-op. Built against a loosened `BuildEntity` passed in from `entity.ts`, so
+  this module imports no builder and there is no cycle.
 - **`equal.ts`** — `deepEqual`, the primitive behind `equals`. Not
   `JSON.stringify`: that **threw** on a `bigint` field, compared `Set`/`Map`/
   typed-array fields with different contents as **equal**, and reported a
@@ -174,17 +176,21 @@ design — `contract.spec.ts` pins that both ways.
   carry a targeted `oxlint-disable` with a reason — several already exist for
   `no-catch-all-pattern` where `SchemaIssues` is a single non-union type.
 - **Comments recording measurements are regression guards.** Many comments
-  cite a specific TS diagnostic code (TS2411, TS2425, TS2509, TS2515, TS2526,
-  TS4020, TS4111) or a measured library behaviour. The four around roots and
-  unions: a base constructor may not return a union or a `never`-collapsed
+  cite a specific TS diagnostic code (TS2344, TS2411, TS2425, TS2509, TS2515,
+  TS2526, TS4020, TS4111) or a measured library behaviour. The four around roots
+  and unions: a base constructor may not return a union or a `never`-collapsed
   intersection (**TS2509** — `SoleType`, and `RootInstance` widening `_tag` to
   `string`), a mapped behaviour type turns a method into a property and breaks
   a variant's `override` (**TS2425** — `BehaviourOf`, which must stay unmapped),
   and abstractness **does** propagate through the intersection (**TS2515**),
   which is why a root's `abstract` member binds every variant and why `Plain`
-  strips it back off for the union. Verify before "simplifying" them away — the
-  catalog in `pnpm-workspace.yaml` pins `typescript` and `@orpc/zod` to the
-  exact versions those measurements were taken against, with the reason inline.
+  strips it back off for the union. The accumulating `extend` options add a
+  fifth: `EntityStatic`'s `G`/`I` are key **unions**, not tuples, because
+  `readonly [...I, ...I2]` is rejected with **TS2344** — TypeScript will not
+  prove the parent's key set is a subset of the child's through zod's inference
+  chain. Verify before "simplifying" them away — the catalog in
+  `pnpm-workspace.yaml` pins `typescript` and `@orpc/zod` to the exact versions
+  those measurements were taken against, with the reason inline.
 - **Type-level behaviour lives in `*.test-d.ts`**, checked by
   `tsc --noEmit -p tsconfig.test-d.json`. They are excluded from the main tsc
   pass, from oxlint, and from knip. Changing a compile-time guarantee (the

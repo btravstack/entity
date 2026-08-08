@@ -257,19 +257,46 @@ class Personal extends AccountBase.extend("Personal")({
 }
 ```
 
-Options merge per key, child winning — **except `invariants`**, which
-concatenates root-then-variant. A variant can add rules; it cannot shed them, so
-it is never quietly laxer than its root. Declaring `invariants: []` on a variant
-does not clear the root's.
+Options **accumulate**, root-then-variant. A variant adds to what it inherits
+and cannot shed it, so it is never quietly laxer than its root.
 
-Every other option — `generated`, `immutable` **and `computed`** — **replaces**
-the root's for that key. A variant declaring one of them re-states every entry
-it needs, including the root's; one that declares none inherits all three whole.
+| Option       | How a variant's declaration meets the root's                  |
+| ------------ | ------------------------------------------------------------- |
+| `generated`  | concatenated, root-then-variant                               |
+| `immutable`  | concatenated, root-then-variant                               |
+| `invariants` | concatenated, root-then-variant                               |
+| `computed`   | merged **per key** — a repeated key takes the variant's entry |
 
-`computed` is the one worth watching, because what it drops is a column rather
-than a rule: a variant that declares a derived field of its own loses every
-derived field the root declared, and the loss is only visible in
-`Variant.output.shape`.
+A variant names only what it adds. `Personal` above declares no options and
+inherits everything `AccountBase` declared; a variant declaring
+`immutable: ["kind"]` is immutable in `kind` **and** in every key the root
+listed.
+
+Relaxing is not expressible. `immutable: []` on a variant does not widen
+`updateInput`, and `invariants: []` does not clear the root's rules — an empty
+list contributes nothing, which is not the same as taking something away.
+
+The key lists are not deduplicated, and do not need to be. Each is turned into a
+keyed lookup before it reaches a schema or a patch check, so naming a key the
+root already declared is harmless.
+
+`computed` merges per key rather than concatenating, because it is a map. A
+variant can add a derived field beside the root's, and can **redefine** one the
+root declared — its schema and its derivation replace that entry alone — but
+cannot drop one.
+
+Redefining an inherited computed key has one edge, measured. The variant's
+derivation is what runs, and every surface read off the declaration agrees with
+it: `Variant.output.shape`, `toJSON()` and `Entity.Output<typeof Variant>` all
+carry the variant's schema. The **instance property** does not — it keeps the
+root's type intersected in, so a key the root branded `Upper` and the variant
+rebranded `Label` reads as `Upper & Label` on an instance, and is still
+assignable where the root's brand is expected. The root's instance type is
+intersected into every variant **unmapped**, and subtracting a key from it is
+exactly what `TS2425` forbids: any mapped form turns the root's methods into
+function-typed properties and breaks every variant implementing an `abstract`
+member. There is no fix pending; read the field off
+`Entity.Output<typeof Variant>` where its exact type matters.
 
 `extend` lives only on a root. The entity it returns is final.
 

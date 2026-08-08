@@ -117,8 +117,8 @@ export abstract class BillingDocumentBase extends Entity.abstract(
 export class Invoice extends BillingDocumentBase.extend("Invoice")(
   { id: InvoiceId, kind: z.literal("INVOICE") /* … */ },
   {
-    generated: ["id", "issuedAt", "kind"],
-    immutable: ["id", "issuedAt", "issuedTo", "kind"],
+    generated: ["id", "kind"],
+    immutable: ["id", "kind"],
     /* … invariants, one of them */
   },
 ) {
@@ -135,13 +135,14 @@ is the other half: behaviour written once and inherited, which is what a
 rebuilt-from-the-declaration extension could not carry. An entity itself is
 final; `extend` lives only here.
 
-Note what the variants re-state. `generated`, `immutable` and `computed`
-**replace** the root's entry for that key rather than adding to it — two key
-lists and a map of derived fields — so `Invoice` names `issuedAt` and
-`issuedTo` again alongside its own. Only `invariants`
-concatenate — the root's "total must not be negative" applies to both variants
-whether or not they declare rules of their own, and `Invoice` does declare one
-of its own ("a void invoice cannot be in dunning").
+Note what the variants do **not** state. Every option accumulates,
+root-then-variant, so `Invoice` names only the keys it introduces: `issuedAt` is
+generated and `issuedAt`/`issuedTo` immutable because the root said so, and the
+variant adding `id` and `kind` does not disturb that. `invariants` work the same
+way — the root's "total must not be negative" applies to both variants whether
+or not they declare rules of their own, and `Invoice` declares one of its own
+("a void invoice cannot be in dunning"). The spec pins the inheritance: patching
+`issuedAt` on an invoice is refused, though `Invoice` never mentions it.
 
 ## Nesting, and the factory
 
