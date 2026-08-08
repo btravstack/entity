@@ -25,6 +25,7 @@ import type {
   InputOf,
   EntityStatic,
   Fields,
+  MergedComputed,
   PatchOf,
   Sealed,
   UpdateInputShapeOf,
@@ -481,6 +482,7 @@ type AbstractEntitySrc<
   G extends PropertyKey,
   I extends PropertyKey,
 > = AbstractEntity<Name, S, A, G, I>;
+type MergedComputedSrc<A extends Fields, A2 extends Fields> = MergedComputed<A, A2>;
 type EntityStaticSrc<
   Tag extends string,
   S extends Fields,
@@ -526,6 +528,8 @@ export declare namespace Entity {
   > = BaseInstanceSrc<S, A, I>;
   export type ConstructionKey = ConstructionKeySrc;
   export type Sealed<D> = SealedSrc<D>;
+  /** A root's computed map merged with a variant's — the shape `extend` returns. */
+  export type MergedComputed<A extends Fields, A2 extends Fields> = MergedComputedSrc<A, A2>;
 
   /**
    * What `Entity(tag)(fields, options)` returns — the static surface itself.

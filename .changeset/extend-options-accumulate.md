@@ -70,10 +70,16 @@ The tuple form could not express the merge — `readonly [...I, ...I2]` is
 rejected with `TS2344`, because TypeScript will not prove the parent's key set is
 a subset of the child's through zod's inference chain.
 
-The same `TS2344` loosens three constraints. `Entity.Static`, `Entity.Abstract`
-and `Entity.BaseInstance` now take any `PropertyKey` where they previously
-required a tuple constrained to `keyof`; tightening one back on its own
-reintroduces the error, so it is not fixable asymmetrically. Hand-written entity
-declarations are unaffected — the builders still constrain the real call sites —
-but all three are named in consumers' emitted declarations, which is why it is
-listed here.
+The same `TS2344` loosens the constraint on both. `Entity.Static` and
+`Entity.BaseInstance` now take any `PropertyKey` where they previously required a
+tuple constrained to `keyof`; tightening one back on its own reintroduces the
+error, so it is not fixable asymmetrically. Hand-written entity declarations are
+unaffected — the builders still constrain the real call sites — but both are
+named in consumers' emitted declarations, which is why it is listed here.
+
+For the same reason there is one new exported name, `MergedComputed` (and
+`Entity.MergedComputed`): it is what `extend` hands `Entity.Static` as its
+computed map, so it lands in the `.d.ts` of any library that declares a variant.
+Not something to write against — written inline, the merge emitted an
+unsubstituted type parameter and failed consumers on TypeScript 5.9.3 with
+`TS2304: Cannot find name 'A2'`.

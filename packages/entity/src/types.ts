@@ -51,8 +51,10 @@ export type CreateInputOf<S extends Fields, G extends PropertyKey> = Omit<InputO
  * What `create` requires the use case to supply.
  *
  * `Pick` constrains its second parameter to `keyof T`, and TypeScript cannot
- * prove `G` — which is `keyof S` — satisfies `keyof InputOf<S>`
- * through zod's inference chain. This mapped type with key remapping achieves
+ * prove `G` satisfies `keyof InputOf<S>` through zod's inference chain — which
+ * is also why `G`'s bound here is the bare `PropertyKey` rather than `keyof S`.
+ * The builders are what constrain the real call sites to `S`'s keys; this type
+ * only has to survive them. This mapped type with key remapping achieves
  * the same semantics. `CreateInputOf` uses `Omit` (no such constraint);
  * `GeneratedOf` uses this mapped form for that reason. The same unprovable
  * subset relation is why `G` is a key union and not a tuple: the accumulating
@@ -267,6 +269,32 @@ export type BehaviourOf<This> = This extends abstract new (...args: never[]) => 
   : Record<never, never>;
 
 /**
+ * A root's computed map merged with a variant's — what `extend` hands
+ * `EntityStatic` as its `A`.
+ *
+ * `Omit<A, keyof A2> & A2`, never `A & A2`: the runtime spread lets a variant's
+ * computed key win, and a plain intersection would type a redefined key as
+ * `Upper & Lower` while the value is `Lower`.
+ *
+ * Named rather than written inline at `extend`'s return type, which was measured
+ * to emit a dangling reference: with `A = Record<never, never>` — a root
+ * declaring no `computed`, which is the default — TypeScript 5.9.3 wrote the
+ * *unsubstituted* `Omit<Record<never, never>, keyof A2> & Record<never, never>`
+ * into the consumer's `.d.ts`, where the consumer's own compiler rejected it
+ * with `TS2304: Cannot find name 'A2'`. TypeScript 7.0.2 substitutes the same
+ * position correctly. The alias gives the emitter a name to write instead —
+ * which is why it is a top-level export of `index.ts`, exactly like
+ * `EntityStatic`.
+ *
+ * The *fields* half of the same merge is `S & S2`, not this shape, and carries
+ * the same lie: the runtime spread is child-wins there too, so a redefined field
+ * types as `Parent & Child`. Left as is deliberately — the `Omit` form costs
+ * serialised characters against the `TS7056` budget on **every** entity, where
+ * this one is only paid by an entity that declares `computed`.
+ */
+export type MergedComputed<A extends Fields, A2 extends Fields> = Omit<A, keyof A2> & A2;
+
+/**
  * What `Entity.abstract(name)(fields, options?)` returns.
  *
  * Deliberately not an entity: no `make`, no `factory`, no schema members. The
@@ -301,7 +329,7 @@ export type AbstractEntity<
     S2 extends Fields,
     A2 extends Fields = Record<never, never>,
     const G2 extends readonly (keyof (S & S2))[] = [],
-    const I2 extends readonly (keyof OutputOf<S & S2, Omit<A, keyof A2> & A2>)[] = [],
+    const I2 extends readonly (keyof OutputOf<S & S2, MergedComputed<A, A2>>)[] = [],
   >(
     fields: S2 & OnlyNominal<S2>,
     options?: {
@@ -310,13 +338,10 @@ export type AbstractEntity<
       readonly computed?: { [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<S & S2>> };
       readonly invariants?: readonly InvariantOf<InputOf<S & S2>>[];
     },
-    // `Omit<A, keyof A2> & A2`, never `A & A2`: the runtime spread lets a
-    // variant's computed key win, and a plain intersection would type a
-    // redefined key as `Upper & Lower` while the value is `Lower`.
   ) => EntityStatic<
     Tag2,
     S & S2,
-    Omit<A, keyof A2> & A2,
+    MergedComputed<A, A2>,
     G | G2[number],
     I | I2[number],
     BehaviourOf<This>

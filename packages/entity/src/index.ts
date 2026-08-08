@@ -22,7 +22,20 @@ export { Entity } from "./entity.js";
 // `DeepReadonly` until zod's module-private `$brand` symbol reached
 // computed-key position and could not be named (`TS4020`, #32). Emitting
 // `EntityStatic<…>` by reference fixes both. Do not un-export it.
-export type { BaseInstance, ConstructionKey, EntityStatic, Sealed } from "./types.js";
+//
+// `MergedComputed` joins them for a narrower reason, also measured: it is the
+// third type argument `extend` hands to `EntityStatic`, and written inline as
+// `Omit<A, keyof A2> & A2` the 5.9.3 emitter copied the type parameter `A2`
+// through unsubstituted, leaving `TS2304: Cannot find name 'A2'` in the
+// consumer's own `.d.ts`. Naming it fixes that; leaving the name unexported
+// would only trade the error for `TS4023`.
+export type {
+  BaseInstance,
+  ConstructionKey,
+  EntityStatic,
+  MergedComputed,
+  Sealed,
+} from "./types.js";
 
 // Same story as `EntityStatic`: a consumer writing
 // `abstract class X extends Entity.abstract("X")(…) {}` emits the *underlying*

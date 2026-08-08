@@ -34,6 +34,12 @@ that are not derivable from there:
   shape and reported only `TS4020`. Widen the entity and both report it. So a
   band of realistic domain widths fails for consumers and passes here —
   which is the band issues #31 and #32 shipped through.
+  A fourth step then **type-checks the emitted `node_modules/.emit-check` with
+  5.9.3**, because emitting cleanly is not the same as emitting something that
+  compiles: a dangling type-parameter reference in the output is no emit-time
+  diagnostic, and one shipped that way (`TS2304`, a bare `A2` from `extend`'s
+  return type). Never give that step `--skipLibCheck` — it disables `.d.ts`
+  checking outright and the run passes on broken output. Measured.
   That example keeps its abstract root in `src/root.ts`, exported, rather than
   beside its variants: a root reaches a variant's `.d.ts` as a synthesised local
   `declare abstract class` when the two share a module and as a **named import**

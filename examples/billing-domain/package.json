@@ -11,7 +11,7 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.emit.json && node ./node_modules/typescript-consumer/bin/tsc -p tsconfig.emit.json"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.emit.json && node ./node_modules/typescript-consumer/bin/tsc -p tsconfig.emit.json && node ./node_modules/typescript-consumer/bin/tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 node_modules/.emit-check/index.d.ts"
   },
   "dependencies": {
     "@btravstack/entity": "workspace:*",
