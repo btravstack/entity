@@ -117,9 +117,19 @@ test("each variant signs the shared amount its own way", () => {
 test("a variant inherits the root's computed field without re-stating it", () => {
   const drafted = invoice();
   expect(drafted.period).toBe(drafted.issuedAt.slice(0, 7));
-  // Derived, so it is not patchable — and re-derived from whatever `issuedAt`
-  // the construction path produced, on every variant, `CreditNote` included.
+
+  // Both variants, since neither names `period` and the claim is that every one
+  // of them gets it — an assertion on `Invoice` alone would not say that.
+  const note = createCreditNote({
+    issuedTo: org(),
+    against: InvoiceId.parse("33333333-3333-4333-8333-333333333333"),
+    total: money(500, "EUR"),
+  }).getOrThrow();
+  expect(note.period).toBe(note.issuedAt.slice(0, 7));
+
+  // Derived, so it is not patchable on either.
   expect(Object.keys(Invoice.updateInput.shape)).not.toContain("period");
+  expect(Object.keys(CreditNote.updateInput.shape)).not.toContain("period");
 });
 
 test("the root's invariant guards a variant that declares none of its own", async () => {

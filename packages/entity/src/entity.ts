@@ -520,7 +520,7 @@ export declare namespace Entity {
   export type Union<K extends string, M extends readonly UnionMember[]> = EntityUnionSrc<K, M>;
 
   // Exported only so a consumer's emitted declarations can name them — none of
-  // the three is part of the API you write against. See `Sealed` in types.ts.
+  // the four is part of the API you write against. See `Sealed` in types.ts.
   export type BaseInstance<
     S extends Fields,
     A extends Fields,
@@ -528,13 +528,13 @@ export declare namespace Entity {
   > = BaseInstanceSrc<S, A, I>;
   export type ConstructionKey = ConstructionKeySrc;
   export type Sealed<D> = SealedSrc<D>;
-  /** A root's computed map merged with a variant's — the shape `extend` returns. */
+  /** A root's computed map merged with a variant's — what `extend` hands `Static` as its `A`. */
   export type MergedComputed<A extends Fields, A2 extends Fields> = MergedComputedSrc<A, A2>;
 
   /**
    * What `Entity(tag)(fields, options)` returns — the static surface itself.
    *
-   * Exported for the same reason as the three above: a consumer's emitted
+   * Exported for the same reason as the four above: a consumer's emitted
    * declarations have to name it, and the cost of them not being able to was
    * two build failures rather than a verbose `.d.ts`. See `index.ts`.
    */

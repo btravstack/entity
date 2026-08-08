@@ -23,12 +23,16 @@ export { Entity } from "./entity.js";
 // computed-key position and could not be named (`TS4020`, #32). Emitting
 // `EntityStatic<…>` by reference fixes both. Do not un-export it.
 //
-// `MergedComputed` joins them for a narrower reason, also measured: it is the
-// third type argument `extend` hands to `EntityStatic`, and written inline as
-// `Omit<A, keyof A2> & A2` the 5.9.3 emitter copied the type parameter `A2`
-// through unsubstituted, leaving `TS2304: Cannot find name 'A2'` in the
-// consumer's own `.d.ts`. Naming it fixes that; leaving the name unexported
-// would only trade the error for `TS4023`.
+// `MergedComputed` joins them for a narrower reason, measured the same way: it
+// is the third type argument `extend` hands to `EntityStatic`, and written
+// inline as `Omit<A, keyof A2> & A2` the 5.9.3 emitter copied the type parameter
+// `A2` through unsubstituted, leaving `TS2304: Cannot find name 'A2'` in the
+// consumer's own `.d.ts`. 7.0.2 substitutes the same position correctly, so only
+// downstream builds saw it. **Both halves are load bearing, and the export is
+// not the cosmetic half.** Measured by unexporting it and re-running the fixture
+// against a root declaring no `computed`: the emitter expands the alias
+// structurally again and the identical dangling `A2` comes back, `TS2304` and
+// all. Naming it without exporting it fixes nothing. Do not un-export it.
 export type {
   BaseInstance,
   ConstructionKey,

@@ -15,14 +15,19 @@
  *     declaration emit has to walk each one.
  *
  *  2. **The gate checks the emitted declarations, not only that emitting
- *     succeeded.** `typecheck`'s last step feeds `node_modules/.emit-check` back
- *     through the 5.9.3 compiler. Without it the pass caught only emit-time
- *     diagnostics (`TS4020` and friends); a *dangling type-parameter reference
- *     in the output* is not one, and one shipped — `Omit<A, keyof A2> & A2`
- *     written inline at `extend`'s return type emitted a bare `A2`, which
- *     failed a consumer with `TS2304`. Never add `--skipLibCheck` to that step:
- *     it turns off `.d.ts` checking entirely and the run exits 0 on the broken
- *     output. Measured.
+ *     succeeded.** `typecheck`'s last step feeds the emitted
+ *     `node_modules/.emit-check` back through the 5.9.3 compiler. Without it the
+ *     pass caught only emit-time diagnostics (`TS4020` and friends); a *dangling
+ *     type-parameter reference in the output* is not one, and one shipped —
+ *     `Omit<A, keyof A2> & A2` written inline at `extend`'s return type emitted
+ *     a bare `A2`, which failed a consumer with `TS2304`. The step names
+ *     `index.d.ts`, `emit-guards.d.ts` and `index.spec.d.ts` rather than
+ *     `index.d.ts` alone: a file is checked only if it is in the named set or
+ *     something in it imports the file, and **nothing imports this one**, so on
+ *     `index.d.ts` alone the emitted form of every namespace member below went
+ *     unchecked. `organization`/`root`/`vocabulary` need no naming — `index`
+ *     imports them. Never add `--skipLibCheck`: it turns off `.d.ts` checking
+ *     entirely and the run exits 0 on the broken output. Both measured.
  *
  *  3. **The widths in `vocabulary.ts` are load bearing.** `TS7056` is a
  *     threshold on serialised *characters*, so `Invoice` — declared in

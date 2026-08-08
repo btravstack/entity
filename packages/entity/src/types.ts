@@ -282,9 +282,10 @@ export type BehaviourOf<This> = This extends abstract new (...args: never[]) => 
  * *unsubstituted* `Omit<Record<never, never>, keyof A2> & Record<never, never>`
  * into the consumer's `.d.ts`, where the consumer's own compiler rejected it
  * with `TS2304: Cannot find name 'A2'`. TypeScript 7.0.2 substitutes the same
- * position correctly. The alias gives the emitter a name to write instead —
- * which is why it is a top-level export of `index.ts`, exactly like
- * `EntityStatic`.
+ * position correctly. Naming it is only half the fix: the emitter writes the
+ * *name* only because `index.ts` exports it, and unexporting it was measured to
+ * expand the alias structurally and bring the identical dangling `A2` straight
+ * back. See the export list there, and do not un-export it.
  *
  * The *fields* half of the same merge is `S & S2`, not this shape, and carries
  * the same lie: the runtime spread is child-wins there too, so a redefined field
