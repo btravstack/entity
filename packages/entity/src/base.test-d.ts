@@ -141,6 +141,15 @@ test("a redefined computed key takes the variant's type, not an intersection", (
   // @ts-expect-error the root's `Upper` brand is gone, not intersected in
   const asUpper: z.infer<typeof Upper> = null as unknown as Out["shout"];
   void asUpper;
+
+  // The instance-level residue the comment above describes, asserted rather
+  // than only narrated: `l.shout` satisfies *both* brands, so the day the
+  // intersection stops surviving `BehaviourOf`, this stops compiling.
+  const l = null as unknown as Entity.Instance<typeof Louder>;
+  const instanceAsLabel: z.infer<typeof Label> = l.shout;
+  const instanceAsUpper: z.infer<typeof Upper> = l.shout;
+  void instanceAsLabel;
+  void instanceAsUpper;
 });
 
 void Business;
