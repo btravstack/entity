@@ -24,6 +24,11 @@ export { Entity } from "./entity.js";
 // `EntityStatic<…>` by reference fixes both. Do not un-export it.
 export type { BaseInstance, ConstructionKey, EntityStatic, Sealed } from "./types.js";
 
+// Same story as `EntityStatic`: a consumer writing
+// `abstract class X extends Entity.abstract("X")(…) {}` emits the *underlying*
+// name into its declarations, not the `Entity.Abstract` path that aliases it.
+export type { AbstractEntity } from "./types.js";
+
 // `Entity.union(...)` assigned to an exported `const` is the same story one
 // type further along: with no top-level name for what it returns, TypeScript
 // expands the union's members structurally and reaches zod's module-private

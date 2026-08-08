@@ -246,6 +246,86 @@ type ConstructedInstance<
   };
 
 /**
+ * The instance an `Entity.abstract(...)` root describes.
+ *
+ * `_tag` is widened to `string` rather than omitted, so shared behaviour can
+ * read it — and widening is what makes the root work at all. A `Tag` literal
+ * here collapses `extend`'s intersection: `"Account" & "Personal"` reduces to
+ * `never`, and TypeScript then rejects the whole base-constructor return type
+ * (TS2509). `string & "Personal"` reduces to `"Personal"`, which is exactly
+ * what the variant needs.
+ */
+export type RootInstance<
+  S extends Fields,
+  A extends Fields,
+  I extends readonly (keyof OutputOf<S, A>)[],
+> = BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: string };
+
+/**
+ * Whatever the receiver's own class body added, carried **unmapped**.
+ *
+ * Unmapped is load bearing. `Omit<R, …>` and the key-remapped
+ * `{ [K in keyof R as …]: R[K] }` both turn a method into a function-typed
+ * property, and a variant implementing an abstract method then fails with
+ * `TS2425: … defines instance member property 'describe', but extended class
+ * 'Personal' defines it as instance member function`. Both spellings were
+ * measured. Nothing may be subtracted here — the root is tagless precisely so
+ * that nothing needs to be.
+ */
+export type BehaviourOf<This> = This extends abstract new (...args: never[]) => infer R
+  ? R
+  : Record<never, never>;
+
+/**
+ * What `Entity.abstract(name)(fields, options?)` returns.
+ *
+ * Deliberately not an entity: no `make`, no `factory`, no schema members. The
+ * absence of a tag is what lets `extend` intersect the receiver's instance type
+ * unmapped — see `RootInstance`. `name` labels the root in its defect message
+ * and never reaches an instance.
+ */
+export type AbstractEntity<
+  Name extends string,
+  S extends Fields,
+  A extends Fields,
+  G extends readonly (keyof S)[],
+  I extends readonly (keyof OutputOf<S, A>)[],
+> = {
+  new (d: Sealed<OutputOf<S, A>>): RootInstance<S, A, I>;
+  readonly entityName: Name;
+  /**
+   * A new entity carrying this root's fields plus more, under its own tag, and
+   * inheriting the class body of whatever it was called on.
+   *
+   * The `this` parameter is what picks up a behaviour-only intermediate root:
+   * `abstract class Auditable extends AccountBase { … }` then
+   * `Auditable.extend(...)` carries both bodies.
+   */
+  extend<This, Tag2 extends string>(
+    this: This,
+    tag: Tag2,
+  ): <
+    S2 extends Fields,
+    A2 extends Fields = A,
+    const G2 extends readonly (keyof (S & S2))[] = G,
+    const I2 extends readonly (keyof OutputOf<S & S2, A2>)[] = I extends readonly (keyof OutputOf<
+      S & S2,
+      A2
+    >)[]
+      ? I
+      : [],
+  >(
+    fields: S2 & OnlyNominal<S2>,
+    options?: {
+      readonly generated?: G2;
+      readonly immutable?: I2;
+      readonly computed?: { [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<S & S2>> };
+      readonly invariants?: readonly InvariantOf<InputOf<S & S2>>[];
+    },
+  ) => EntityStatic<Tag2, S & S2, A2, G2, I2, BehaviourOf<This>>;
+};
+
+/**
  * The full static surface `Entity(tag)(fields, options?)` returns.
  *
  * Named here, in `entity.ts`'s companion types module, rather than left as
@@ -263,8 +343,21 @@ export type EntityStatic<
   A extends Fields,
   G extends readonly (keyof S)[],
   I extends readonly (keyof OutputOf<S, A>)[],
+  // What the abstract root's class body contributed, or nothing. Defaulted so
+  // every existing five-argument spelling keeps compiling.
+  //
+  // A sixth parameter lengthens every serialised instance type, which is the
+  // `TS7056` budget — the ceiling `index.ts` records two shipped build failures
+  // against, and the one 5.9.3 hits sooner than 7.0.2 does. It was measured,
+  // not assumed: `examples/billing-domain`'s two-compiler declaration pass
+  // emits clean on both TypeScript 7.0.2 and 5.9.3 with this arity, no
+  // `TS7056` from either. The headroom it spends is the `_zod` / `~standard`
+  // slots below naming `ConstructedInstance<Tag, S, A, I> & B` instead of
+  // spelling that intersection out a second and third time — same type, fewer
+  // serialised characters. Widening this further means re-running that pass.
+  B = Record<never, never>,
 > = {
-  new (d: Sealed<OutputOf<S, A>>): ConstructedInstance<Tag, S, A, I>;
+  new (d: Sealed<OutputOf<S, A>>): ConstructedInstance<Tag, S, A, I> & B;
   readonly entityName: Tag;
   readonly input: z.ZodObject<S>;
   readonly output: z.ZodObject<S & A>;
@@ -285,17 +378,17 @@ export type EntityStatic<
    * property, unlike a method, takes no `this` parameter to infer the receiver
    * from — so it states the base shape and a caller narrows with `instanceof`.
    */
-  readonly _zod: z.ZodType<
-    BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
-  >["_zod"];
-  readonly "~standard": z.ZodType<
-    BaseInstance<S, A, I> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag }
-  >["~standard"];
+  readonly _zod: z.ZodType<ConstructedInstance<Tag, S, A, I> & B>["_zod"];
+  readonly "~standard": z.ZodType<ConstructedInstance<Tag, S, A, I> & B>["~standard"];
   /** phantom carriers, so consumers can recover the shapes for annotations */
   readonly __input: InputOf<S>;
   readonly __output: OutputOf<S, A>;
   readonly __createInput: CreateInputOf<S, G>;
   readonly __patch: PatchOf<S, A, I>;
+  /** the abstract root this was extended from, read by `Entity.union` */
+  readonly __base: B;
+  /** the instance type, read by `Entity.Instance` */
+  readonly __instance: ConstructedInstance<Tag, S, A, I> & B;
   make<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
   /**
    * A new entity with this one's fields plus more, under its own tag.

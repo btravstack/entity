@@ -3,7 +3,7 @@ import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthro
 import type { z } from "zod";
 
 import type { BuildEntity } from "./base.js";
-import { defineExtend, record } from "./base.js";
+import { createBase, defineExtend, record } from "./base.js";
 import { computed, type ComputedField } from "./computed.js";
 import { deepEqual } from "./equal.js";
 import { InvalidEntity } from "./errors.js";
@@ -13,6 +13,7 @@ import { keysOf, renderIssue } from "./issues.js";
 import { attachSchema } from "./schema.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
+  AbstractEntity,
   AsyncEntityFactory,
   AsyncGenerators,
   BaseInstance,
@@ -442,6 +443,7 @@ export function Entity<Tag extends string>(tag: Tag) {
 Entity.computed = computed;
 Entity.invariant = invariant;
 Entity.union = union;
+Entity.abstract = createBase(Entity as unknown as BuildEntity);
 Entity.InvalidEntity = InvalidEntity;
 // The issue helpers an adapter needs to turn an `InvalidEntity` into a
 // response body: `keysOf` normalises a Standard Schema path (bare key or
@@ -473,6 +475,13 @@ type BaseInstanceSrc<
   A extends Fields,
   I extends readonly (keyof OutputOf<S, A>)[],
 > = BaseInstance<S, A, I>;
+type AbstractEntitySrc<
+  Name extends string,
+  S extends Fields,
+  A extends Fields,
+  G extends readonly (keyof S)[],
+  I extends readonly (keyof OutputOf<S, A>)[],
+> = AbstractEntity<Name, S, A, G, I>;
 type EntityStaticSrc<
   Tag extends string,
   S extends Fields,
@@ -533,4 +542,20 @@ export declare namespace Entity {
     G extends readonly (keyof S)[],
     I extends readonly (keyof OutputOf<S, A>)[],
   > = EntityStaticSrc<Tag, S, A, G, I>;
+
+  /** What `Entity.abstract(name)(fields, options)` returns. */
+  export type Abstract<
+    Name extends string,
+    S extends Fields,
+    A extends Fields,
+    G extends readonly (keyof S)[],
+    I extends readonly (keyof OutputOf<S, A>)[],
+  > = AbstractEntitySrc<Name, S, A, G, I>;
+
+  /**
+   * The instance type of an entity or a union — one line that cannot drift out
+   * of step with the members, where a hand-written
+   * `InstanceType<typeof A> | InstanceType<typeof B>` silently could.
+   */
+  export type Instance<E extends { readonly __instance: unknown }> = E["__instance"];
 }
