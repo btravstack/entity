@@ -97,7 +97,7 @@ test("a malformed row comes back as an error, not an exception", () => {
 
 /* ── The root carries the fields and the behaviour both variants share ── */
 
-test("both documents carry the root's behaviour", () => {
+test("an invoice carries the root's behaviour", () => {
   const drafted = invoice();
   expect(drafted.counterpartySlug).toBe("acme");
   expect(drafted.signedAmount()).toBe(12_00);
@@ -114,22 +114,20 @@ test("each variant signs the shared amount its own way", () => {
   expect(note.counterpartySlug).toBe("acme");
 });
 
-test("the root's invariant guards a variant that declares none of its own", () => {
+test("the root's invariant guards a variant that declares none of its own", async () => {
   // `CreditNote` no longer spells out "total must not be negative" — the root
   // does. An extension can add rules; it cannot shed them.
-  const rejected = createCreditNote({
+  const message = await createCreditNote({
     issuedTo: org(),
     against: InvoiceId.parse("33333333-3333-4333-8333-333333333333"),
     total: money(-1, "EUR"),
+  }).match({
+    ok: () => "ok",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues[0]?.message ?? ""),
+    defect: () => "defect",
   });
 
-  expect(rejected.isErr()).toBe(true);
-});
-
-test("a variant is an instance of the root the union shares", () => {
-  // `BillingDocumentBase` is not exported — it is a declaration detail. The
-  // observable consequence is that `make` still yields the concrete variant.
-  expect(BillingDocument.make(invoice().toJSON()).getOrThrow()).toBeInstanceOf(Invoice);
+  expect(message).toBe("total must not be negative");
 });
 
 /* ── The union dispatches on a DECLARED field, never on `_tag` ──────────

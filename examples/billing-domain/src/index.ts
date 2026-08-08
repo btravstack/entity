@@ -153,6 +153,9 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
     level: Level,
   },
   {
+    // `generated` and `immutable` **replace** the root's list per key rather
+    // than adding to it, so a variant re-states every key it needs —
+    // `issuedAt` and `issuedTo` here. Only `invariants` concatenate.
     generated: ["id", "issuedAt", "kind"],
     immutable: ["id", "issuedAt", "issuedTo", "kind"],
     invariants: [
