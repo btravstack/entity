@@ -34,6 +34,11 @@ that are not derivable from there:
   shape and reported only `TS4020`. Widen the entity and both report it. So a
   band of realistic domain widths fails for consumers and passes here —
   which is the band issues #31 and #32 shipped through.
+  That example keeps its abstract root in `src/root.ts`, exported, rather than
+  beside its variants: a root reaches a variant's `.d.ts` as a synthesised local
+  `declare abstract class` when the two share a module and as a **named import**
+  when they do not, and only the first path was compiled while the root lived in
+  `index.ts`.
 - **A `paths` mapping is not how the emit fixture resolves the package.**
   `examples/billing-domain` depends on `@btravstack/entity` as `workspace:*`
   and reaches `dist/index.d.mts` through its real `exports`, the way an actual
@@ -67,7 +72,8 @@ cannot run against it. Measured — the reason is inline in
 
 ## Architecture
 
-Eleven source modules under `packages/entity/src`, split by what they own:
+Twelve source modules under `packages/entity/src` besides `index.ts`, split by
+what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
@@ -95,8 +101,15 @@ Eleven source modules under `packages/entity/src`, split by what they own:
   prototype onto the receiver's — which is what makes `variant instanceof Root`
   true, picks up a behaviour-only intermediate root, and leaves the entity's own
   `toJSON`/`equals`/`update` shadowing anything a root declares under those
-  names. Options merge per key, child winning, except `invariants`, which
-  concatenate. Built against a loosened `BuildEntity` passed in from
+  names. The rewiring is **instance-prototype only** — one `setPrototypeOf` on
+  `child.prototype` — and that single fact explains the rest: a root's
+  `static` members are not inherited (the static chain is untouched), a root's
+  class-body **field** is typed but never initialised (the variant's generated
+  base extends nothing, so a root's constructor never runs), and the
+  construction seal is unaffected. `docs/reference/declaration.md` states all
+  three; `base.spec.ts` pins them. Options merge per key, child winning, except
+  `invariants`, which concatenate — so a variant declaring `computed` **drops**
+  the root's derived fields. Built against a loosened `BuildEntity` passed in from
   `entity.ts`, so this module imports no builder and there is no cycle.
 - **`equal.ts`** — `deepEqual`, the primitive behind `equals`. Not
   `JSON.stringify`: that **threw** on a `bigint` field, compared `Set`/`Map`/

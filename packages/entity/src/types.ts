@@ -385,7 +385,7 @@ export type EntityStatic<
   readonly __output: OutputOf<S, A>;
   readonly __createInput: CreateInputOf<S, G>;
   readonly __patch: PatchOf<S, A, I>;
-  /** the abstract root this was extended from, read by `Entity.union` */
+  /** the *instance type* of the abstract root this was extended from, read by `Entity.union` */
   readonly __base: B;
   /** the instance type, read by `Entity.Instance` */
   readonly __instance: ConstructedInstance<Tag, S, A, I> & B;

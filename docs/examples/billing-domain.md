@@ -13,6 +13,11 @@ union, and the vocabulary they are all built from.
 pnpm --filter @btravstack/entity-example-billing-domain test
 ```
 
+Four modules, in dependency order: `vocabulary.ts`, `organization.ts`,
+`root.ts`, and `index.ts` — the two variants, the union over them, and the
+factories. The root sits in a module of its own on purpose;
+[why](#three-things-in-this-package-that-look-odd-on-purpose).
+
 ## The vocabulary comes first
 
 ```ts
@@ -84,7 +89,10 @@ share goes on an `Entity.abstract` root — tagless, with no `make` of its own,
 extended rather than instantiated:
 
 ```ts
-abstract class BillingDocumentBase extends Entity.abstract("BillingDocument")(
+// root.ts — exported, so entities in another module can extend it
+export abstract class BillingDocumentBase extends Entity.abstract(
+  "BillingDocument",
+)(
   { issuedTo: Organization, total: Money, issuedAt: Instant },
   {
     generated: ["issuedAt"],
@@ -97,7 +105,7 @@ abstract class BillingDocumentBase extends Entity.abstract("BillingDocument")(
     ],
   },
 ) {
-  /** the rule both variants owe the ledger */
+  /** what the document contributes to the ledger — declared once, signed per variant */
   abstract signedAmount(): number;
 
   get counterpartySlug(): string {
@@ -105,11 +113,13 @@ abstract class BillingDocumentBase extends Entity.abstract("BillingDocument")(
   }
 }
 
+// index.ts
 export class Invoice extends BillingDocumentBase.extend("Invoice")(
   { id: InvoiceId, kind: z.literal("INVOICE") /* … */ },
   {
     generated: ["id", "issuedAt", "kind"],
     immutable: ["id", "issuedAt", "issuedTo", "kind"],
+    /* … invariants, one of them */
   },
 ) {
   override signedAmount(): number {
@@ -119,15 +129,18 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
 ```
 
 `abstract signedAmount()` is the point of the root: a variant that forgets it
-does not compile (`TS2515`). `counterpartySlug` is the other half — behaviour
-written once and inherited, which is what a rebuilt-from-the-declaration
-extension could not carry. An entity itself is final; `extend` lives only here.
+does not compile (`TS2515`). It is _declared_ once and _implemented_ twice, with
+opposite sign — a credit note returns `-this.total.amount`. `counterpartySlug`
+is the other half: behaviour written once and inherited, which is what a
+rebuilt-from-the-declaration extension could not carry. An entity itself is
+final; `extend` lives only here.
 
-Note what the variants re-state. `generated` and `immutable` **replace** the
-root's list for that key rather than adding to it, so `Invoice` names `issuedAt`
-and `issuedTo` again alongside its own. Only `invariants` concatenate — the
-root's "total must not be negative" applies to both variants whether or not they
-declare rules of their own.
+Note what the variants re-state. `generated`, `immutable` and `computed`
+**replace** the root's list for that key rather than adding to it, so `Invoice`
+names `issuedAt` and `issuedTo` again alongside its own. Only `invariants`
+concatenate — the root's "total must not be negative" applies to both variants
+whether or not they declare rules of their own, and `Invoice` does declare one
+of its own ("a void invoice cannot be in dunning").
 
 ## Nesting, and the factory
 
@@ -153,7 +166,17 @@ export const createOrganization = Organization.factory({
 That is what leaves the entities trivially testable: nothing inside them reaches
 for ambient state.
 
-## Two things in this package that look odd on purpose
+## Three things in this package that look odd on purpose
+
+**The root is exported, and alone in `root.ts`.** A root's instance type is the
+last type argument of every variant's `Entity.Static`, so it reaches the `.d.ts`
+of whatever module the variants are exported from — and it reaches it two
+different ways. Beside its variants, TypeScript synthesises a local
+`declare abstract class`; across a module boundary it has to _name_ the export,
+and `index.d.ts` opens with `import { BillingDocumentBase } from "./root.js"`.
+While the root sat in `index.ts`, only the first path was ever compiled. Both
+are clean on TypeScript 7.0.2 and 5.9.3 — the split is what keeps the second one
+that way.
 
 **`DunningReason` has thirty members.** Vocabularies that wide are ordinary in
 billing, and this one is held at full width because it pins

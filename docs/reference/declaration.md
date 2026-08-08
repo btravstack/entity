@@ -156,18 +156,44 @@ a variant's `_tag` is the variant's own, and on the root's instance type `_tag`
 is widened to `string` so shared behaviour can still read it.
 ([Why](/explanation/unions-and-roots#why-the-root-carries-no-tag).)
 
-| On a root                             |                                                        |
-| ------------------------------------- | ------------------------------------------------------ |
-| `abstract` members                    | enforced on every variant — `TS2515` if one is missing |
-| `toJSON`, `equals`, `update`          | callable, never overridable                            |
-| `variant instanceof Root`             | `true`                                                 |
-| an intermediate `abstract class … {}` | inherited, fields and behaviour both                   |
+| On a root                                             |                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------ |
+| `abstract` members                                    | enforced on every variant — `TS2515` if one is missing |
+| methods and getters                                   | inherited by every variant                             |
+| **class-body fields** (`count = 0`)                   | typed, but **never initialised** — see below           |
+| **statics** (`static of() {}`)                        | **not** inherited; they stay on the root               |
+| `toJSON`, `equals`, `update`                          | callable, never overridable                            |
+| `variant instanceof Root`                             | `true`                                                 |
+| an intermediate `abstract class … {}` (no new fields) | inherited, behaviour and the root's fields both        |
 
-The three prototype methods are the one asymmetry: the entity's own prototype
-sits above the root's, so a member declared under one of those names on a root
-compiles and is silently never called. Behaviour that must differ per variant
-goes in the variant's body — an `abstract` member on the root is how to require
-it.
+`extend` rewires the **instance prototype** and nothing else — one
+`setPrototypeOf` on the new entity's prototype. That single fact is behind every
+row above that is not plain inheritance.
+
+A class-body **field** is never initialised. The variant's generated base
+extends nothing, so a root's constructor never runs and no field initialiser
+fires:
+
+```ts
+abstract class WithField extends Entity.abstract("WithField")({ id }) {
+  counter = 0; // typed `number`; `undefined` at runtime, and not an own property
+}
+```
+
+Use a **getter or a method** for anything a root needs to expose — a `private
+cache = new Map()` on a root is silently `undefined` in every variant. The type
+level cannot catch it: mapping the root's instance type is exactly what
+`TS2425` forbids, so the field's declared type survives into the variant.
+
+**Statics are not inherited either**, for the same reason: the static chain is
+untouched, so `Root.of(…)` is not `Variant.of(…)`. The type side agrees, so
+this surfaces as a compile error rather than an `undefined is not a function`.
+
+The three prototype methods are the one asymmetry in the other direction: the
+entity's own prototype sits above the root's, so a member declared under one of
+those names on a root compiles and is silently never called. Behaviour that must
+differ per variant goes in the variant's body — an `abstract` member on the root
+is how to require it.
 
 An intermediate root is an ordinary abstract class, so behaviour can be layered
 without another declaration:
@@ -188,11 +214,33 @@ class Business extends Auditable.extend("Business")({
 }
 ```
 
+An intermediate adds behaviour only. There is no way to declare further fields
+on one — fields come from a root's `fields` map and a variant's `extend` call,
+and nothing in between.
+
+### Where a root goes
+
+A root has to be **exported** for entities in another module to extend it:
+`extend` is a call on the value, so an unexported root can only be extended
+inside its own module.
+
+Both arrangements work, and this repo compiles both, because they emit
+differently. A root's instance type is the last type argument of every variant's
+`Entity.Static`, so it reaches the `.d.ts` of whatever module the variants are
+exported from — kept beside its variants, TypeScript synthesises a local
+`declare abstract class` for it; across a module boundary, the emitted
+declaration has to name the export, and opens with
+`import { AccountBase } from "./root.js"`.
+[`examples/billing-domain`](/examples/billing-domain) splits the two apart so
+the second path is covered by the two-compiler declaration pass.
+
 ### `Root.extend(tag)(fields, options?)`
 
 A **new** entity carrying the root's fields plus more, under its own tag — its
-own schemas, its own `equals` identity — inheriting the class body of whatever
-it was called on.
+own schemas, its own `equals` identity — inheriting the **instance** half of the
+class body of whatever it was called on: its methods and accessors, but not its
+statics and not its field initialisers
+([above](#entity-abstract-name-fields-options)).
 
 ```ts
 class Personal extends AccountBase.extend("Personal")({
@@ -209,9 +257,14 @@ concatenates root-then-variant. A variant can add rules; it cannot shed them, so
 it is never quietly laxer than its root. Declaring `invariants: []` on a variant
 does not clear the root's.
 
-Every other option **replaces** the root's for that key. A variant declaring
-`generated` or `immutable` re-states every key it needs, including the root's;
-one that declares neither inherits both lists whole.
+Every other option — `generated`, `immutable` **and `computed`** — **replaces**
+the root's for that key. A variant declaring one of them re-states every entry
+it needs, including the root's; one that declares none inherits all three whole.
+
+`computed` is the one worth watching, because what it drops is a column rather
+than a rule: a variant that declares a derived field of its own loses every
+derived field the root declared, and the loss is only visible in
+`Variant.output.shape`.
 
 `extend` lives only on a root. The entity it returns is final.
 

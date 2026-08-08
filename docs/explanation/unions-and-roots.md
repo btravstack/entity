@@ -32,9 +32,23 @@ type or intersection of object types with statically known members
 
 so `Entity.union` cannot describe its class as the thing its `make` returns.
 What it claims instead is the **root its members share** — one object type,
-which the rule accepts. Members declared from different roots, or from no root
-at all, share nothing, and the union claims the empty type rather than a
-supertype that does not exist.
+which the rule accepts. Members that do not share one claim the empty type
+instead, rather than a supertype that does not exist.
+
+"Share one" is read off the `extend` call, not off the inheritance graph, and
+the difference is easy to walk into. Members extended from an **intermediate**
+root carry that intermediate's instance type, so
+
+```ts
+class Personal extends AccountBase.extend("Personal")({ … }) {}
+class Business extends Auditable.extend("Business")({ … }) {} // Auditable extends AccountBase
+```
+
+do have `AccountBase` in common, and are still not one type: `Personal` claims
+`AccountBase`, `Business` claims `Auditable`, the two do not reduce to a single
+object type, and `Entity.union("kind", [Personal, Business])` is the empty type.
+Extending every member of a union from the **same** class is what keeps the
+union's type useful; `Entity.Instance<typeof Account>` is unaffected either way.
 
 The exact union is not lost, only spelled elsewhere:
 

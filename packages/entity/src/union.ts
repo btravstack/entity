@@ -12,7 +12,7 @@ export type UnionMember = {
   readonly entityName: string;
   readonly input: z.ZodObject<z.core.$ZodLooseShape>;
   readonly output: z.ZodObject<z.core.$ZodLooseShape>;
-  /** the abstract root the member was extended from, or the empty type */
+  /** the *instance type* of the abstract root the member was extended from, or the empty type */
   readonly __base: unknown;
   make(state: unknown): Result<unknown, InvalidEntity>;
 } & z.core.$ZodType;
@@ -92,24 +92,6 @@ export type EntityUnion<K extends string, M extends readonly UnionMember[]> = {
 type Branches = readonly [z.core.$ZodTypeDiscriminable, ...z.core.$ZodTypeDiscriminable[]];
 
 /**
- * A union of entities that is itself usable like one: it validates, it makes
- * the right class, and it hands a contract layer plain schemas.
- *
- * ```ts
- * const Member = union("kind", [User, ServiceAccount]);
- * Member.make(row).getOrThrow(); // User | ServiceAccount
- * ```
- *
- * `discriminant` names a **declared domain field**, not the entity's `_tag`.
- * The tag is non-enumerable and absent after serialisation, so a union built
- * on it could not survive a JSON round trip. The two mechanisms are not
- * redundant: the field discriminates *data*, the tag matches an *instance*
- * with `P.tag(...)`.
- *
- * `input` and `output` are real discriminated unions, so a contract layer gets
- * one branch per member and JSON Schema in both directions.
- */
-/**
  * Every value of a member's discriminant field.
  *
  * Reading `.value` off the schema — which this did — assumes a single-valued
@@ -149,6 +131,30 @@ const discriminantValues = (member: UnionMember, discriminant: string): readonly
   return [];
 };
 
+/**
+ * A union of entities that is itself usable like one: it validates, it makes
+ * the right class, and it hands a contract layer plain schemas.
+ *
+ * Returns a **class**, so a union is declared the way an entity is:
+ *
+ * ```ts
+ * class Member extends union("kind", [User, ServiceAccount]) {}
+ * Member.make(row).getOrThrow(); // User | ServiceAccount
+ * ```
+ *
+ * As a type, `Member` is the root its members share — or the empty type when
+ * they share none. `Entity.Instance<typeof Member>` is where the exact member
+ * union lives. The class body holds statics only; the union has no instances.
+ *
+ * `discriminant` names a **declared domain field**, not the entity's `_tag`.
+ * The tag is non-enumerable and absent after serialisation, so a union built
+ * on it could not survive a JSON round trip. The two mechanisms are not
+ * redundant: the field discriminates *data*, the tag matches an *instance*
+ * with `P.tag(...)`.
+ *
+ * `input` and `output` are real discriminated unions, so a contract layer gets
+ * one branch per member and JSON Schema in both directions.
+ */
 export function union<
   const K extends string,
   const M extends readonly [UnionMember, UnionMember, ...UnionMember[]],
