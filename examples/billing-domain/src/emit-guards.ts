@@ -14,11 +14,16 @@
  *     signal. Every member of `Entity` is therefore named below, so
  *     declaration emit has to walk each one.
  *
- *  2. **The widths in `index.ts` are load bearing.** `TS7056` is a threshold on
- *     serialised *characters*, so `Invoice` needs its full dunning vocabulary,
- *     its branded timestamp and its six-member level union to stay above it.
- *     Measured: trimming them put the old fixture back under the ceiling,
- *     where it compiled happily and guarded nothing.
+ *  2. **The widths in `vocabulary.ts` are load bearing.** `TS7056` is a
+ *     threshold on serialised *characters*, so `Invoice` — declared in
+ *     `index.ts`, built from those schemas — needs its full dunning
+ *     vocabulary, its branded timestamp and its six-member level union to stay
+ *     above it. Measured: trimming them put the old fixture back under the
+ *     ceiling, where it compiled happily and guarded nothing. Splitting the
+ *     declarations out of `index.ts` did *not* shrink them — the emitter
+ *     expands each schema in anonymous type-argument position rather than
+ *     naming the binding, so `Invoice_base` still carries all thirty members
+ *     inline.
  *
  * What went wrong when nothing checked this: `EntityStatic` was unexported, so
  * TypeScript had no name to write for the builder's return type and serialised

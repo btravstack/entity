@@ -136,8 +136,9 @@ rebuilt-from-the-declaration extension could not carry. An entity itself is
 final; `extend` lives only here.
 
 Note what the variants re-state. `generated`, `immutable` and `computed`
-**replace** the root's list for that key rather than adding to it, so `Invoice`
-names `issuedAt` and `issuedTo` again alongside its own. Only `invariants`
+**replace** the root's entry for that key rather than adding to it — two key
+lists and a map of derived fields — so `Invoice` names `issuedAt` and
+`issuedTo` again alongside its own. Only `invariants`
 concatenate — the root's "total must not be negative" applies to both variants
 whether or not they declare rules of their own, and `Invoice` does declare one
 of its own ("a void invoice cannot be in dunning").

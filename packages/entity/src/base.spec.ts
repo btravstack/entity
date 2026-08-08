@@ -77,13 +77,30 @@ test("a behaviour-only intermediate root is picked up", () => {
   expect(b.describe()).toBe("business FR1");
 });
 
-test("two sibling variants of one root are never equal", () => {
-  const p = Personal.make({ id, label: "Ada", kind: "personal" }).getOrThrow();
-  const b = Business.make({ id, label: "Ada", kind: "business", vat: "FR1" }).getOrThrow();
-  // prototype rewiring makes both `instanceof AccountBase`; identity must still
-  // be per-entity, so matching data across two variants is not equality
-  expect(p.equals(b)).toBe(false);
-  expect(b.equals(p)).toBe(false);
+test("two sibling variants of one root are never equal, even with matching data", () => {
+  // Deliberately indistinguishable *as data*: one root, two variants adding the
+  // same field under the same schema, and identical values. Both projections
+  // are `{ id, label, note }` with equal contents, so `deepEqual` says yes and
+  // only `equals`' `instanceof Base` guard can say no. That guard is the whole
+  // subject here — prototype rewiring makes both `instanceof Twinned`, so
+  // without it a sibling variant would pass as the same entity.
+  abstract class Twinned extends Entity.abstract("Twinned")({
+    id: AccountId,
+    label: Label,
+  }) {}
+  class Left extends Twinned.extend("Left")({ note: Label }) {}
+  class Right extends Twinned.extend("Right")({ note: Label }) {}
+
+  const left = Left.make({ id, label: "Ada", note: "n" }).getOrThrow();
+  const right = Right.make({ id, label: "Ada", note: "n" }).getOrThrow();
+
+  // the data really is identical — this is what makes the assertions below bite
+  expect(left.toJSON()).toEqual(right.toJSON());
+  expect(left).toBeInstanceOf(Twinned);
+  expect(right).toBeInstanceOf(Twinned);
+
+  expect(left.equals(right)).toBe(false);
+  expect(right.equals(left)).toBe(false);
 });
 
 test("a root's class-body *field* is never initialised", () => {
@@ -99,6 +116,22 @@ test("a root's class-body *field* is never initialised", () => {
   // mapping `BehaviourOf` is what TS2425 forbids.
   expect("counter" in c).toBe(false);
   expect((c as unknown as { counter: unknown }).counter).toBeUndefined();
+});
+
+test("a private field on a root fails where it is read, not where it is declared", () => {
+  abstract class Cached extends Entity.abstract("Cached")({ id: AccountId }) {
+    private cache = new Map<string, string>();
+    peek(): number {
+      return this.cache.size;
+    }
+  }
+  class Peeking extends Cached.extend("Peeking")({ label: Label }) {}
+  const p = Peeking.make({ id, label: "Ada" }).getOrThrow();
+  // `private` changes nothing: it compiles in the root and in the variant, and
+  // the field is still never initialised. The declaration is silent; the read
+  // is not. This is what `docs/reference/declaration.md` pins.
+  expect("cache" in p).toBe(false);
+  expect(() => p.peek()).toThrow(TypeError);
 });
 
 test("a root's statics are not inherited by a variant", () => {

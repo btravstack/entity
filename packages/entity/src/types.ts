@@ -295,7 +295,10 @@ export type AbstractEntity<
   readonly entityName: Name;
   /**
    * A new entity carrying this root's fields plus more, under its own tag, and
-   * inheriting the class body of whatever it was called on.
+   * inheriting the **instance** half of the class body of whatever it was
+   * called on: its methods and accessors, but not its statics and not its field
+   * initialisers. `extend` rewires the instance prototype and nothing else, so
+   * a root's constructor never runs — see `docs/reference/declaration.md`.
    *
    * The `this` parameter is what picks up a behaviour-only intermediate root:
    * `abstract class Auditable extends AccountBase { … }` then

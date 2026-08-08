@@ -180,10 +180,15 @@ abstract class WithField extends Entity.abstract("WithField")({ id }) {
 }
 ```
 
-Use a **getter or a method** for anything a root needs to expose — a `private
-cache = new Map()` on a root is silently `undefined` in every variant. The type
-level cannot catch it: mapping the root's instance type is exactly what
-`TS2425` forbids, so the field's declared type survives into the variant.
+Use a **getter or a method** for anything a root needs to hold. The type level
+cannot catch the field form: mapping the root's instance type is exactly what
+`TS2425` forbids, so the field's declared type survives into the variant intact.
+
+Visibility makes no difference, and `private` is the worst version of it. A
+`private cache = new Map()` on a root compiles, in the root and in every
+variant; the field is `undefined` at runtime; and the first root method that
+reads it fails at the point of use rather than at the declaration —
+measured: `TypeError: Cannot read properties of undefined (reading 'size')`.
 
 **Statics are not inherited either**, for the same reason: the static chain is
 untouched, so `Root.of(…)` is not `Variant.of(…)`. The type side agrees, so
