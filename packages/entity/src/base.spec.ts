@@ -81,6 +81,52 @@ test("the root's options carry over", () => {
   expect(Personal.make({ id, label: "x".repeat(21), kind: "personal" }).isErr()).toBe(true);
 });
 
+test("the root's computed fields carry over and still re-derive", () => {
+  const updated = personal()
+    .update({ label: "grace" as z.infer<typeof Label> })
+    .getOrThrow();
+  expect(updated.shout).toBe("GRACE");
+});
+
+test("a variant's own schemas include both halves", () => {
+  expect(Object.keys(Personal.input.shape).toSorted()).toEqual(["id", "kind", "label"]);
+  expect(Object.keys(Personal.output.shape).toSorted()).toEqual(["id", "kind", "label", "shout"]);
+});
+
+test("a variant option overrides the root's for that key", () => {
+  class Loose extends AccountBase.extend("Loose")({ note: Label }, { immutable: [] }) {
+    override describe(): string {
+      return "loose";
+    }
+  }
+  expect(Object.keys(Loose.updateInput.shape).toSorted()).toEqual(["id", "label", "note"]);
+});
+
+test("invariants are the exception: a variant adds to the root's, never replaces", () => {
+  const Score = z.number().int().brand("Score");
+  class Stricter extends AccountBase.extend("Stricter")(
+    { score: Score },
+    { invariants: [Entity.invariant((d) => d.score >= 18, "score must be at least 18")] },
+  ) {
+    override describe(): string {
+      return "stricter";
+    }
+  }
+  // the variant's own rule applies
+  expect(Stricter.make({ id, label: "Ada", score: 1 }).isErr()).toBe(true);
+  // and the root's still does — declaring invariants must not shed them
+  expect(Stricter.make({ id, label: "x".repeat(21), score: 30 }).isErr()).toBe(true);
+});
+
+test("a variant cannot relax the root by declaring an empty invariants list", () => {
+  class Loose extends AccountBase.extend("LooseInvariants")({ note: Label }, { invariants: [] }) {
+    override describe(): string {
+      return "loose";
+    }
+  }
+  expect(Loose.make({ id, label: "x".repeat(21), note: "n" }).isErr()).toBe(true);
+});
+
 test("an entity's own toJSON/equals/update shadow a root's", () => {
   abstract class Shadowing extends Entity.abstract("Shadowing")({ id: AccountId }) {
     override equals(): boolean {

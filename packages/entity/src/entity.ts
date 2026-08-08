@@ -3,7 +3,7 @@ import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthro
 import type { z } from "zod";
 
 import type { BuildEntity } from "./base.js";
-import { createBase, defineExtend, record } from "./base.js";
+import { createBase, record } from "./base.js";
 import { computed, type ComputedField } from "./computed.js";
 import { deepEqual } from "./equal.js";
 import { InvalidEntity } from "./errors.js";
@@ -426,7 +426,6 @@ export function Entity<Tag extends string>(tag: Tag) {
 
     attachSchema<Base & DeepReadonly<OutputShape>>(Base, input);
     record(Base, fields, options as Record<string, unknown> | undefined);
-    defineExtend(Base, Entity as unknown as BuildEntity);
 
     return Base as unknown as EntityStatic<Tag, S, A, G, I>;
   };

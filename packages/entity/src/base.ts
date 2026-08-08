@@ -76,21 +76,6 @@ const rebuild = (
 };
 
 /**
- * A *new* entity carrying this one's fields plus more, under its own tag.
- *
- * Not subclassing, which stays forbidden: the result is its own `Entity(...)`
- * call, so it has a distinct tag, a distinct identity under `equals`, and its
- * own schemas.
- */
-export const defineExtend = (target: object, buildEntity: BuildEntity): void => {
-  Object.defineProperty(target, "extend", {
-    enumerable: false,
-    value: (nextTag: string) => (nextFields: Fields, nextOptions?: Record<string, unknown>) =>
-      rebuild(buildEntity, target, nextTag, nextFields, nextOptions),
-  });
-};
-
-/**
  * `extend` on a root: the same rebuild, plus the new base's prototype rewired
  * onto the receiver's.
  *
