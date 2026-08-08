@@ -73,6 +73,46 @@ test("a behaviour-only intermediate root is picked up", () => {
   const b = Business.make({ id, label: "Acme", kind: "business", vat: "FR1" }).getOrThrow();
   expect(b.audit()).toBe("Business:" + id);
   expect(b.slug).toBe("acme");
+  // the variant's own body reads a field from its own `extend()` call
+  expect(b.describe()).toBe("business FR1");
+});
+
+test("two sibling variants of one root are never equal", () => {
+  const p = Personal.make({ id, label: "Ada", kind: "personal" }).getOrThrow();
+  const b = Business.make({ id, label: "Ada", kind: "business", vat: "FR1" }).getOrThrow();
+  // prototype rewiring makes both `instanceof AccountBase`; identity must still
+  // be per-entity, so matching data across two variants is not equality
+  expect(p.equals(b)).toBe(false);
+  expect(b.equals(p)).toBe(false);
+});
+
+test("a root's class-body *field* is never initialised", () => {
+  abstract class WithField extends Entity.abstract("WithField")({ id: AccountId }) {
+    counter = 0;
+  }
+  class Counted extends WithField.extend("Counted")({ label: Label }) {}
+  const c = Counted.make({ id, label: "Ada" }).getOrThrow();
+  // `extend` rewires the *instance prototype* only, and the variant's generated
+  // base extends nothing — so the root's constructor never runs and a field
+  // initialiser never fires. Typed `number`, absent at runtime. Use a getter or
+  // a method on a root; a field cannot be prevented at the type level, because
+  // mapping `BehaviourOf` is what TS2425 forbids.
+  expect("counter" in c).toBe(false);
+  expect((c as unknown as { counter: unknown }).counter).toBeUndefined();
+});
+
+test("a root's statics are not inherited by a variant", () => {
+  abstract class WithStatic extends Entity.abstract("WithStatic")({ id: AccountId }) {
+    static hello(): string {
+      return "hi";
+    }
+  }
+  class Quiet extends WithStatic.extend("Quiet")({ label: Label }) {}
+  // instance-prototype rewiring only: the *static* chain is untouched, so a
+  // root's statics stay on the root. The type side agrees, so this surfaces as
+  // a compile error rather than a crash.
+  expect(Object.getPrototypeOf(Quiet)).not.toBe(WithStatic);
+  expect((Quiet as unknown as { hello?: unknown }).hello).toBeUndefined();
 });
 
 test("the root's options carry over", () => {
@@ -100,6 +140,25 @@ test("a variant option overrides the root's for that key", () => {
     }
   }
   expect(Object.keys(Loose.updateInput.shape).toSorted()).toEqual(["id", "label", "note"]);
+});
+
+test("a variant declaring computed replaces the root's, it does not add to them", () => {
+  class Quiet extends AccountBase.extend("Quiet")(
+    { note: Label },
+    {
+      computed: {
+        murmur: Entity.computed(Label, (d) => d.label.toLowerCase() as z.infer<typeof Label>),
+      },
+    },
+  ) {
+    override describe(): string {
+      return "quiet";
+    }
+  }
+  // `computed` replaces like every option but `invariants`, so the root's
+  // `shout` is gone — a derived column is easy to lose this way. Re-state the
+  // root's entries alongside the variant's to keep both.
+  expect(Object.keys(Quiet.output.shape).toSorted()).toEqual(["id", "label", "murmur", "note"]);
 });
 
 test("invariants are the exception: a variant adds to the root's, never replaces", () => {
@@ -132,6 +191,12 @@ test("an entity's own toJSON/equals/update shadow a root's", () => {
     override equals(): boolean {
       return true;
     }
+    override toJSON(): never {
+      return "hijacked" as never;
+    }
+    override update(): never {
+      return "hijacked" as never;
+    }
   }
   class Shadowed extends Shadowing.extend("Shadowed")({ label: Label }) {}
   const a = Shadowed.make({ id, label: "a" }).getOrThrow();
@@ -139,6 +204,8 @@ test("an entity's own toJSON/equals/update shadow a root's", () => {
   // the root sits *below* the entity's own prototype in the chain, so a root
   // can call these three but never override them
   expect(a.equals(b)).toBe(false);
+  expect(a.toJSON()).toEqual({ id, label: "a" });
+  expect(a.update({ label: "c" as z.infer<typeof Label> }).getOrThrow().label).toBe("c");
 });
 
 test("a root has no instances", () => {
