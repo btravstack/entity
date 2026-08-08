@@ -1,8 +1,9 @@
 /**
  * A small billing domain, modelled with `@btravstack/entity`.
  *
- * Read it top to bottom: the field vocabulary first, then the two entities,
- * then the factories binding them to their effect sources. Every shape here is
+ * Read it top to bottom: the field vocabulary first, then the entities — one
+ * standalone, and a root with two variants under a union — then the factories
+ * binding them to their effect sources. Every shape here is
  * one a billing model actually needs — including the two that once broke
  * declaration emit for consumers: a branded `Money` object, and a dunning
  * vocabulary wide enough to matter. See `emit-guards.ts`.
@@ -118,26 +119,43 @@ export class Organization extends Entity("Organization")(
 }
 
 /**
+ * What every billing document shares. A root rather than a third entity: it is
+ * tagless, has no `make`, and exists to hold the fields and the behaviour the
+ * variants have in common. `Entity.abstract` is the only extensible declaration
+ * — an entity itself is final.
+ *
  * `issuedTo` is another entity used directly as a field: the class is itself a
  * zod schema, so it parses back to a real `Organization`, behaviour and all.
  */
-export class Invoice extends Entity("Invoice")(
+abstract class BillingDocumentBase extends Entity.abstract("BillingDocument")(
+  { issuedTo: Organization, total: Money, issuedAt: Instant },
+  {
+    generated: ["issuedAt"],
+    immutable: ["issuedAt", "issuedTo"],
+    invariants: [Entity.invariant((d) => d.total.amount >= 0, "total must not be negative")],
+  },
+) {
+  /** The rule both variants owe the ledger, written once. */
+  abstract signedAmount(): number;
+
+  get counterpartySlug(): string {
+    return this.issuedTo.slug;
+  }
+}
+
+export class Invoice extends BillingDocumentBase.extend("Invoice")(
   {
     id: InvoiceId,
     kind: z.literal("INVOICE"),
-    issuedTo: Organization,
     lines: z.array(LineItem),
-    total: Money,
     status: InvoiceStatus,
     dunningReasons: z.array(DunningReason),
     level: Level,
-    issuedAt: Instant,
   },
   {
     generated: ["id", "issuedAt", "kind"],
     immutable: ["id", "issuedAt", "issuedTo", "kind"],
     invariants: [
-      Entity.invariant((d) => d.total.amount >= 0, "total must not be negative"),
       Entity.invariant(
         (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
         "a void invoice cannot be in dunning",
@@ -145,6 +163,10 @@ export class Invoice extends Entity("Invoice")(
     ],
   },
 ) {
+  override signedAmount(): number {
+    return this.total.amount;
+  }
+
   get isCollectable(): boolean {
     return this.status === "ISSUED" || this.status === "DRAFT";
   }
@@ -152,25 +174,21 @@ export class Invoice extends Entity("Invoice")(
 
 /**
  * A credit note is an invoice's sibling, not its subtype: same counterparty and
- * money, opposite direction, its own identity. Modelling it as a second entity
- * sharing the `kind` discriminant is what lets both travel down one channel and
- * come back as the right class.
+ * money, opposite direction, its own identity. Modelling it as a second variant
+ * of the root, sharing the `kind` discriminant, is what lets both travel down
+ * one channel and come back as the right class.
  */
-export class CreditNote extends Entity("CreditNote")(
-  {
-    id: CreditNoteId,
-    kind: z.literal("CREDIT_NOTE"),
-    issuedTo: Organization,
-    against: InvoiceId,
-    total: Money,
-    issuedAt: Instant,
-  },
+export class CreditNote extends BillingDocumentBase.extend("CreditNote")(
+  { id: CreditNoteId, kind: z.literal("CREDIT_NOTE"), against: InvoiceId },
   {
     generated: ["id", "issuedAt", "kind"],
     immutable: ["id", "issuedAt", "issuedTo", "against", "kind"],
-    invariants: [Entity.invariant((d) => d.total.amount >= 0, "total must not be negative")],
   },
-) {}
+) {
+  override signedAmount(): number {
+    return -this.total.amount;
+  }
+}
 
 /**
  * Dispatches on `kind` — a **declared domain field**, never the entity's
@@ -182,7 +200,7 @@ export class CreditNote extends Entity("CreditNote")(
  * The two mechanisms are not redundant. This field discriminates **data** on
  * the way in; `P.tag(...)` matches an **instance** you already hold.
  */
-export const BillingDocument = Entity.union("kind", [Invoice, CreditNote] as const);
+export class BillingDocument extends Entity.union("kind", [Invoice, CreditNote]) {}
 
 /* ── Binding the effect sources ────────────────────────────────────────
    The package reads no clock and generates no id. A factory is where those

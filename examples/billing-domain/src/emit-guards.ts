@@ -34,7 +34,7 @@ import type { z } from "zod";
 // `Organization` is imported as a value: the sealed-construction assertion
 // below needs the runtime binding to write `new Organization(...)` at all.
 import { Organization } from "./index.js";
-import type { CreditNote, DisplayLabel, Invoice, Slug } from "./index.js";
+import type { BillingDocument, CreditNote, DisplayLabel, Invoice, Money, Slug } from "./index.js";
 
 /* ── Construction stays sealed from outside the package ───────────────── */
 
@@ -72,6 +72,15 @@ export type Static = Entity.Static<
   []
 >;
 export type Members = Entity.Union<"kind", [typeof Invoice, typeof CreditNote]>;
+export type AnyDocument = Entity.Instance<typeof BillingDocument>;
+export type OneInvoice = Entity.Instance<typeof Invoice>;
+export type Root = Entity.Abstract<
+  "BillingDocument",
+  { total: typeof Money },
+  Record<never, never>,
+  [],
+  []
+>;
 
 /** The error is reachable as both a value and a type. */
 export const isInvalid = (error: unknown): error is Entity.InvalidEntity =>
