@@ -80,6 +80,12 @@ test("a root is not an entity", () => {
   void AccountBase.input;
 });
 
+test("a root's abstract member is an obligation on every variant", () => {
+  // @ts-expect-error TS2515: `Forgot` does not implement inherited abstract member `describe`
+  class Forgot extends AccountBase.extend("Forgot")({ note: Label }) {}
+  void Forgot;
+});
+
 test("a root enforces the same field rules as a fresh declaration", () => {
   AccountBase.extend("Ok")({ ok: Label });
   // @ts-expect-error an unbranded field is rejected, exactly as in Entity(...)
