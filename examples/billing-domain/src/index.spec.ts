@@ -2,6 +2,7 @@ import { P } from "unthrown";
 import { expect, test } from "vitest";
 
 import {
+  AccountingPeriod,
   BillingDocument,
   CreditNote,
   DisplayName,
@@ -130,6 +131,16 @@ test("a variant inherits the root's computed field without re-stating it", () =>
   // Derived, so it is not patchable on either.
   expect(Object.keys(Invoice.updateInput.shape)).not.toContain("period");
   expect(Object.keys(CreditNote.updateInput.shape)).not.toContain("period");
+});
+
+test("the period's own schema rejects a month that cannot exist", () => {
+  // A computed field's schema is what makes `from`'s unchecked cast honest, so
+  // it has to be able to fail. `\d{2}` would pass all three of these.
+  expect(AccountingPeriod.safeParse("2026-03").success).toBe(true);
+  expect(AccountingPeriod.safeParse("2026-12").success).toBe(true);
+  for (const impossible of ["2026-00", "2026-13", "2026-99"]) {
+    expect(AccountingPeriod.safeParse(impossible).success).toBe(false);
+  }
 });
 
 test("the root's invariant guards a variant that declares none of its own", async () => {
