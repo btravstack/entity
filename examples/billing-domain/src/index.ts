@@ -87,7 +87,8 @@ export class CreditNote extends BillingDocumentBase.extend("CreditNote")({
  * The two mechanisms are not redundant. This field discriminates **data** on
  * the way in; `P.tag(...)` matches an **instance** you already hold.
  */
-export class BillingDocument extends Entity.union("kind", [Invoice, CreditNote]) {}
+export const BillingDocument = Entity.union("kind", [Invoice, CreditNote]);
+export type BillingDocument = Entity.Instance<typeof BillingDocument>;
 
 /* ── Binding the effect sources ────────────────────────────────────────
    The package reads no clock and generates no id. A factory is where those
