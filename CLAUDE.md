@@ -166,8 +166,8 @@ what they own:
 - **`field.ts`** — `field(schema, flags)`, public as `Entity.field`, and the
   `FieldSpec` it returns: a plain `{ schema, flags }` record, never a proxy or a
   subclass, because anything standing in front of an entity-class field breaks
-  `make`, which constructs through `this` (`TypeError: Ctor is not a
-constructor` — measured). Two spellings in the signature are load bearing and
+  `make`, which constructs through `this` (`TypeError: Ctor is not a constructor`
+  — measured). Two spellings in the signature are load bearing and
   both are commented there: `flags` is intersected with a mapped rejection so a
   misspelled key is a compile error (a constraint is not an excess-property
   check — `{ generated: true, imutable: true }` compiled clean and left the

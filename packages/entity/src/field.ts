@@ -16,6 +16,9 @@ export type FieldSpec<T extends z.core.$ZodType, F extends Flags> = {
 /** The rejection type for a misspelled flag name — named so it survives truncation and *is* the message, `shape.ts`'s trick. */
 type UnknownFlagIsRejected = { readonly __unknownFlagIsRejected: never };
 
+/** A widened (non-literal) `boolean` satisfies `Partial<Flags>` too, so it needs the same rejection — see `field()`'s flags comment. */
+type RejectWidenedBoolean<V> = boolean extends V ? UnknownFlagIsRejected : V;
+
 /**
  * Declares a field with modifiers, public as `Entity.field`:
  *
@@ -47,7 +50,14 @@ export function field<T extends z.core.$ZodType, const F extends Partial<Flags>>
   // `{ generated: true, imutable: true }` satisfied `Partial<Flags>` and
   // compiled clean — measured, and the misspelled field was silently mutable.
   // The intersection maps every unknown key to the rejection type instead.
-  flags: F & Record<Exclude<keyof F, keyof Flags>, UnknownFlagIsRejected>,
+  // The second mapped type closes a matching gap: `{ generated: someBoolean }`
+  // also satisfies `Partial<Flags>` and widens `generated` to `false` at the
+  // type level while the runtime read would honour whatever `someBoolean` is
+  // — measured — so a non-literal `boolean` arm is rejected the same way.
+  flags: F &
+    Record<Exclude<keyof F, keyof Flags>, UnknownFlagIsRejected> & {
+      readonly [K in keyof F & keyof Flags]: RejectWidenedBoolean<F[K]>;
+    },
 ): FieldSpec<
   T,
   {

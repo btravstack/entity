@@ -46,6 +46,13 @@ test("a misspelled flag name is a compile error, not a silently-mutable field", 
   Entity.field(Id, { generated: true, imutable: true });
 });
 
+test("a widened boolean flag is a compile error, not a type/runtime split", () => {
+  const isGenerated: boolean = Math.random() > 0.5;
+  // @ts-expect-error a non-literal `boolean` would type `generated` as `false`
+  // regardless of the runtime value — only a `true`/`false` literal is accepted
+  Entity.field(Id, { generated: isGenerated });
+});
+
 test("the removed options are gone", () => {
   // @ts-expect-error `generated` is no longer an option — flag the field instead
   Entity("Gone")({ id: Id }, { generated: ["id"] });

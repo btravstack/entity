@@ -299,6 +299,25 @@ test("redeclaring an inherited field is a declaration-time defect", () => {
   );
 });
 
+test("redeclaring a field through a behaviour-only intermediate root also defects", () => {
+  // `Auditable` adds no fields of its own — the clash is still against the root's.
+  expect(() => (Auditable.extend("Clash2") as (f: object) => unknown)({ label: Label })).toThrow(
+    /label.*already declared/,
+  );
+});
+
+test("a field literally named toString is not a false clash — `in` walks the prototype chain", () => {
+  // Every plain object answers `"toString" in obj` truthily; only `Object.hasOwn`
+  // tells root-declared apart from Object.prototype-inherited.
+  class Described extends AccountBase.extend("Described")({ toString: Label }) {
+    override describe(): string {
+      return "described";
+    }
+  }
+  const d = Described.make({ id, label: "Ada", toString: "hi" }).getOrThrow();
+  expect(d.toString).toBe("hi");
+});
+
 test("a variant redefining one computed key overrides that entry only", () => {
   class Louder extends AccountBase.extend("Louder")(
     { note: Label },

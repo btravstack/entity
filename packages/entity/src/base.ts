@@ -77,7 +77,11 @@ const rebuild = (
 ): { prototype: object } => {
   const parent = declarationOf(receiver);
 
-  const clashes = Object.keys(nextFields).filter((k) => parent !== undefined && k in parent.fields);
+  // `Object.hasOwn`, not `in`: `in` walks the prototype chain, so a field named
+  // `constructor` (legal — `NoRedeclaredKeys` allows it) tripped a false clash.
+  const clashes = Object.keys(nextFields).filter(
+    (k) => parent !== undefined && Object.hasOwn(parent.fields, k),
+  );
   if (clashes.length > 0) {
     // A redeclared field is a bug in the declaration, not caller input.
     // Failing here names the key while the declaration is on the stack —
