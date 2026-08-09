@@ -1,5 +1,54 @@
 # @btravstack/entity
 
+## 0.5.0
+
+### Minor Changes
+
+- cea1120: Producer callbacks are now typed as their schema's **input**, so the cast they
+  all carried is gone:
+
+  ```ts
+  // before
+  shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
+  id: () => crypto.randomUUID() as z.infer<typeof OrgId>,
+
+  // after
+  shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
+  id: () => crypto.randomUUID(),
+  ```
+
+  Nothing changes at runtime: a computed value was always parsed by its own schema
+  on every construction path, and generated values always went through `make`'s
+  validation. The types now say so. Existing code compiles unchanged — a branded
+  return still assigns to its schema's input.
+
+  One narrowing: a generator for a field that is both `.optional()` and
+  `generated` was an optional key and is now required (it may return `undefined`).
+  Declaring that combination is not known to occur anywhere.
+
+- a280317: Type a root's merged field map as child-wins, matching the runtime.
+
+  `Root.extend(tag)(fields)` merges fields with `{ ...parent.fields, ...nextFields }`, so
+  a variant redeclaring an inherited field wins. The types said `S & S2`, which typed
+  that key as both brands at once while the schema held was the child's alone —
+  the same lie already fixed for the `computed` map. The merge is now
+  `MergedFields<S, S2>` — `Omit<S, keyof S2> & S2` — at `extend`'s return type and at
+  its `computed` and `invariants` input positions, so a rule's `d` reads a redeclared
+  field honestly too.
+
+  Nothing changes at runtime, and no entity _declaration_ that compiled stops
+  compiling — the change is confined to what `extend` reports for a redeclared key.
+  Code **consuming** such a key is what may break: an assignment relying on the
+  _root's_ brand there was always unsound, since the value never carried that brand,
+  and it now fails to compile instead of passing silently. As with `computed`, the honest
+  surfaces are `Entity.Output`, `toJSON()` and `output.shape` — an _instance_ still
+  reads as the intersection, because a root's instance type reaches a variant
+  unmapped (`TS2425`).
+
+  `MergedFields` is exported at the top level, and as `Entity.MergedFields`, for the
+  reason `MergedComputed` is: written inline, the 5.9.3 emitter copies the type
+  parameter through unsubstituted and a consumer's declarations fail with `TS2304`.
+
 ## 0.4.0
 
 ### Minor Changes
