@@ -9,9 +9,8 @@ const Label = z.string().min(1).brand("Label");
 const Upper = z.string().min(1).brand("Upper");
 
 abstract class AccountBase extends Entity.abstract("Account")(
-  { id: AccountId, label: Label },
+  { id: Entity.field(AccountId, { immutable: true }), label: Label },
   {
-    immutable: ["id"],
     computed: {
       shout: Entity.computed(Upper, (d) => d.label.toUpperCase()),
     },
@@ -101,16 +100,18 @@ test("a root enforces the same field rules as a fresh declaration", () => {
 });
 
 test("a variant cannot shed the root's immutable keys", () => {
-  class Noted extends AccountBase.extend("Noted")({ note: Label }, { immutable: ["note"] }) {
+  class Noted extends AccountBase.extend("Noted")({
+    note: Entity.field(Label, { immutable: true }),
+  }) {
     override describe(): string {
       return "noted";
     }
   }
   const n = Noted.make({}).getOrThrow();
   n.update({ label: "x" as z.infer<typeof Label> });
-  // @ts-expect-error `id` is the root's immutable, and declaring our own cannot shed it
+  // @ts-expect-error `id` is the root's immutable flag, and flagging our own cannot shed it
   n.update({ id: n.id });
-  // @ts-expect-error `note` is the variant's own immutable
+  // @ts-expect-error `note` is the variant's own immutable flag
   n.update({ note: n.note });
 });
 

@@ -10,9 +10,8 @@ const FullName = z.string().min(1).brand("FullName");
 const Initials = z.string().min(1).brand("Initials");
 
 class Person extends Entity("Person")(
-  { id: PersonId, first: NamePart, last: NamePart },
+  { id: Entity.field(PersonId, { immutable: true }), first: NamePart, last: NamePart },
   {
-    immutable: ["id"],
     computed: {
       fullName: Entity.computed(FullName, (d) => `${d.first} ${d.last}`),
       initials: Entity.computed(Initials, (d) => `${d.first[0]}${d.last[0]}`),

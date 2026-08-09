@@ -10,10 +10,14 @@ const DisplayName = z.string().min(1).brand("DisplayName");
 const Instant = z.iso.datetime().brand("Instant");
 
 class Organization extends Entity("Organization")(
-  { id: OrgId, slug: Slug, name: DisplayName, createdAt: Instant, trialEndsAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
+    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: DisplayName,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+    trialEndsAt: Instant,
+  },
+  {
     invariants: [
       Entity.invariant((d) => d.trialEndsAt > d.createdAt, "trialEndsAt must be after createdAt"),
     ],
@@ -149,7 +153,7 @@ test("Entity.renderIssue and Entity.keysOf render and normalise one issue", () =
   expect(Entity.renderIssue({ message: "spans the entity" })).toBe("spans the entity");
 });
 
-test("an entity with no generated or immutable options still exposes both schemas", () => {
+test("an entity with no flagged fields still exposes both schemas", () => {
   class Plain extends Entity("Plain")({ id: OrgId, slug: Slug }) {}
   expect(Object.keys(Plain.createInput.shape).toSorted()).toEqual(["id", "slug"]);
   expect(Object.keys(Plain.updateInput.shape).toSorted()).toEqual(["id", "slug"]);

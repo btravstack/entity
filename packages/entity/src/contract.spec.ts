@@ -11,10 +11,13 @@ const Instant = z.iso.datetime().brand("Instant");
 const Label = z.string().min(1).brand("Label");
 
 class ApiKey extends Entity("ApiKey")(
-  { id: ApiKeyId, orgId: OrgId.readonly(), label: Label, createdAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "orgId", "createdAt"],
+    id: Entity.field(ApiKeyId, { generated: true, immutable: true }),
+    orgId: Entity.field(OrgId.readonly(), { immutable: true }),
+    label: Label,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     // a denormalised field: stored so a query can index it, re-derived on
     // every construction so it cannot drift from `label`
     computed: {

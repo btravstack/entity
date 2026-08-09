@@ -1,7 +1,7 @@
 import type { ComputedField } from "./computed.js";
 import type { Invariant } from "./invariant.js";
 import type { OnlyNominal } from "./shape.js";
-import type { AbstractEntity, Fields, InputOf, OutputOf } from "./types.js";
+import type { AbstractEntity, Fields, InputOf, Schemas } from "./types.js";
 
 /** The entity builder, loosened. Passed in so this module never imports it. */
 export type BuildEntity = (
@@ -45,8 +45,6 @@ const declarationOf = (receiver: object) => {
 
 /** The options `rebuild` merges rather than overwrites. */
 type Mergeable = {
-  readonly generated?: readonly PropertyKey[];
-  readonly immutable?: readonly PropertyKey[];
   readonly computed?: Record<string, unknown>;
   readonly invariants?: readonly Invariant<unknown>[];
 };
@@ -58,7 +56,9 @@ const concat = <T>(parent: readonly T[] | undefined, child: readonly T[] | undef
 
 /**
  * Every option accumulates parent-then-child; nothing is shed. An extension can
- * add rules, keys and derived fields; it cannot drop the ones it inherits.
+ * add rules and derived fields; it cannot drop the ones it inherits. The
+ * `generated`/`immutable` flags need no merging here — they ride the field-map
+ * spread, wrapped, so a variant inherits them with the fields themselves.
  *
  * `computed` merges per key rather than concatenating, because it is a map:
  * a variant adding `murmur` keeps the root's `shout`, and one redefining
@@ -79,8 +79,6 @@ const rebuild = (
   const parentOptions = parent?.options as Mergeable | undefined;
   const childOptions = nextOptions as Mergeable | undefined;
 
-  const generated = concat(parentOptions?.generated, childOptions?.generated);
-  const immutable = concat(parentOptions?.immutable, childOptions?.immutable);
   const invariants = concat(parentOptions?.invariants, childOptions?.invariants);
   const computed = { ...parentOptions?.computed, ...childOptions?.computed };
 
@@ -89,8 +87,6 @@ const rebuild = (
     {
       ...parent?.options,
       ...nextOptions,
-      ...(generated.length > 0 ? { generated } : {}),
-      ...(immutable.length > 0 ? { immutable } : {}),
       ...(invariants.length > 0 ? { invariants } : {}),
       ...(Object.keys(computed).length > 0 ? { computed } : {}),
     },
@@ -130,20 +126,13 @@ const defineRootExtend = (Root: object, buildEntity: BuildEntity): void => {
 export const createBase =
   (buildEntity: BuildEntity) =>
   <Name extends string>(name: Name) =>
-  <
-    S extends Fields,
-    A extends Fields = Record<never, never>,
-    const G extends readonly (keyof S)[] = [],
-    const I extends readonly (keyof OutputOf<S, A>)[] = [],
-  >(
+  <S extends Fields, A extends Schemas = Record<never, never>>(
     fields: S & OnlyNominal<S>,
     options?: {
-      readonly generated?: G;
-      readonly immutable?: I;
       readonly computed?: { [K in keyof A]: ComputedField<A[K], InputOf<S>> };
       readonly invariants?: readonly Invariant<InputOf<S>>[];
     },
-  ): AbstractEntity<Name, S, A, G[number], I[number]> => {
+  ): AbstractEntity<Name, S, A> => {
     class Root {
       static readonly entityName = name;
       constructor() {
@@ -157,5 +146,5 @@ export const createBase =
     }
     record(Root, fields as Fields, options as Record<string, unknown> | undefined);
     defineRootExtend(Root, buildEntity);
-    return Root as unknown as AbstractEntity<Name, S, A, G[number], I[number]>;
+    return Root as unknown as AbstractEntity<Name, S, A>;
   };
