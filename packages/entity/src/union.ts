@@ -12,8 +12,6 @@ export type UnionMember = {
   readonly entityName: string;
   readonly input: z.ZodObject<z.core.$ZodLooseShape>;
   readonly output: z.ZodObject<z.core.$ZodLooseShape>;
-  /** the *instance type* of the abstract root the member was extended from, or the empty type */
-  readonly __base: unknown;
   make(state: unknown): Result<unknown, InvalidEntity>;
 } & z.core.$ZodType;
 
@@ -25,54 +23,18 @@ export type UnionMember = {
  */
 type InstanceOf<M extends UnionMember> = z.infer<M>;
 
-type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (
-  x: infer I,
-) => void
-  ? I
-  : never;
-
 /**
- * `T` when it is a single object type, and the empty type otherwise.
+ * What `Entity.union(...)` returns: a value, never a constructor.
  *
- * `UnionToIntersection<A | B>` is `A & B`, which `A | B` does not extend, so
- * the test distinguishes one type from several. That is what makes the union's
- * construct signature legal: a base-constructor return type may not be a union
- * (`TS2509: Base constructor return type 'Personal | Business' is not an object
- * type or intersection of object types with statically known members`), so
- * members drawn from different roots — or from none — fall back to claiming
- * nothing rather than claiming a supertype they do not share.
+ * There is deliberately no `new` signature. A class's instance type cannot be
+ * a union — `TS2509: Base constructor return type 'Personal | Business' is not
+ * an object type or intersection of object types with statically known
+ * members` — so a class form could only ever type as the members' shared root,
+ * which is both unable to narrow and redundant with the root the author
+ * already named. It shipped in 0.4.0 and was removed in #57. `TS2507` at the
+ * declaration is the replacement, and it fires where the mistake is written.
  */
-type SoleType<T> = [T] extends [UnionToIntersection<T>]
-  ? [T] extends [object]
-    ? T
-    : Record<never, never>
-  : Record<never, never>;
-
-/**
- * The same members, carried as an anonymous object type.
- *
- * Not a no-op: `__base` is the root's own instance type, abstract declarations
- * and all, so a plain `class Account extends Entity.union(...) {}` was measured
- * to fail with `TS2515: Non-abstract class 'Account' does not implement
- * inherited abstract member describe from class 'AccountBase'`. A union's class
- * body holds statics only — it can never implement an instance member, and
- * nothing is ever constructed from it — so the abstractness is noise here.
- * Mapping is safe where `BehaviourOf` could not do it: no variant overrides
- * anything through this type, which is what TS2425 needs.
- */
-type Plain<T> = { [K in keyof T]: T[K] };
-
-/** The root every member shares, or the empty type if they do not share one. */
-type SharedBase<M extends readonly UnionMember[]> = Plain<SoleType<M[number]["__base"]>>;
-
 export type EntityUnion<K extends string, M extends readonly UnionMember[]> = {
-  /**
-   * Sealed, and never actually constructed — a union has no instances. It
-   * exists so `class Account extends Entity.union(...) {}` compiles and
-   * `Account` is usable as a type. That type is the members' shared root, not
-   * the member union: see `SoleType`.
-   */
-  new (d: never): SharedBase<M>;
   readonly discriminant: K;
   readonly members: M;
   readonly input: z.ZodType<unknown>;
@@ -234,35 +196,16 @@ export function union<
       .get() as InstanceOf<M[number]>;
   }) as unknown as z.ZodType<InstanceOf<M[number]>>;
 
-  class EntityUnionBase {
-    static readonly discriminant = discriminant;
-    static readonly members = members;
-    static readonly input = input;
-    static readonly output = output;
-    static readonly make = make;
-
-    constructor() {
-      // A defect, not an `InvalidEntity`: `make` dispatches to a member class,
-      // so nothing is ever an instance of the union. Reaching this means an
-      // instance method was written in a union's class body, where it could
-      // never have reached a member.
-      // oxlint-disable-next-line unthrown/no-throw
-      throw new Error(`${entity}: a union has no instances — use make()`);
-    }
-  }
-
   // the same two slots an entity carries, so a union composes identically —
-  // `z.object({ member: Member })`, or as a field of another entity. Plain
-  // values rather than the per-receiver getters `schema.ts` installs: a union
-  // dispatches on its members, so a subclass of it must not rebind anything.
+  // `z.object({ member: Member })`, or as a field of another entity
   const slots = instance as unknown as Record<string, unknown>;
-  for (const slot of ["_zod", "~standard"] as const) {
-    Object.defineProperty(EntityUnionBase, slot, {
-      configurable: true,
-      enumerable: false,
-      value: slots[slot],
-    });
-  }
-
-  return EntityUnionBase as unknown as EntityUnion<K, M>;
+  return {
+    discriminant,
+    members,
+    input,
+    output,
+    make,
+    _zod: slots["_zod"],
+    "~standard": slots["~standard"],
+  } as unknown as EntityUnion<K, M>;
 }

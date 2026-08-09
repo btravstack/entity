@@ -57,36 +57,24 @@ class Business extends AccountBase.extend("Business")({ kind: z.literal("busines
   }
 }
 
-class Account extends Entity.union("kind", [Personal, Business]) {}
-class Mixed extends Entity.union("kind", [User, Personal]) {}
+const Payment = Entity.union("kind", [Personal, Business]);
+type Payment = Entity.Instance<typeof Payment>;
 
-// `declare` is illegal inside a function body, so both annotations live here.
-declare const anyAccount: Account;
-declare const anyMixed: Mixed;
+declare const p: Payment;
 
-test("a union class is usable as a type — the members' shared root", () => {
-  const described: string = anyAccount.describe();
-  const slug: string = anyAccount.slug;
-  void described;
-  void slug;
-  // @ts-expect-error the supertype is the shared root, not either variant
-  void anyAccount.kind;
+test("a union has no class form", () => {
+  // The class form typed as the members' shared root and could not narrow
+  // (#57). A class's instance type cannot be a union at all — `TS2509` —
+  // so the value plus `Entity.Instance` is the only honest spelling.
+  // @ts-expect-error a union is a value, not a constructor
+  class Nope extends Entity.union("kind", [Personal, Business]) {}
+  void Nope;
 });
 
-test("Entity.Instance recovers the exact member union", () => {
-  const x = Account.make({}).getOrThrow();
-  const y: Entity.Instance<typeof Account> = x;
-  const described: string = match(y)
-    .with(P.tag("Personal"), (p) => p.describe())
-    .with(P.tag("Business"), (b) => b.describe())
-    .exhaustive();
-  void described;
-});
-
-test("members from different roots claim no shared supertype", () => {
-  // `User` is declared straight from `Entity(...)`, so its `__base` is the
-  // empty type; `Personal`'s is `AccountBase`. Two different types is a union,
-  // which `SoleType` refuses to claim.
-  // @ts-expect-error nothing is shared, so nothing is claimed
-  void anyMixed.describe();
+test("the const plus Entity.Instance pair narrows to a member", () => {
+  const onTag: string = p._tag === "Personal" ? p.describe() : p.describe();
+  void onTag;
+  // narrowing on the declared discriminant reaches member-only fields
+  const onDiscriminant: string = p.kind === "personal" ? p._tag : p._tag;
+  void onDiscriminant;
 });
