@@ -68,20 +68,19 @@ Organization.make(org.toJSON()); // ✓ round-trips
 check. `satisfies Entity.Input<…>` restores it:
 
 ```ts
-const id = (value: string) => OrgId.parse(value);
+const orgId = (value: string) => OrgId.parse(value);
 const slug = (value: string) => Slug.parse(value);
-const name = (value: string) => DisplayName.parse(value);
-const at = (value: string) => Instant.parse(value);
 
-const row = {
-  id: id("0199b1f4-1b1e-7000-8000-000000000000"),
+const seedRow = {
+  id: orgId("0199b1f4-1b1e-7000-8000-000000000000"),
   slug: slug("acme"),
-  name: name("Acme SA"),
-  createdAt: at("2026-08-06T09:00:00.000Z"),
 } satisfies Entity.Input<typeof Organization>;
 
-const seeded = Organization.make(row).getOrThrow();
+const seeded = Organization.make(seedRow).getOrThrow();
 ```
+
+A key the entity does not declare is now a compile error rather than a value
+`make` quietly ignores.
 
 Use it where you write the row — a seed, a migration, a fixture. A driver
 handing you `unknown` needs nothing: there is no literal to check, and `make`

@@ -74,19 +74,19 @@ names the shape `make` accepts, so a hand-written literal can opt back into the
 full check with `satisfies`:
 
 ```ts
-const slug = (value: string) => Slug.parse(value);
-const name = (value: string) => DisplayName.parse(value);
-const id = (value: string) => OrgId.parse(value);
-const at = (value: string) => Instant.parse(value);
+const orgId = (value: string) => OrgId.parse(value);
+const orgSlug = (value: string) => Slug.parse(value);
+const orgName = (value: string) => DisplayName.parse(value);
+const orgCreatedAt = (value: string) => Instant.parse(value);
 
 const row = {
-  id: id("0199b1f4-1b1e-7000-8000-000000000000"),
-  slug: slug("acme"),
-  name: name("Acme SA"),
-  createdAt: at("2026-08-06T09:00:00.000Z"),
+  id: orgId("0199b1f4-1b1e-7000-8000-000000000000"),
+  slug: orgSlug("acme"),
+  name: orgName("Acme SA"),
+  createdAt: orgCreatedAt("2026-08-06T09:00:00.000Z"),
 } satisfies Entity.Input<typeof Organization>;
 
-const org = Organization.make(row); // Result<Organization, InvalidEntity>
+Organization.make(row); // Result<Organization, InvalidEntity>
 ```
 
 `satisfies` rather than a type annotation, so `row` keeps its literal type and

@@ -8,12 +8,10 @@ description: Deterministic entity tests without stubbing Date.now or crypto.rand
 **Problem:** entities involve ids and timestamps, and you want deterministic
 tests without stubbing `Date.now` or `crypto.randomUUID`.
 
-> Snippets below assume these imports:
+> Snippets below assume this import:
 >
 > ```ts
-> import { z } from "zod";
 > import { P } from "unthrown";
-> import { Entity } from "@btravstack/entity";
 > ```
 
 ## Mint fixture values with a helper, not a cast
@@ -28,6 +26,7 @@ const name = (value: string) => DisplayName.parse(value);
 const money = (amount: number, currency: "EUR" | "USD" | "GBP") =>
   Money.parse({ amount, currency });
 
+// createOrg is the factory bound in the next section
 createOrg({ slug: "acme", name: "Acme" }); // ✗ compile error — not branded
 createOrg({ slug: slug("acme"), name: name("Acme") }); // ✓
 ```
