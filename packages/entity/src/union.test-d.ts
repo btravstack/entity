@@ -42,9 +42,6 @@ const AcctId = z.uuid().brand("AcctId");
 
 abstract class AccountBase extends Entity.abstract("Account")({ id: AcctId, label: Label }) {
   abstract describe(): string;
-  get slug(): string {
-    return this.label.toLowerCase();
-  }
 }
 class Personal extends AccountBase.extend("Personal")({ kind: z.literal("personal") }) {
   override describe(): string {
@@ -57,10 +54,10 @@ class Business extends AccountBase.extend("Business")({ kind: z.literal("busines
   }
 }
 
-const Payment = Entity.union("kind", [Personal, Business]);
-type Payment = Entity.Instance<typeof Payment>;
+const Account = Entity.union("kind", [Personal, Business]);
+type Account = Entity.Instance<typeof Account>;
 
-declare const p: Payment;
+declare const p: Account;
 
 test("a union has no class form", () => {
   // The class form typed as the members' shared root and could not narrow
@@ -81,4 +78,12 @@ test("the const plus Entity.Instance pair narrows to a member", () => {
   // without it, `p._tag` stays "Personal" | "Business" and the annotation fails
   const onDiscriminant: "Personal" = p.kind === "personal" ? p._tag : "Personal";
   void onDiscriminant;
+});
+
+test("a union's instance type still carries the root's behaviour", () => {
+  // pins, at the type level, that Account (Personal | Business) keeps
+  // AccountBase's abstract `describe` — the class-form test for this was
+  // deleted with #57; `union.spec.ts` only exercises it at runtime
+  const described: string = p.describe();
+  void described;
 });

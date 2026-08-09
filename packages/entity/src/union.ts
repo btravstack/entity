@@ -212,13 +212,12 @@ export function union<
     output,
     make,
   } satisfies Omit<EntityUnion<K, M>, "__instance" | "_zod" | "~standard">;
-  // non-enumerable, like `entity.ts` installs `_tag` — so `Object.keys`,
-  // spread and `JSON.stringify` on the union value don't reach zod's internals
-  return Object.defineProperties(
-    { ...core },
-    {
-      _zod: { value: slots["_zod"], enumerable: false, configurable: true },
-      "~standard": { value: slots["~standard"], enumerable: false, configurable: true },
-    },
-  ) as unknown as EntityUnion<K, M>;
+  // non-enumerable, like `entity.ts` installs `_tag` — so `Object.keys` and
+  // spread over the union value list only the five public members; `input`
+  // and `output` are themselves enumerable ZodTypes, so this does not keep
+  // `JSON.stringify` from walking the whole schema graph (measured)
+  return Object.defineProperties(core, {
+    _zod: { value: slots["_zod"], enumerable: false, configurable: true },
+    "~standard": { value: slots["~standard"], enumerable: false, configurable: true },
+  }) as unknown as EntityUnion<K, M>;
 }

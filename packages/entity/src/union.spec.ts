@@ -95,6 +95,11 @@ test("the members are reachable, for exhaustiveness and registries", () => {
   expect(Member.members.map((m) => m.entityName)).toEqual(["User", "ServiceAccount"]);
 });
 
+test("the union value's own enumerable keys are exactly the five public ones", () => {
+  expect(Object.keys(Member)).toEqual(["discriminant", "members", "input", "output", "make"]);
+  expect(Object.keys({ ...Member })).toEqual(Object.keys(Member));
+});
+
 test("a union member can itself be a field of another entity", () => {
   class Audit extends Entity("Audit")({ id: UserId, actor: Member }) {}
   const a = Audit.make({ id: userRow.id, actor: svcRow }).getOrThrow();

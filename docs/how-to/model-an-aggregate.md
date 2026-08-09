@@ -197,7 +197,7 @@ variant's own fields and narrows under `P.tag(...)`.
 ## Match exhaustively on what comes back
 
 ```ts
-const describe = (m: AnyMember) =>
+const describe = (m: Member) =>
   match(m)
     .with(P.tag("User"), (u) => `user:${u.email}`)
     .with(P.tag("ServiceAccount"), (s) => `svc:${s.name}`)
