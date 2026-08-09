@@ -103,6 +103,9 @@ export type Root = Entity.Abstract<
   never
 >;
 export type Merged = Entity.MergedComputed<{ label: typeof DisplayLabel }, Record<never, never>>;
+// The `Record<never, never>` second argument is the shape that found the
+// dangling `A2` (`TS2304`): it is what the *omitted* side collapses to.
+export type MergedFieldMap = Entity.MergedFields<{ total: typeof Money }, Record<never, never>>;
 
 /** The error is reachable as both a value and a type. */
 export const isInvalid = (error: unknown): error is Entity.InvalidEntity =>

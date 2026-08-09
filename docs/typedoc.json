@@ -30,6 +30,7 @@
     "InvariantSrc",
     "IsNominalField",
     "MergedComputedSrc",
+    "MergedFieldsSrc",
     "OnlyNominal",
     "OutputOf",
     "PatchOf",

@@ -1,6 +1,6 @@
 ---
 title: Helper types
-description: Entity.Input, Entity.Output, Entity.CreateInput, Entity.Patch, Entity.Instance — and the seven declaration-emit names exported at the top level.
+description: Entity.Input, Entity.Output, Entity.CreateInput, Entity.Patch, Entity.Instance — and the nine declaration-emit names exported at the top level.
 ---
 
 # Helper types
@@ -47,14 +47,14 @@ surrounding declaration.
 
 ## The declaration-emit names
 
-Eight types are exported at the top level: `AbstractEntity`, `BaseInstance`,
-`ConstructionKey`, `EntityStatic`, `EntityUnion`, `MergedComputed`, `Sealed`,
-`UnionMember`. They are the one exception to the single-import rule, and none of
-them is part of the API you write against. Seven also have namespace aliases for
-anyone annotating by hand — `Entity.Abstract`, `Entity.BaseInstance`,
-`Entity.ConstructionKey`, `Entity.MergedComputed`, `Entity.Sealed`,
-`Entity.Static`, `Entity.Union` — but a consumer's _emitted declarations_ use the
-top-level names.
+Nine types are exported at the top level: `AbstractEntity`, `BaseInstance`,
+`ConstructionKey`, `EntityStatic`, `EntityUnion`, `MergedComputed`,
+`MergedFields`, `Sealed`, `UnionMember`. They are the one exception to the
+single-import rule, and none of them is part of the API you write against. Eight
+also have namespace aliases for anyone annotating by hand — `Entity.Abstract`,
+`Entity.BaseInstance`, `Entity.ConstructionKey`, `Entity.MergedComputed`,
+`Entity.MergedFields`, `Entity.Sealed`, `Entity.Static`, `Entity.Union` — but a
+consumer's _emitted declarations_ use the top-level names.
 
 ```ts
 import type {
@@ -64,6 +64,7 @@ import type {
   EntityStatic,
   EntityUnion,
   MergedComputed,
+  MergedFields,
   Sealed,
   UnionMember,
 } from "@btravstack/entity";
@@ -97,6 +98,12 @@ top-level name. What each one buys was measured, not assumed:
   position correctly, so only downstream builds saw it. Naming it is half the
   fix and exporting it is the other half: unexported, the emitter expands the
   alias structurally again and the identical dangling `A2` comes back.
+- **`MergedFields`** — the same merge for the _field_ map, which `extend` hands
+  `EntityStatic` as its `S`. The runtime spreads parent-then-child, so a variant
+  redeclaring an inherited field wins; typed as `S & S2` that key read as both
+  brands at once. Named and exported from the start rather than measured into
+  existence a second time — inline, it carries `MergedComputed`'s hazard with
+  `S2` in place of `A2`.
 - **`EntityUnion`, `UnionMember`** — the same story for
   `Entity.union(...)` assigned to an exported `const`: without a top-level
   name the members expand structurally and reach `$brand`, failing with

@@ -134,8 +134,11 @@ test("a redefined computed key takes the variant's type, not an intersection", (
   // data is what TS2425 forbids (see `BehaviourOf` in `types.ts`). Every surface
   // reading `A` on its own — `__output`, `toJSON()`, `output.shape` — is clean.
   type Out = Entity.Output<typeof Louder>;
-  // the root typed `shout` as Upper; the variant retypes it as Label. Under a
-  // plain `A & A2` this would be `Upper & Label` and neither line would compile.
+  // the root typed `shout` as Upper; the variant retypes it as Label. The
+  // negative below is the whole guard: under a plain `A & A2` this key would be
+  // `Upper & Label`, an intersection is assignable to *either* constituent, so
+  // both lines would still compile and the failure would surface as the
+  // directive going **unused** (`TS2578`) — not as the positive line breaking.
   const asLabel: z.infer<typeof Label> = null as unknown as Out["shout"];
   void asLabel;
   // @ts-expect-error the root's `Upper` brand is gone, not intersected in
@@ -150,6 +153,28 @@ test("a redefined computed key takes the variant's type, not an intersection", (
   const instanceAsUpper: z.infer<typeof Upper> = l.shout;
   void instanceAsLabel;
   void instanceAsUpper;
+});
+
+test("a redeclared field takes the variant's brand, not an intersection", () => {
+  class Retyped extends AccountBase.extend("Retyped")({ label: Upper }) {
+    override describe(): string {
+      return "retyped";
+    }
+  }
+  // `Entity.Output` for the same reason as `Louder` above: an instance is that
+  // intersected with `BehaviourOf<This>`, which carries the root's `label`
+  // unmapped, so only the surfaces reading `S` alone are honest.
+  type Out = Entity.Output<typeof Retyped>;
+  // the root typed `label` as Label; the variant redeclares it as Upper. As with
+  // `Louder` above, the negative is the whole guard: under a plain `S & S2` this
+  // key would be `Label & Upper`, assignable to either constituent, so both
+  // lines would still compile and the regression would show up as the directive
+  // going **unused** (`TS2578`) rather than as a type error here.
+  const asUpper: z.infer<typeof Upper> = null as unknown as Out["label"];
+  void asUpper;
+  // @ts-expect-error the root's `Label` brand is gone, not intersected in
+  const asLabel: z.infer<typeof Label> = null as unknown as Out["label"];
+  void asLabel;
 });
 
 void Business;

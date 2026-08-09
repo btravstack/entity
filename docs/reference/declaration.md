@@ -257,15 +257,17 @@ class Personal extends AccountBase.extend("Personal")({
 }
 ```
 
-Options **accumulate**, root-then-variant. A variant adds to what it inherits
-and cannot shed it, so it is never quietly laxer than its root.
+A variant's declaration **accumulates** onto the root's, root-then-variant. It
+adds to what it inherits and cannot shed it, so it is never quietly laxer than
+its root.
 
-| Option       | How a variant's declaration meets the root's                  |
-| ------------ | ------------------------------------------------------------- |
-| `generated`  | concatenated, root-then-variant                               |
-| `immutable`  | concatenated, root-then-variant                               |
-| `invariants` | concatenated, root-then-variant                               |
-| `computed`   | merged **per key** — a repeated key takes the variant's entry |
+| Declaration part | How a variant's declaration meets the root's                   |
+| ---------------- | -------------------------------------------------------------- |
+| `fields`         | merged **per key** — a repeated key takes the variant's schema |
+| `generated`      | concatenated, root-then-variant                                |
+| `immutable`      | concatenated, root-then-variant                                |
+| `invariants`     | concatenated, root-then-variant                                |
+| `computed`       | merged **per key** — a repeated key takes the variant's entry  |
 
 A variant names only what it adds. `Personal` above declares no options and
 inherits everything `AccountBase` declared; a variant declaring
@@ -280,22 +282,22 @@ The key lists are not deduplicated, and do not need to be. Each is turned into a
 keyed lookup before it reaches a schema or a patch check, so naming a key the
 root already declared is harmless.
 
-`computed` merges per key rather than concatenating, because it is a map. A
-variant can add a derived field beside the root's, and can **redefine** one the
-root declared — its schema and its derivation replace that entry alone — but
-cannot drop one.
+`fields` and `computed` merge per key rather than concatenating, because both
+are maps. A variant can add to either beside what the root declared, and can
+**redeclare** an entry the root declared — its schema, and for `computed` its
+derivation, replace that entry alone — but cannot drop one.
 
-Redefining an inherited computed key has one edge, measured. The variant's
-derivation is what runs, and every surface read off the declaration agrees with
-it: `Variant.output.shape`, `toJSON()` and `Entity.Output<typeof Variant>` all
-carry the variant's schema. The **instance property** does not — it keeps the
-root's type intersected in, so a key the root branded `Upper` and the variant
-rebranded `Label` reads as `Upper & Label` on an instance, and is still
-assignable where the root's brand is expected. The root's instance type is
-intersected into every variant **unmapped**, and subtracting a key from it is
-exactly what `TS2425` forbids: any mapped form turns the root's methods into
-function-typed properties and breaks every variant implementing an `abstract`
-member. There is no fix pending; read the field off
+Redeclaring an inherited key, in either map, has one edge, measured. The
+variant's schema is what validates and its derivation is what runs, and every
+surface read off the declaration agrees: `Variant.output.shape`, `toJSON()` and
+`Entity.Output<typeof Variant>` all carry the variant's schema. The **instance
+property** does not — it keeps the root's type intersected in, so a key the root
+branded `Upper` and the variant rebranded `Label` reads as `Upper & Label` on an
+instance, and is still assignable where the root's brand is expected. The root's
+instance type is intersected into every variant **unmapped**, and subtracting a
+key from it is exactly what `TS2425` forbids: any mapped form turns the root's
+methods into function-typed properties and breaks every variant implementing an
+`abstract` member. There is no fix pending; read the key off
 `Entity.Output<typeof Variant>` where its exact type matters.
 
 `extend` lives only on a root. The entity it returns is final.
