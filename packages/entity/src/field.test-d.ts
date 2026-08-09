@@ -1,0 +1,62 @@
+import { test } from "vitest";
+import { z } from "zod";
+
+import { Entity } from "./index.js";
+
+const Id = z.uuid().brand("Id");
+const Slug = z.string().min(1).brand("Slug");
+
+test("flags are extracted precisely", () => {
+  class Org extends Entity("Org")({
+    id: Entity.field(Id, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: z.string().min(1).brand("Name"),
+  }) {}
+  const org = Org.make({}).getOrThrow();
+  // instance data type unwraps to the schema's output — bare or flagged alike
+  const s: z.infer<typeof Slug> = org.slug;
+  void s;
+  // @ts-expect-error `slug` is immutable-flagged — not patchable
+  org.update({ slug: org.slug });
+  org.update({ name: org.name });
+  const create = Org.factory({ id: () => crypto.randomUUID() });
+  void create;
+  // @ts-expect-error `slug` is not generated — the factory must not accept a generator for it
+  Org.factory({ id: () => "", slug: () => "" });
+});
+
+test("an unbranded schema wrapped in Entity.field is rejected at the field map, not the call", () => {
+  // `field()` itself does no nominal check — the map-level `OnlyNominal` already unwraps
+  // `FieldSpec` (via `SchemaOf`) before judging, so a second check here would be redundant.
+  // The rejection surfaces at the map key rather than at this call, which type-checks fine
+  // on its own.
+  const spec = Entity.field(z.string(), { immutable: true });
+  class Bad extends Entity("Bad")({
+    // @ts-expect-error same named rejection as a bare unbranded field
+    id: spec,
+  }) {}
+  void Bad;
+});
+
+test("a misspelled flag name is a compile error, not a silently-mutable field", () => {
+  // @ts-expect-error "imutable" alone is rejected (TS2561 suggests the spelling)
+  Entity.field(Id, { imutable: true });
+  // @ts-expect-error a typo beside a correct flag is the dangerous shape — excess-property
+  // checking alone lets it through (measured: TS2322 naming UnknownFlagIsRejected, not TS2561),
+  // and without the rejection the field would be silently mutable
+  Entity.field(Id, { generated: true, imutable: true });
+});
+
+test("a widened boolean flag is a compile error, not a type/runtime split", () => {
+  const isGenerated: boolean = Math.random() > 0.5;
+  // @ts-expect-error a non-literal `boolean` would type `generated` as `false`
+  // regardless of the runtime value — only a `true`/`false` literal is accepted
+  Entity.field(Id, { generated: isGenerated });
+});
+
+test("the removed options are gone", () => {
+  // @ts-expect-error `generated` is no longer an option — flag the field instead
+  Entity("Gone")({ id: Id }, { generated: ["id"] });
+  // @ts-expect-error `immutable` is no longer an option — flag the field instead
+  Entity("Gone2")({ id: Id }, { immutable: ["id"] });
+});

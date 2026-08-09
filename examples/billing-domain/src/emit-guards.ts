@@ -83,14 +83,15 @@ export type OrgPatch = Entity.Patch<typeof Organization>;
 export type Derived = Entity.ComputedField<typeof DisplayLabel, { slug: z.infer<typeof Slug> }>;
 export type Rule = Entity.Invariant<{ slug: z.infer<typeof Slug> }>;
 export type SealedRow = Entity.Sealed<Row>;
-export type Base = Entity.BaseInstance<{ slug: typeof Slug }, Record<never, never>, never>;
-// `G` and `I` are unions of keys, so the empty case is `never` rather than `[]`.
+export type Spec = Entity.FieldSpec<typeof Slug, { generated: false; immutable: true }>;
+export type Base = Entity.BaseInstance<{ slug: typeof Slug }, Record<never, never>>;
+// `B` defaults to `Record<never, never>` — written out anyway so declaration
+// emit walks the fourth argument too.
 export type Static = Entity.Static<
   "Organization",
   { slug: typeof Slug },
   Record<never, never>,
-  never,
-  never
+  Record<never, never>
 >;
 export type Members = Entity.Union<"kind", [typeof Invoice, typeof CreditNote]>;
 export type AnyDocument = Entity.Instance<typeof BillingDocument>;
@@ -98,9 +99,7 @@ export type OneInvoice = Entity.Instance<typeof Invoice>;
 export type Root = Entity.Abstract<
   "BillingDocument",
   { total: typeof Money },
-  Record<never, never>,
-  never,
-  never
+  Record<never, never>
 >;
 export type Merged = Entity.MergedComputed<{ label: typeof DisplayLabel }, Record<never, never>>;
 // The `Record<never, never>` second argument is the shape that found the

@@ -46,6 +46,10 @@ export type {
   Sealed,
 } from "./types.js";
 
+// `FieldSpec` is on the same emit path: it is the declared type of every
+// flagged field in a consumer's field map, so their `.d.ts` has to name it.
+export type { FieldSpec } from "./field.js";
+
 // Same story as `EntityStatic`: a consumer writing
 // `abstract class X extends Entity.abstract("X")(…) {}` emits the *underlying*
 // name into its declarations, not the `Entity.Abstract` path that aliases it.

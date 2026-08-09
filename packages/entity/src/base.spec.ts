@@ -9,9 +9,8 @@ const Label = z.string().min(1).brand("Label");
 const Upper = z.string().min(1).brand("Upper");
 
 abstract class AccountBase extends Entity.abstract("Account")(
-  { id: AccountId, label: Label },
+  { id: Entity.field(AccountId, { immutable: true }), label: Label },
   {
-    immutable: ["id"],
     computed: {
       shout: Entity.computed(Upper, (d) => d.label.toUpperCase()),
     },
@@ -166,13 +165,14 @@ test("a variant's own schemas include both halves", () => {
   expect(Object.keys(Personal.output.shape).toSorted()).toEqual(["id", "kind", "label", "shout"]);
 });
 
-test("a variant's option adds to the root's, it does not replace", () => {
-  class Loose extends AccountBase.extend("Loose")({ note: Label }, { immutable: [] }) {
+test("a variant's flags add to the root's, they do not replace", () => {
+  class Loose extends AccountBase.extend("Loose")({ note: Entity.field(Label, {}) }) {
     override describe(): string {
       return "loose";
     }
   }
-  // the root declared `id` immutable; declaring an empty list cannot shed it
+  // the root flagged `id` immutable; a variant's empty flags object cannot shed
+  // it, and flags nothing of its own
   expect(Object.keys(Loose.updateInput.shape).toSorted()).toEqual(["label", "note"]);
 });
 
@@ -261,11 +261,13 @@ test("a variant is still sealed and still refuses a bare subclass", () => {
   expect(outcome).toBe("defect");
 });
 
-test("immutable accumulates through a behaviour-only intermediate root", () => {
-  // Entities are final, so options never chain root → variant → variant. The
+test("immutable flags accumulate through a behaviour-only intermediate root", () => {
+  // Entities are final, so flags never chain root → variant → variant. The
   // only multi-level shape is root → intermediate root → variant, and
   // `Auditable` is already declared above as exactly that.
-  class Audited extends Auditable.extend("Audited")({ note: Label }, { immutable: ["note"] }) {
+  class Audited extends Auditable.extend("Audited")({
+    note: Entity.field(Label, { immutable: true }),
+  }) {
     override describe(): string {
       return "audited";
     }
@@ -274,32 +276,46 @@ test("immutable accumulates through a behaviour-only intermediate root", () => {
   expect(Object.keys(Audited.updateInput.shape).toSorted()).toEqual(["label"]);
 });
 
-test("generated accumulates, so a variant cannot make a root's key caller-supplied", () => {
-  abstract class Stamped extends Entity.abstract("Stamped")(
-    { id: AccountId, at: Label },
-    { generated: ["at"] },
-  ) {}
-  class Doc extends Stamped.extend("Doc")({ note: Label }, { generated: ["id"] }) {}
-  // `at` is the root's, `id` is the variant's — `createInput` keeps neither
-  expect(Object.keys(Doc.createInput.shape).toSorted()).toEqual(["note"]);
+test("generated flags accumulate, so a variant cannot make a root's key caller-supplied", () => {
+  abstract class Stamped extends Entity.abstract("Stamped")({
+    id: AccountId,
+    at: Entity.field(Label, { generated: true }),
+  }) {}
+  class Doc extends Stamped.extend("Doc")({
+    note: Label,
+    seq: Entity.field(Label, { generated: true }),
+  }) {}
+  // `at` is the root's flag riding the field-map spread, `seq` is the
+  // variant's own — `createInput` keeps neither
+  expect(Object.keys(Doc.createInput.shape).toSorted()).toEqual(["id", "note"]);
 });
 
-test("a variant redeclaring a field replaces the root's schema for that key", () => {
-  // The two schemas accept overlapping but neither-contains-the-other sets, so
-  // all three candidate merges are told apart rather than only two of them.
-  const Code5 = z.string().length(5).brand("Code5");
-  const Digits = z.string().regex(/^\d+$/).brand("Digits");
-  abstract class Coded extends Entity.abstract("Coded")({ id: AccountId, code: Code5 }) {}
-  class Numbered extends Coded.extend("Numbered")({ code: Digits }) {}
+test("redeclaring an inherited field is a declaration-time defect", () => {
+  // A redeclared field is a bug in the declaration, not caller input — the
+  // same ruling as union's duplicate discriminant, and it fails at the same
+  // moment: while the declaration is on the stack.
+  expect(() => (AccountBase.extend("Clash") as (f: object) => unknown)({ label: Label })).toThrow(
+    /label.*already declared/,
+  );
+});
 
-  // accepted by the root, rejected by the variant — rules out parent-wins
-  expect(Numbered.make({ id, code: "abcde" }).isErr()).toBe(true);
-  // rejected by the root, accepted by the variant — rules out an intersection,
-  // which is the merge this key's *type* used to claim
-  expect(Numbered.make({ id, code: "42" }).getOrThrow().code).toBe("42");
-  // accepted by both, so the key is not simply dropped
-  expect(Numbered.make({ id, code: "12345" }).getOrThrow().code).toBe("12345");
-  expect(Object.keys(Numbered.output.shape).toSorted()).toEqual(["code", "id"]);
+test("redeclaring a field through a behaviour-only intermediate root also defects", () => {
+  // `Auditable` adds no fields of its own — the clash is still against the root's.
+  expect(() => (Auditable.extend("Clash2") as (f: object) => unknown)({ label: Label })).toThrow(
+    /label.*already declared/,
+  );
+});
+
+test("a field literally named toString is not a false clash — `in` walks the prototype chain", () => {
+  // Every plain object answers `"toString" in obj` truthily; only `Object.hasOwn`
+  // tells root-declared apart from Object.prototype-inherited.
+  class Described extends AccountBase.extend("Described")({ toString: Label }) {
+    override describe(): string {
+      return "described";
+    }
+  }
+  const d = Described.make({ id, label: "Ada", toString: "hi" }).getOrThrow();
+  expect(d.toString).toBe("hi");
 });
 
 test("a variant redefining one computed key overrides that entry only", () => {

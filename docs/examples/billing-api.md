@@ -23,9 +23,9 @@ export const UpdateOrganizationBody = Organization.updateInput;
 export const OrganizationResponse = Organization.output;
 ```
 
-There is nothing to maintain here. `createInput` is the field map minus whatever
-the entity declares `generated`; `updateInput` is it minus `immutable` and minus
-the computed fields, every remaining key optional. Add a generated field to the
+There is nothing to maintain here. `createInput` is the field map minus every
+field flagged `generated`; `updateInput` is it minus the ones flagged
+`immutable` and minus the computed fields, every remaining key optional. Add a generated field to the
 entity and the create body follows on its own — that is the omit list nobody had
 to write, and the spec asserts it by checking the generated JSON Schema has
 exactly `name` and `slug`.

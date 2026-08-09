@@ -9,9 +9,8 @@ const Label = z.string().min(1).brand("Label");
 const Upper = z.string().min(1).brand("Upper");
 
 abstract class AccountBase extends Entity.abstract("Account")(
-  { id: AccountId, label: Label },
+  { id: Entity.field(AccountId, { immutable: true }), label: Label },
   {
-    immutable: ["id"],
     computed: {
       shout: Entity.computed(Upper, (d) => d.label.toUpperCase()),
     },
@@ -101,16 +100,18 @@ test("a root enforces the same field rules as a fresh declaration", () => {
 });
 
 test("a variant cannot shed the root's immutable keys", () => {
-  class Noted extends AccountBase.extend("Noted")({ note: Label }, { immutable: ["note"] }) {
+  class Noted extends AccountBase.extend("Noted")({
+    note: Entity.field(Label, { immutable: true }),
+  }) {
     override describe(): string {
       return "noted";
     }
   }
   const n = Noted.make({}).getOrThrow();
   n.update({ label: "x" as z.infer<typeof Label> });
-  // @ts-expect-error `id` is the root's immutable, and declaring our own cannot shed it
+  // @ts-expect-error `id` is the root's immutable flag, and flagging our own cannot shed it
   n.update({ id: n.id });
-  // @ts-expect-error `note` is the variant's own immutable
+  // @ts-expect-error `note` is the variant's own immutable flag
   n.update({ note: n.note });
 });
 
@@ -155,26 +156,19 @@ test("a redefined computed key takes the variant's type, not an intersection", (
   void instanceAsUpper;
 });
 
-test("a redeclared field takes the variant's brand, not an intersection", () => {
-  class Retyped extends AccountBase.extend("Retyped")({ label: Upper }) {
-    override describe(): string {
-      return "retyped";
-    }
-  }
-  // `Entity.Output` for the same reason as `Louder` above: an instance is that
-  // intersected with `BehaviourOf<This>`, which carries the root's `label`
-  // unmapped, so only the surfaces reading `S` alone are honest.
-  type Out = Entity.Output<typeof Retyped>;
-  // the root typed `label` as Label; the variant redeclares it as Upper. As with
-  // `Louder` above, the negative is the whole guard: under a plain `S & S2` this
-  // key would be `Label & Upper`, assignable to either constituent, so both
-  // lines would still compile and the regression would show up as the directive
-  // going **unused** (`TS2578`) rather than as a type error here.
-  const asUpper: z.infer<typeof Upper> = null as unknown as Out["label"];
-  void asUpper;
-  // @ts-expect-error the root's `Label` brand is gone, not intersected in
-  const asLabel: z.infer<typeof Label> = null as unknown as Out["label"];
-  void asLabel;
+test("a variant cannot redeclare an inherited field with a different brand", () => {
+  // The old semantics here were "the variant's brand wins, not an
+  // intersection" — moot now that redeclaring `label` at all is rejected.
+  // @ts-expect-error `label` is already declared by the root
+  AccountBase.extend("Retyped")({ label: Upper });
+});
+
+test("a variant cannot redeclare an inherited field, flagged or not", () => {
+  // AccountBase declares `label` — reuse the file's existing root fixture
+  // @ts-expect-error `label` is already declared by the root
+  AccountBase.extend("Clash")({ label: Label });
+  // @ts-expect-error flagged redeclaration is equally rejected
+  AccountBase.extend("Clash2")({ label: Entity.field(Label, { immutable: true }) });
 });
 
 void Business;

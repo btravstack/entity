@@ -18,8 +18,8 @@ There is no other: `new SomeEntity(…)`
 
 ## `SomeEntity.factory(generators)` → `(input) => Result<SomeEntity, InvalidEntity>`
 
-Binds the `generated` fields' sources. Generators are **functions**, called
-once per create.
+Binds the sources of every field flagged `generated`. Generators are
+**functions**, called once per create.
 
 ```ts
 const createOrg = Organization.factory({
@@ -35,7 +35,7 @@ Each generator returns its field schema's **input**, not the branded output:
 generated values go through `make`'s validation like any other data, so
 `() => crypto.randomUUID()` needs no cast.
 
-An entity that declares no `generated` fields still has a factory: its
+An entity that flags no field `generated` still has a factory: its
 generators map has no keys, so `{}` is what you pass.
 
 ```ts
@@ -103,8 +103,9 @@ string is not a `Slug`, and this is the one form that says so at the call site.
 Returns a **new** entity. Re-runs the invariants and re-derives the computed
 fields.
 
-The patch must contain only keys `updateInput` accepts. A key that is
-`immutable`, `computed`, or not a field of the entity at all is **rejected**
+The patch must contain only keys `updateInput` accepts. A key that is flagged
+`immutable`, or is `computed`, or is not a field of the entity at all, is
+**rejected**
 with an `InvalidEntity` carrying that key in `path` — every offending key
 reports, not just the first. They are absent from the patch type too, but the
 compile-time guard only fires on object literals: an adapter that builds its

@@ -3,18 +3,57 @@ import type { z } from "zod";
 
 import type { ComputedField as ComputedFieldOf } from "./computed.js";
 import type { InvalidEntity } from "./errors.js";
+import type { FieldSpec, Flags } from "./field.js";
 import type { Invariant as InvariantOf } from "./invariant.js";
 import type { OnlyNominal } from "./shape.js";
 
 /**
- * A field map's values. `z.core.$ZodType`, not `z.ZodTypeAny`: an entity class
- * carries only zod's internal slots, not the full method surface, and must be
- * usable as a field. Anything zod accepts in an object shape is accepted here.
+ * A field-map entry: a schema, or `Entity.field`'s schema-plus-flags.
+ *
+ * `z.core.$ZodType`, not `z.ZodTypeAny`: an entity class carries only zod's
+ * internal slots, not the full method surface, and must be usable as a field.
+ * Anything zod accepts in an object shape is accepted here.
  */
-export type Fields = Record<string, z.core.$ZodType>;
+export type Entry = z.core.$ZodType | FieldSpec<z.core.$ZodType, Flags>;
+export type Fields = Record<string, Entry>;
+
+/**
+ * A plain schema map. The *computed* map stays this, never `Fields`: unwrapping
+ * `A[K]` in inference position was measured to make `A` uninferrable, so it fell
+ * back to its constraint and every computed key degraded to an index signature
+ * (TS4111, `Property 'shout' comes from an index signature`). An inline
+ * `Entity.field(...)` computed is impossible anyway — see `computed.ts`.
+ */
+export type Schemas = Record<string, z.core.$ZodType>;
+
+/** The schema behind an entry, flagged or bare. */
+export type SchemaOf<E> = E extends FieldSpec<infer T, Flags> ? T : E;
+export type SchemasOf<S extends Fields> = { [K in keyof S]: SchemaOf<S[K]> };
+
+/**
+ * The keys whose entries carry each flag. Matched on the `flags` property
+ * rather than on `FieldSpec<…, {…}>` — the `Flags` constraint rejects a
+ * partial literal in extends position (measured, TS2344-class).
+ *
+ * These are computed INSIDE `EntityStatic`/`AbstractEntity`/`BaseInstance`,
+ * never passed as type arguments: in argument position the printer re-carries
+ * the whole field map (the spike's +58%), and de-aliasing is impossible —
+ * alias annotation, defaulted parameter + `infer`, and mapped-object+`keyof`
+ * were all measured to reconstitute the alias via union-origin tracking, on
+ * both 7.0.2 and 5.9.3. Inside a body, `S` prints by name and the map appears
+ * once. Do not move these into a parameter list.
+ */
+export type GeneratedKeys<S extends Fields> = {
+  [K in keyof S]: S[K] extends { readonly flags: { readonly generated: true } } ? K : never;
+}[keyof S] &
+  PropertyKey;
+export type ImmutableKeys<S extends Fields> = {
+  [K in keyof S]: S[K] extends { readonly flags: { readonly immutable: true } } ? K : never;
+}[keyof S] &
+  PropertyKey;
 
 /** The data an entity accepts on the wire. */
-export type InputOf<S extends Fields> = z.infer<z.ZodObject<S>>;
+export type InputOf<S extends Fields> = z.infer<z.ZodObject<SchemasOf<S>>>;
 
 /**
  * The values the computed fields contribute.
@@ -33,7 +72,7 @@ export type InputOf<S extends Fields> = z.infer<z.ZodObject<S>>;
  * `.optional()` field keeps its optional key (`k?: T`) instead of becoming a
  * required `k: T | undefined`.
  */
-export type ComputedOf<A extends Fields> = [keyof A] extends [never]
+export type ComputedOf<A extends Schemas> = [keyof A] extends [never]
   ? Record<never, never>
   : z.infer<z.ZodObject<A>>;
 
@@ -42,7 +81,7 @@ export type ComputedOf<A extends Fields> = [keyof A] extends [never]
  * ones. There is deliberately no `_tag` — the tag is a
  * non-enumerable instance property and never part of the data.
  */
-export type OutputOf<S extends Fields, A extends Fields> = InputOf<S> & ComputedOf<A>;
+export type OutputOf<S extends Fields, A extends Schemas> = InputOf<S> & ComputedOf<A>;
 
 /** What `create` accepts from a caller: everything the domain does not generate. */
 export type CreateInputOf<S extends Fields, G extends PropertyKey> = Omit<InputOf<S>, G>;
@@ -121,7 +160,7 @@ export type DeepReadonly<T> = T extends Immutable
  * supplied. `update` re-runs every derivation like any other construction
  * path, so a patched value would only be overwritten by the next one.
  */
-export type PatchOf<S extends Fields, A extends Fields, I extends PropertyKey> = Partial<
+export type PatchOf<S extends Fields, A extends Schemas, I extends PropertyKey> = Partial<
   Omit<OutputOf<S, A>, I | keyof A>
 >;
 
@@ -135,8 +174,8 @@ export type PatchOf<S extends Fields, A extends Fields, I extends PropertyKey> =
  * signature, so `Organization.updateInput.shape.name` is a named property
  * access, not one this repo's `noPropertyAccessFromIndexSignature` rejects.
  */
-export type UpdateInputShapeOf<S extends Fields, A extends Fields, I extends PropertyKey> = {
-  [Key in Exclude<keyof (S & A), I | keyof A>]: z.ZodOptional<(S & A)[Key]>;
+export type UpdateInputShapeOf<S extends Fields, A extends Schemas, I extends PropertyKey> = {
+  [Key in Exclude<keyof (S & A), I | keyof A>]: z.ZodOptional<SchemaOf<(S & A)[Key]>>;
 };
 
 /**
@@ -187,10 +226,10 @@ export type Sealed<D> = D & { readonly __useMakeOrFactoryInstead: ConstructionKe
 // converting this one to a `type` reintroduces exactly the TS2526 this
 // package's other `interface`-avoidance already worked around elsewhere.
 // oxlint-disable-next-line typescript/consistent-type-definitions
-export interface BaseInstance<S extends Fields, A extends Fields, I extends PropertyKey> {
+export interface BaseInstance<S extends Fields, A extends Schemas> {
   toJSON(): DeepReadonly<OutputOf<S, A>>;
   equals(other: unknown): boolean;
-  update(patch: PatchOf<S, A, I>): Result<this, InvalidEntity>;
+  update(patch: PatchOf<S, A, ImmutableKeys<S>>): Result<this, InvalidEntity>;
 }
 
 /**
@@ -209,12 +248,10 @@ export interface BaseInstance<S extends Fields, A extends Fields, I extends Prop
  * `DeepReadonly` too: its top-level object is fresh, but the projection is
  * shallow, so every nested container is one of these same frozen fields.
  */
-type ConstructedInstance<
-  Tag extends string,
-  S extends Fields,
-  A extends Fields,
-  I extends PropertyKey,
-> = BaseInstance<S, A, I> &
+type ConstructedInstance<Tag extends string, S extends Fields, A extends Schemas> = BaseInstance<
+  S,
+  A
+> &
   DeepReadonly<OutputOf<S, A>> & {
     readonly _tag: Tag;
   };
@@ -229,11 +266,7 @@ type ConstructedInstance<
  * (TS2509). `string & "Personal"` reduces to `"Personal"`, which is exactly
  * what the variant needs.
  */
-export type RootInstance<S extends Fields, A extends Fields, I extends PropertyKey> = BaseInstance<
-  S,
-  A,
-  I
-> &
+export type RootInstance<S extends Fields, A extends Schemas> = BaseInstance<S, A> &
   DeepReadonly<OutputOf<S, A>> & { readonly _tag: string };
 
 /**
@@ -272,7 +305,7 @@ export type BehaviourOf<This> = This extends abstract new (...args: never[]) => 
  *
  * The *fields* half of the same merge is `MergedFields`, below.
  */
-export type MergedComputed<A extends Fields, A2 extends Fields> = Omit<A, keyof A2> & A2;
+export type MergedComputed<A extends Schemas, A2 extends Schemas> = Omit<A, keyof A2> & A2;
 
 /**
  * A root's field map merged with a variant's — what `extend` hands
@@ -299,8 +332,21 @@ export type MergedComputed<A extends Fields, A2 extends Fields> = Omit<A, keyof 
  * — 42 per variant, against the 274,048 an unnamed type expands to — and all
  * four `typecheck` steps stayed clean on both compilers. The `TS7056` budget is
  * serialised characters, and a named alias barely spends it.
+ *
+ * `NoRedeclaredKeys` now forbids `keyof S ∩ keyof S2` outright, so the
+ * child-wins branch here is unreachable at compile time; the alias stays as
+ * the runtime-honest spelling, and `base.test-d.ts` guards the rejection
+ * itself rather than the merge's resolution, in case the forbid ever loosens.
  */
 export type MergedFields<S extends Fields, S2 extends Fields> = Omit<S, keyof S2> & S2;
+
+/** The error message is the type name, same trick as `shape.ts`'s rejections. */
+type FieldAlreadyDeclaredByTheRoot = { readonly __fieldAlreadyDeclaredByTheRoot: never };
+
+/** Rejects any `S2` key the root `S` already declares, flagged or not. */
+type NoRedeclaredKeys<S extends Fields, S2 extends Fields> = {
+  [K in keyof S2]: K extends keyof S ? FieldAlreadyDeclaredByTheRoot : S2[K];
+};
 
 /**
  * What `Entity.abstract(name)(fields, options?)` returns.
@@ -310,14 +356,8 @@ export type MergedFields<S extends Fields, S2 extends Fields> = Omit<S, keyof S2
  * unmapped — see `RootInstance`. `name` labels the root in its defect message
  * and never reaches an instance.
  */
-export type AbstractEntity<
-  Name extends string,
-  S extends Fields,
-  A extends Fields,
-  G extends PropertyKey,
-  I extends PropertyKey,
-> = {
-  new (d: Sealed<OutputOf<S, A>>): RootInstance<S, A, I>;
+export type AbstractEntity<Name extends string, S extends Fields, A extends Schemas> = {
+  new (d: Sealed<OutputOf<S, A>>): RootInstance<S, A>;
   readonly entityName: Name;
   /**
    * A new entity carrying this root's fields plus more, under its own tag, and
@@ -333,29 +373,15 @@ export type AbstractEntity<
   extend<This, Tag2 extends string>(
     this: This,
     tag: Tag2,
-  ): <
-    S2 extends Fields,
-    A2 extends Fields = Record<never, never>,
-    const G2 extends readonly (keyof MergedFields<S, S2>)[] = [],
-    const I2 extends readonly (keyof OutputOf<MergedFields<S, S2>, MergedComputed<A, A2>>)[] = [],
-  >(
-    fields: S2 & OnlyNominal<S2>,
+  ): <S2 extends Fields, A2 extends Schemas = Record<never, never>>(
+    fields: S2 & OnlyNominal<S2> & NoRedeclaredKeys<S, S2>,
     options?: {
-      readonly generated?: G2;
-      readonly immutable?: I2;
       readonly computed?: {
         [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<MergedFields<S, S2>>>;
       };
       readonly invariants?: readonly InvariantOf<InputOf<MergedFields<S, S2>>>[];
     },
-  ) => EntityStatic<
-    Tag2,
-    MergedFields<S, S2>,
-    MergedComputed<A, A2>,
-    G | G2[number],
-    I | I2[number],
-    BehaviourOf<This>
-  >;
+  ) => EntityStatic<Tag2, MergedFields<S, S2>, MergedComputed<A, A2>, BehaviourOf<This>>;
 };
 
 /**
@@ -366,41 +392,39 @@ export type AbstractEntity<
  * can double as the builder's *explicit* return-type annotation, and so the
  * package's exported helper types (`Input`, `Output`, `CreateInput`,
  * `Patch`) have a single surface to read the shapes off. This is why every
- * member below is expressed from `S`/`A`/`G`/`I`/`Tag` alone instead of
+ * member below is expressed from `S`/`A`/`Tag` alone instead of
  * the builder's body-local `Base`/`input`/`output`/etc. — those aren't in
  * scope at the annotation position, before the body that declares them.
+ *
+ * There are no `G`/`I` parameters: the key unions are computed inside the
+ * body from the flags `S` carries — see `GeneratedKeys` for why they must
+ * never move into a parameter list.
  */
 export type EntityStatic<
   Tag extends string,
   S extends Fields,
-  A extends Fields,
-  // `G`/`I` are unions of keys, not tuples. The tuple form cannot express the
-  // merge: `readonly [...I, ...I2]` is rejected with `TS2344`, because
-  // TypeScript will not prove the parent's key set is a subset of the child's
-  // through zod's inference chain. Measured — see `Generators` for the same
-  // failure in its `Pick` form.
-  G extends PropertyKey,
-  I extends PropertyKey,
+  A extends Schemas,
   // What the abstract root's class body contributed, or nothing. Defaulted so
-  // every existing five-argument spelling keeps compiling.
+  // the plain `Entity(tag)(fields)` spelling stays three arguments.
   //
-  // A sixth parameter lengthens every serialised instance type, which is the
+  // A fourth parameter lengthens every serialised instance type, which is the
   // `TS7056` budget — the ceiling `index.ts` records two shipped build failures
-  // against, and the one 5.9.3 hits sooner than 7.0.2 does. It was measured,
-  // not assumed: `examples/billing-domain`'s two-compiler declaration pass
-  // emits clean on both TypeScript 7.0.2 and 5.9.3 with this arity, no
-  // `TS7056` from either. The headroom it spends is the `_zod` / `~standard`
-  // slots below naming `ConstructedInstance<Tag, S, A, I> & B` instead of
-  // spelling that intersection out a second and third time — same type, fewer
-  // serialised characters. Widening this further means re-running that pass.
+  // against, and the one 5.9.3 hits sooner than 7.0.2 does. The clean
+  // two-compiler pass on `examples/billing-domain` was measured at the old
+  // six-parameter arity; this four-parameter shape must be re-measured by that
+  // same gate before it counts as clean. The headroom it spends is the
+  // `_zod` / `~standard` slots below naming `ConstructedInstance<Tag, S, A> & B`
+  // instead of spelling that intersection out a second and third time — same
+  // type, fewer serialised characters. Widening this further means re-running
+  // that pass.
   B = Record<never, never>,
 > = {
-  new (d: Sealed<OutputOf<S, A>>): ConstructedInstance<Tag, S, A, I> & B;
+  new (d: Sealed<OutputOf<S, A>>): ConstructedInstance<Tag, S, A> & B;
   readonly entityName: Tag;
-  readonly input: z.ZodObject<S>;
-  readonly output: z.ZodObject<S & A>;
-  readonly createInput: z.ZodObject<Omit<S, G>>;
-  readonly updateInput: z.ZodObject<UpdateInputShapeOf<S, A, I>>;
+  readonly input: z.ZodObject<SchemasOf<S>>;
+  readonly output: z.ZodObject<SchemasOf<S> & A>;
+  readonly createInput: z.ZodObject<Omit<SchemasOf<S>, GeneratedKeys<S>>>;
+  readonly updateInput: z.ZodObject<UpdateInputShapeOf<S, A, ImmutableKeys<S>>>;
   /**
    * The zod slots that make the class itself a schema, so it composes
    * directly: `z.object({ owner: Organization })`, `z.array(Organization)`,
@@ -416,28 +440,28 @@ export type EntityStatic<
    * property, unlike a method, takes no `this` parameter to infer the receiver
    * from — so it states the base shape and a caller narrows with `instanceof`.
    */
-  readonly _zod: z.ZodType<ConstructedInstance<Tag, S, A, I> & B>["_zod"];
-  readonly "~standard": z.ZodType<ConstructedInstance<Tag, S, A, I> & B>["~standard"];
+  readonly _zod: z.ZodType<ConstructedInstance<Tag, S, A> & B>["_zod"];
+  readonly "~standard": z.ZodType<ConstructedInstance<Tag, S, A> & B>["~standard"];
   /** phantom carriers, so consumers can recover the shapes for annotations */
   readonly __input: InputOf<S>;
   readonly __output: OutputOf<S, A>;
-  readonly __createInput: CreateInputOf<S, G>;
-  readonly __patch: PatchOf<S, A, I>;
+  readonly __createInput: CreateInputOf<S, GeneratedKeys<S>>;
+  readonly __patch: PatchOf<S, A, ImmutableKeys<S>>;
   /** the *instance type* of the abstract root this was extended from, read by `Entity.union` */
   readonly __base: B;
   /** the instance type, read by `Entity.Instance` */
-  readonly __instance: ConstructedInstance<Tag, S, A, I> & B;
+  readonly __instance: ConstructedInstance<Tag, S, A> & B;
   make<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
   // No `extend`. An entity is final — extension lives on `AbstractEntity`,
   // which is tagless and can therefore carry behaviour. See `BehaviourOf`.
   factory<T>(
     this: new (d: Sealed<OutputOf<S, A>>) => T,
-    generators: Generators<S, G>,
-  ): EntityFactory<T, S, G>;
+    generators: Generators<S, GeneratedKeys<S>>,
+  ): EntityFactory<T, S, GeneratedKeys<S>>;
   factoryAsync<T>(
     this: new (d: Sealed<OutputOf<S, A>>) => T,
-    generators: AsyncGenerators<S, G>,
-  ): AsyncEntityFactory<T, S, G>;
+    generators: AsyncGenerators<S, GeneratedKeys<S>>,
+  ): AsyncEntityFactory<T, S, GeneratedKeys<S>>;
 };
 
 /**
@@ -456,11 +480,11 @@ export type EntityStatic<
  * constrain the real call sites, and this type only has to survive them.
  */
 export type Generators<S extends Fields, G extends PropertyKey> = {
-  [K in keyof S as K extends G ? K : never]: () => z.input<S[K]>;
+  [K in keyof S as K extends G ? K : never]: () => z.input<SchemaOf<S[K]>>;
 };
 
 export type AsyncGenerators<S extends Fields, G extends PropertyKey> = {
-  [K in keyof S as K extends G ? K : never]: () => PromiseLike<z.input<S[K]>>;
+  [K in keyof S as K extends G ? K : never]: () => PromiseLike<z.input<SchemaOf<S[K]>>>;
 };
 
 /**

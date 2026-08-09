@@ -25,7 +25,7 @@ hero:
 features:
   - icon: { src: /icons/schemas.svg }
     title: One declaration, four schemas
-    details: "input, output, createInput and updateInput are derived from one field map plus generated / immutable / computed. Plain ZodObjects, so they convert to JSON Schema in both directions — no hand-written omit lists."
+    details: "input, output, createInput and updateInput are derived from one field map — the generated / immutable flags a field carries, plus computed. Plain ZodObjects, so they convert to JSON Schema in both directions — no hand-written omit lists."
   - icon: { src: /icons/seal.svg }
     title: Sealed and immutable
     details: "new SomeEntity(…) does not compile. Every instance comes through make, update or a factory, so the invariants have run — and its data is deep-frozen, mutation a compile error first."
@@ -50,10 +50,13 @@ const Instant = z.iso.datetime().brand("Instant");
 const Upper = z.string().min(1).brand("Upper");
 
 class Organization extends Entity("Organization")(
-  { id: OrgId, slug: Slug, name: DisplayName, createdAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
+    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: DisplayName,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     computed: {
       shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },

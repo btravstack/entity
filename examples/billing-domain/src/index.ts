@@ -36,16 +36,14 @@ export * from "./vocabulary.js";
 
 export class Invoice extends BillingDocumentBase.extend("Invoice")(
   {
-    id: InvoiceId,
-    kind: z.literal("INVOICE"),
+    id: Entity.field(InvoiceId, { generated: true, immutable: true }),
+    kind: Entity.field(z.literal("INVOICE"), { generated: true, immutable: true }),
     lines: z.array(LineItem),
     status: InvoiceStatus,
     dunningReasons: z.array(DunningReason),
     level: Level,
   },
   {
-    generated: ["id", "kind"],
-    immutable: ["id", "kind"],
     invariants: [
       Entity.invariant(
         (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
@@ -69,13 +67,11 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
  * of the root, sharing the `kind` discriminant, is what lets both travel down
  * one channel and come back as the right class.
  */
-export class CreditNote extends BillingDocumentBase.extend("CreditNote")(
-  { id: CreditNoteId, kind: z.literal("CREDIT_NOTE"), against: InvoiceId },
-  {
-    generated: ["id", "kind"],
-    immutable: ["id", "against", "kind"],
-  },
-) {
+export class CreditNote extends BillingDocumentBase.extend("CreditNote")({
+  id: Entity.field(CreditNoteId, { generated: true, immutable: true }),
+  kind: Entity.field(z.literal("CREDIT_NOTE"), { generated: true, immutable: true }),
+  against: Entity.field(InvoiceId, { immutable: true }),
+}) {
   override signedAmount(): number {
     return -this.total.amount;
   }

@@ -143,11 +143,13 @@ The old rows are otherwise untouched: `_tag` moves from `"Document"` to
 `"Invoice"`, but it is non-enumerable and never stored, so nothing on disk knows
 the difference. Anything reading `entityName`, or matching on `P.tag`, does.
 
-Options declared on the root are inherited, and a variant **adds** to them: name
-only the keys and rules the variant itself introduces, and the root's still
-apply. Nothing a root declared can be shed — `immutable: []` on a variant does
-not widen its `updateInput`.
-([How each option merges](/reference/declaration#root-extend-tag-fields-options).)
+Fields and options declared on the root are inherited, and a variant **adds** to
+them: name only the fields and rules the variant itself introduces, and the
+root's still apply. A field's `generated`/`immutable` flags travel with the
+field, so nothing a root declared can be shed — and a variant may not restate an
+inherited field at all, flagged or not, which is a compile error and a
+declaration-time defect both.
+([How each part merges](/reference/declaration#root-extend-tag-fields-options).)
 
 ## Computed fields heal themselves
 

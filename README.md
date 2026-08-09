@@ -36,10 +36,13 @@ const Instant = z.iso.datetime().brand("Instant");
 const Upper = z.string().min(1).brand("Upper");
 
 class Organization extends Entity("Organization")(
-  { id: OrgId, slug: Slug, name: DisplayName, createdAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
+    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: DisplayName,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     computed: {
       shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },
@@ -94,7 +97,7 @@ await db.insert(org.toJSON());
 const loaded = Organization.make(row).getOrThrow();
 
 // 5. Update. Returns a NEW entity; invariants re-run; immutable fields are a
-//    compile error and are dropped at runtime if smuggled past it.
+//    compile error, and rejected at runtime if smuggled past it.
 const renamed = loaded.update({ name: nextName }).getOrThrow();
 
 // 6. Respond. The four schema members are plain `ZodObject`s, so a contract
@@ -120,8 +123,8 @@ Organization.make({ ...row, name: "" }).match({
 | ------------- | ----------- | ------------------------------------------------------------------------ |
 | `input`       | `ZodObject` | everything `make()` accepts                                              |
 | `output`      | `ZodObject` | stored state and response body                                           |
-| `createInput` | `ZodObject` | create request — `input` minus `generated`                               |
-| `updateInput` | `ZodObject` | update request — `output` minus `immutable`, partial                     |
+| `createInput` | `ZodObject` | create request — `input` minus the `generated` fields                    |
+| `updateInput` | `ZodObject` | update request — `output` minus the `immutable` fields, partial          |
 | _the class_   | zod schema  | parses to an instance; valid as a field, and anywhere zod takes a schema |
 
 | Entry point                       | Takes                           | For                                        |
@@ -131,10 +134,13 @@ Organization.make({ ...row, name: "" }).match({
 | `entity.update(patch)`            | a partial of the mutable fields | an update use case                         |
 | `entity.toJSON()`                 | —                               | the stored data, for a write or a response |
 
+| Field flag  | `Entity.field(schema, …)` | Meaning                                          |
+| ----------- | ------------------------- | ------------------------------------------------ |
+| `generated` | `{ generated: true }`     | the domain supplies this field, never the caller |
+| `immutable` | `{ immutable: true }`     | it never changes after creation                  |
+
 | Option       | Meaning                                                                 |
 | ------------ | ----------------------------------------------------------------------- |
-| `generated`  | fields the domain supplies, never the caller                            |
-| `immutable`  | fields that never change after creation                                 |
 | `computed`   | fields derived from the declared ones, re-derived on every construction |
 | `invariants` | rules built with `Entity.invariant`; any failing rule rejects           |
 

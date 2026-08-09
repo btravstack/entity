@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { schemaOf } from "./field.js";
+import type { Fields, SchemaOf, SchemasOf } from "./types.js";
+
 /** A field is nominal if its inferred type is branded, or is already non-interchangeable. */
 type Nominal = z.core.$brand<string | symbol> | boolean;
 
@@ -85,19 +88,20 @@ type FieldNameIsReservedByEntity = {
  */
 type ReservedFieldName = "_tag" | "equals" | "toJSON" | "update";
 
-type OnlyNominal<T extends Record<string, z.core.$ZodType>> = {
+// Judges the *unwrapped* schema: an inline `Entity.field(...)` spec is nominal
+// exactly when the schema it carries is.
+type OnlyNominal<T extends Fields> = {
   [K in keyof T]: K extends ReservedFieldName
     ? FieldNameIsReservedByEntity
-    : IsNominalField<z.infer<T[K]>> extends true
+    : IsNominalField<z.infer<SchemaOf<T[K]>>> extends true
       ? T[K]
       : DomainFieldMustBeBrandedOrAnEntity;
 };
 
 /** The only sanctioned way to declare a domain shape. */
-export function shape<T extends Record<string, z.core.$ZodType>>(
-  fields: T & OnlyNominal<T>,
-): z.ZodObject<T> {
-  return z.object(fields as T);
+export function shape<T extends Fields>(fields: T & OnlyNominal<T>): z.ZodObject<SchemasOf<T>> {
+  const unwrapped = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, schemaOf(v)]));
+  return z.object(unwrapped as SchemasOf<T>);
 }
 
 export type { OnlyNominal };

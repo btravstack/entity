@@ -7,6 +7,7 @@ import { createBase, record } from "./base.js";
 import { computed, type ComputedField } from "./computed.js";
 import { deepEqual } from "./equal.js";
 import { InvalidEntity } from "./errors.js";
+import { field, isFieldSpec, type FieldSpec, type Flags } from "./field.js";
 import { deepFreeze } from "./freeze.js";
 import { invariant, type Invariant } from "./invariant.js";
 import { keysOf, renderIssue } from "./issues.js";
@@ -25,9 +26,13 @@ import type {
   InputOf,
   EntityStatic,
   Fields,
+  GeneratedKeys,
+  ImmutableKeys,
   MergedComputed,
   MergedFields,
   PatchOf,
+  Schemas,
+  SchemasOf,
   Sealed,
   UpdateInputShapeOf,
 } from "./types.js";
@@ -57,28 +62,21 @@ const maskOf = (keys: readonly PropertyKey[]) =>
  * for `P.tag` matching and never reaches the wire.
  */
 export function Entity<Tag extends string>(tag: Tag) {
-  return function <
-    S extends Fields,
-    A extends Fields = Record<never, never>,
-    const G extends readonly (keyof S)[] = [],
-    const I extends readonly (keyof OutputOf<S, A>)[] = [],
-  >(
+  return function <S extends Fields, A extends Schemas = Record<never, never>>(
     fields: S & OnlyNominal<S>,
     options?: {
-      readonly generated?: G;
-      readonly immutable?: I;
       readonly computed?: { [K in keyof A]: ComputedField<A[K], InputOf<S>> };
       // The *declared* fields, not `OutputOf`. A rule cannot read a computed
       // field — see `invariant.ts` for why that is both sound and necessary.
       readonly invariants?: readonly Invariant<InputOf<S>>[];
     },
-  ): EntityStatic<Tag, S, A, G[number], I[number]> {
+  ): EntityStatic<Tag, S, A> {
     const input = shape<S>(fields);
 
-    // `.omit()`'s mask can't be satisfied by a mask built from a generic key
-    // list — TS won't reduce `Exclude<G[number], keyof S>` (or the equivalent
-    // for `I`) to `never` even though the constraint implies it — so this
-    // calls through a simplified signature rather than fight it.
+    // `.omit()`'s mask can't be satisfied by a mask built from a key list the
+    // flags derive at runtime — the shape is still generic here, so TS cannot
+    // relate those keys to `keyof S` — so this calls through a simplified
+    // signature rather than fight it.
     //
     // The empty-key branch rebuilds rather than returning `o`. Returning the
     // argument made `input === output === createInput` for any entity with no
@@ -87,9 +85,10 @@ export function Entity<Tag extends string>(tag: Tag) {
     // keying off schema identity collapsed: registering the three in
     // `z.globalRegistry` under distinct ids silently kept only the last, and
     // `z.toJSONSchema` emitted one `$def` that all three properties `$ref`'d.
-    // `contract.spec.ts` missed it because its fixture declares both options.
-    const omitBy = (o: z.ZodObject<Fields>, keys: readonly PropertyKey[]) =>
-      (o.omit as (m: Record<string, true>) => z.ZodObject<Fields>)(maskOf(keys));
+    // `contract.spec.ts` missed it because its fixture leaves no branch empty:
+    // its fields carry `generated` flags and it declares `computed`.
+    const omitBy = (o: z.ZodObject<Schemas>, keys: readonly PropertyKey[]) =>
+      (o.omit as (m: Record<string, true>) => z.ZodObject<Schemas>)(maskOf(keys));
 
     /** [key, validate its output, produce it] per computed field. */
     const computedFields = Object.entries(
@@ -99,12 +98,16 @@ export function Entity<Tag extends string>(tag: Tag) {
     // `.extend({})` on the empty branch for the same reason as `omitBy`: the
     // four schema members must be four distinct objects, or a consumer keying a
     // registry by identity silently loses three of them.
-    const output = (input as z.ZodObject<Fields>).extend(
+    const output = (input as unknown as z.ZodObject<Schemas>).extend(
       Object.fromEntries(computedFields.map(([k, f]) => [k, f.schema])),
-    ) as unknown as z.ZodObject<S & A>;
+    ) as unknown as z.ZodObject<SchemasOf<S> & A>;
 
-    const generatedKeys = options?.generated ?? [];
-    const immutableKeys = options?.immutable ?? [];
+    const generatedKeys = Object.entries(fields)
+      .filter(([, v]) => isFieldSpec(v) && v.flags.generated)
+      .map(([k]) => k);
+    const immutableKeys = Object.entries(fields)
+      .filter(([, v]) => isFieldSpec(v) && v.flags.immutable)
+      .map(([k]) => k);
 
     /**
      * Every key `updateInput` omits: the declared immutable ones, plus the
@@ -119,13 +122,15 @@ export function Entity<Tag extends string>(tag: Tag) {
     ];
 
     /** what a caller may send to create */
-    const createInput = omitBy(input as z.ZodObject<Fields>, generatedKeys) as z.ZodObject<
-      Omit<S, G[number]>
-    >;
+    const createInput = omitBy(
+      input as unknown as z.ZodObject<Schemas>,
+      generatedKeys,
+    ) as unknown as z.ZodObject<Omit<SchemasOf<S>, GeneratedKeys<S>>>;
     /** what a caller may send to update */
-    const updateInput = omitBy(output as z.ZodObject<Fields>, frozenKeys).partial() as z.ZodObject<
-      UpdateInputShapeOf<S, A, I[number]>
-    >;
+    const updateInput = omitBy(
+      output as unknown as z.ZodObject<Schemas>,
+      frozenKeys,
+    ).partial() as unknown as z.ZodObject<UpdateInputShapeOf<S, A, ImmutableKeys<S>>>;
 
     type OutputShape = OutputOf<S, A>;
     type InputShape = InputOf<S>;
@@ -148,7 +153,7 @@ export function Entity<Tag extends string>(tag: Tag) {
      * ignored there. Rehydrating data and patching it are different acts: one
      * heals what is already written, the other states an intent.
      */
-    const immutableNames = new Set<string>(immutableKeys as readonly string[]);
+    const immutableNames = new Set<string>(immutableKeys);
     const computedNames = new Set(computedFields.map(([key]) => key));
     const declaredNames = new Set(dataKeys.map(String));
 
@@ -385,8 +390,8 @@ export function Entity<Tag extends string>(tag: Tag) {
       /** caller fields + domain-generated fields → entity */
       static factory<T>(
         this: new (d: Sealed<OutputShape>) => T,
-        generators: Generators<S, G[number]>,
-      ): EntityFactory<T, S, G[number]> {
+        generators: Generators<S, GeneratedKeys<S>>,
+      ): EntityFactory<T, S, GeneratedKeys<S>> {
         const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
         // generated spreads last, so a caller cannot override a domain-owned field
         return (input) => Ctor.make({ ...(input as object), ...callAll(generators) });
@@ -394,8 +399,8 @@ export function Entity<Tag extends string>(tag: Tag) {
 
       static factoryAsync<T>(
         this: new (d: Sealed<OutputShape>) => T,
-        generators: AsyncGenerators<S, G[number]>,
-      ): AsyncEntityFactory<T, S, G[number]> {
+        generators: AsyncGenerators<S, GeneratedKeys<S>>,
+      ): AsyncEntityFactory<T, S, GeneratedKeys<S>> {
         const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
         // a generator that rejects is infrastructure failing, not bad domain
         // input, so it stays a Defect rather than becoming an InvalidEntity
@@ -406,7 +411,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
 
       /** a partial of the mutable fields → a NEW entity */
-      update(this: Base, patch: PatchOf<S, A, I[number]>): Result<Base, InvalidEntity> {
+      update(this: Base, patch: PatchOf<S, A, ImmutableKeys<S>>): Result<Base, InvalidEntity> {
         const entries = Object.entries(patch as object);
         // Every offending key reports, not just the first — the same rule the
         // invariants follow. `path` carries the key, so an adapter can key a
@@ -430,7 +435,7 @@ export function Entity<Tag extends string>(tag: Tag) {
     attachSchema<Base & DeepReadonly<OutputShape>>(Base, input);
     record(Base, fields, options as Record<string, unknown> | undefined);
 
-    return Base as unknown as EntityStatic<Tag, S, A, G[number], I[number]>;
+    return Base as unknown as EntityStatic<Tag, S, A>;
   };
 }
 
@@ -443,6 +448,7 @@ export function Entity<Tag extends string>(tag: Tag) {
  * that test on its own, and is grouped anyway so the rule has no exceptions.
  */
 Entity.computed = computed;
+Entity.field = field;
 Entity.invariant = invariant;
 Entity.union = union;
 Entity.abstract = createBase(Entity as unknown as BuildEntity);
@@ -468,31 +474,25 @@ Entity.renderIssue = renderIssue;
  * `examples/billing-domain/src/emit-guards.ts` is a failure here, not noise.
  */
 type ComputedFieldSrc<T extends z.core.$ZodType, D> = ComputedField<T, D>;
+type FieldSpecSrc<T extends z.core.$ZodType, F extends Flags> = FieldSpec<T, F>;
 type InvariantSrc<D> = Invariant<D>;
 type EntityUnionSrc<K extends string, M extends readonly UnionMember[]> = EntityUnion<K, M>;
 type ConstructionKeySrc = ConstructionKey;
 type SealedSrc<D> = Sealed<D>;
-type BaseInstanceSrc<S extends Fields, A extends Fields, I extends PropertyKey> = BaseInstance<
+type BaseInstanceSrc<S extends Fields, A extends Schemas> = BaseInstance<S, A>;
+type AbstractEntitySrc<Name extends string, S extends Fields, A extends Schemas> = AbstractEntity<
+  Name,
   S,
-  A,
-  I
+  A
 >;
-type AbstractEntitySrc<
-  Name extends string,
-  S extends Fields,
-  A extends Fields,
-  G extends PropertyKey,
-  I extends PropertyKey,
-> = AbstractEntity<Name, S, A, G, I>;
-type MergedComputedSrc<A extends Fields, A2 extends Fields> = MergedComputed<A, A2>;
+type MergedComputedSrc<A extends Schemas, A2 extends Schemas> = MergedComputed<A, A2>;
 type MergedFieldsSrc<S extends Fields, S2 extends Fields> = MergedFields<S, S2>;
 type EntityStaticSrc<
   Tag extends string,
   S extends Fields,
-  A extends Fields,
-  G extends PropertyKey,
-  I extends PropertyKey,
-> = EntityStatic<Tag, S, A, G, I>;
+  A extends Schemas,
+  B = Record<never, never>,
+> = EntityStatic<Tag, S, A, B>;
 
 export declare namespace Entity {
   /** What the wire sends — for mapper and request signatures. */
@@ -510,6 +510,9 @@ export declare namespace Entity {
   /** One derived field: its schema, and the function that produces it. */
   export type ComputedField<T extends z.core.$ZodType, D> = ComputedFieldSrc<T, D>;
 
+  /** A schema plus its flags — what `Entity.field(...)` returns. */
+  export type FieldSpec<T extends z.core.$ZodType, F extends Flags> = FieldSpecSrc<T, F>;
+
   /** One whole-entity rule: the predicate, and what to say when it fails. */
   export type Invariant<D> = InvariantSrc<D>;
 
@@ -524,15 +527,11 @@ export declare namespace Entity {
 
   // Exported only so a consumer's emitted declarations can name them — none of
   // the four is part of the API you write against. See `Sealed` in types.ts.
-  export type BaseInstance<
-    S extends Fields,
-    A extends Fields,
-    I extends PropertyKey,
-  > = BaseInstanceSrc<S, A, I>;
+  export type BaseInstance<S extends Fields, A extends Schemas> = BaseInstanceSrc<S, A>;
   export type ConstructionKey = ConstructionKeySrc;
   export type Sealed<D> = SealedSrc<D>;
   /** A root's computed map merged with a variant's — what `extend` hands `Static` as its `A`. */
-  export type MergedComputed<A extends Fields, A2 extends Fields> = MergedComputedSrc<A, A2>;
+  export type MergedComputed<A extends Schemas, A2 extends Schemas> = MergedComputedSrc<A, A2>;
   /** A root's field map merged with a variant's — what `extend` hands `Static` as its `S`. */
   export type MergedFields<S extends Fields, S2 extends Fields> = MergedFieldsSrc<S, S2>;
 
@@ -546,19 +545,16 @@ export declare namespace Entity {
   export type Static<
     Tag extends string,
     S extends Fields,
-    A extends Fields,
-    G extends PropertyKey,
-    I extends PropertyKey,
-  > = EntityStaticSrc<Tag, S, A, G, I>;
+    A extends Schemas,
+    B = Record<never, never>,
+  > = EntityStaticSrc<Tag, S, A, B>;
 
   /** What `Entity.abstract(name)(fields, options)` returns. */
   export type Abstract<
     Name extends string,
     S extends Fields,
-    A extends Fields,
-    G extends PropertyKey,
-    I extends PropertyKey,
-  > = AbstractEntitySrc<Name, S, A, G, I>;
+    A extends Schemas,
+  > = AbstractEntitySrc<Name, S, A>;
 
   /**
    * The instance type of an entity or a union — one line that cannot drift out
