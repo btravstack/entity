@@ -48,23 +48,6 @@ export type OutputOf<S extends Fields, A extends Fields> = InputOf<S> & Computed
 export type CreateInputOf<S extends Fields, G extends PropertyKey> = Omit<InputOf<S>, G>;
 
 /**
- * What `create` requires the use case to supply.
- *
- * `Pick` constrains its second parameter to `keyof T`, and TypeScript cannot
- * prove `G` satisfies `keyof InputOf<S>` through zod's inference chain — which
- * is also why `G`'s bound here is the bare `PropertyKey` rather than `keyof S`.
- * The builders are what constrain the real call sites to `S`'s keys; this type
- * only has to survive them. This mapped type with key remapping achieves
- * the same semantics. `CreateInputOf` uses `Omit` (no such constraint);
- * `GeneratedOf` uses this mapped form for that reason. The same unprovable
- * subset relation is why `G` is a key union and not a tuple: the accumulating
- * `readonly [...G, ...G2]` spelling is rejected with `TS2344`.
- */
-export type GeneratedOf<S extends Fields, G extends PropertyKey> = {
-  [K in keyof InputOf<S> as K extends G ? K : never]: InputOf<S>[K];
-};
-
-/**
  * The types `DeepReadonly` hands back untouched.
  *
  * Primitives have no properties to lock. The load-bearing case is the
@@ -368,7 +351,7 @@ export type EntityStatic<
   // `G`/`I` are unions of keys, not tuples. The tuple form cannot express the
   // merge: `readonly [...I, ...I2]` is rejected with `TS2344`, because
   // TypeScript will not prove the parent's key set is a subset of the child's
-  // through zod's inference chain. Measured — see `GeneratedOf` for the same
+  // through zod's inference chain. Measured — see `Generators` for the same
   // failure in its `Pick` form.
   G extends PropertyKey,
   I extends PropertyKey,
@@ -432,16 +415,26 @@ export type EntityStatic<
 };
 
 /**
- * How a factory supplies each domain-generated field. Functions, never values:
- * each is called once per `create`, so a factory built at the composition root
- * yields a fresh id and timestamp every time.
+ * How a factory supplies each domain-generated field. Functions, never
+ * values: each is called once per `create`, so a factory built at the
+ * composition root yields a fresh id and timestamp every time.
+ *
+ * Each generator returns the field schema's **`z.input`**, not the parsed
+ * output (`InputOf` — despite its name — is `z.infer`, the branded shape):
+ * generated values are spread into `make`, which validates them like any
+ * other caller data, so demanding the branded form only forced an `as` cast
+ * that `make` then re-proved.
+ *
+ * Mapped with key remapping rather than `Pick`, because TypeScript cannot
+ * prove `G` satisfies `keyof S` through zod's inference chain — the builders
+ * constrain the real call sites, and this type only has to survive them.
  */
 export type Generators<S extends Fields, G extends PropertyKey> = {
-  [K in keyof GeneratedOf<S, G>]: () => GeneratedOf<S, G>[K];
+  [K in keyof S as K extends G ? K : never]: () => z.input<S[K]>;
 };
 
 export type AsyncGenerators<S extends Fields, G extends PropertyKey> = {
-  [K in keyof GeneratedOf<S, G>]: () => PromiseLike<GeneratedOf<S, G>[K]>;
+  [K in keyof S as K extends G ? K : never]: () => PromiseLike<z.input<S[K]>>;
 };
 
 /**

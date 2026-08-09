@@ -62,6 +62,32 @@ unchanged:
 Organization.make(org.toJSON()); // ✓ round-trips
 ```
 
+## Check a hand-built row at the call site
+
+`make` takes `unknown`, so a row you assemble yourself gets no compile-time
+check. `satisfies Entity.Input<…>` restores it:
+
+```ts
+const orgId = (value: string) => OrgId.parse(value);
+const slug = (value: string) => Slug.parse(value);
+
+const seedRow = {
+  id: orgId("0199b1f4-1b1e-7000-8000-000000000000"),
+  slug: slug("acme"),
+} satisfies Entity.Input<typeof Organization>;
+
+const seeded = Organization.make(seedRow).getOrThrow();
+```
+
+A key the entity does not declare is now a compile error rather than a value
+`make` quietly ignores.
+
+Use it where you write the row — a seed, a migration, a fixture. A driver
+handing you `unknown` needs nothing: there is no literal to check, and `make`
+validates it either way. The values have to be branded, which is what the mint
+helpers are for
+([Branded fields](/explanation/branded-fields#everywhere-else-parse-through-a-mint-helper)).
+
 ## Computed columns heal themselves
 
 Store computed fields if you need to index or query them — `toJSON()` includes

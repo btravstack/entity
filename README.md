@@ -41,10 +41,7 @@ class Organization extends Entity("Organization")(
     generated: ["id", "createdAt"],
     immutable: ["id", "createdAt", "slug"],
     computed: {
-      shout: Entity.computed(
-        Upper,
-        (d) => d.name.toUpperCase() as z.infer<typeof Upper>,
-      ),
+      shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },
     invariants: [
       Entity.invariant(

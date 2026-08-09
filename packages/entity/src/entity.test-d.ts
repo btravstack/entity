@@ -272,6 +272,68 @@ test("an entity is final: extend lives on an abstract root", () => {
   Final.extend("Extended")({});
 });
 
+test("producers are castless: from and generators take the schema's input", () => {
+  const Upper = z.string().min(1).brand("Upper");
+  const StampId = z.uuid().brand("StampId");
+
+  // a computed derivation needs no cast — its value is parsed on every
+  // construction path, so the type asks for the schema's input
+  class Shouty extends Entity("Shouty")(
+    { id: StampId, name: Slug },
+    {
+      computed: {
+        shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
+      },
+    },
+  ) {}
+
+  // no generated fields means the factory's typed entry is the empty map,
+  // the docs' `factory({})` claim
+  const createShouty = Shouty.factory({});
+  void createShouty;
+
+  // a generator needs no cast either — its value goes through make
+  class Stamped extends Entity("Stamped")({ id: StampId, name: Slug }, { generated: ["id"] }) {}
+  const createStamped = Stamped.factory({
+    id: () => crypto.randomUUID(),
+  });
+  void createStamped;
+
+  // the tie to the field's own schema survives the loosening
+  class Wrong extends Entity("Wrong")(
+    { id: StampId, name: Slug },
+    {
+      computed: {
+        // @ts-expect-error a number is not the input of a string schema
+        shout: Entity.computed(Upper, (d) => d.name.length),
+      },
+    },
+  ) {}
+  void Wrong;
+
+  // back-compat: a branded (cast) return still assigns — brand ⊂ input
+  class Legacy extends Entity("Legacy")(
+    { id: StampId, name: Slug },
+    {
+      computed: {
+        shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
+      },
+    },
+  ) {}
+  void Legacy;
+
+  // the one narrowing: an optional generated field's generator key is still
+  // required, since its return type now includes `undefined`
+  const OptionalId = z.uuid().brand("OptionalId");
+  class Optional extends Entity("Optional")(
+    { id: StampId, theField: OptionalId.optional() },
+    { generated: ["theField"] },
+  ) {}
+  // @ts-expect-error `theField`'s generator is required even though the field is optional
+  Optional.factory({});
+  Optional.factory({ theField: () => undefined });
+});
+
 test("the helper types name each shape", () => {
   const Instant = z.iso.datetime().brand("Instant");
   class Org extends Entity("Org")(

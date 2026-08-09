@@ -103,8 +103,8 @@ once — at your composition root, next to the ports you already have:
 
 ```ts
 const createOrganization = Organization.factory({
-  id: () => crypto.randomUUID() as z.infer<typeof OrgId>,
-  createdAt: () => new Date().toISOString() as z.infer<typeof Instant>,
+  id: () => crypto.randomUUID(),
+  createdAt: () => new Date().toISOString(),
 });
 ```
 
@@ -124,6 +124,13 @@ org.id; // a fresh uuid
 Generators are **functions**, called once per create — so a factory built at
 startup still yields a fresh id per entity. And a test can bind fixed generators
 instead of stubbing globals. ([Why no I/O](/explanation/no-io).)
+
+Note the asymmetry between the two blocks. A generator hands its value to the
+entity, which validates it, so `crypto.randomUUID()` needs nothing; a caller
+field is a branded value you are supplying, so it has to be minted. The cast
+above is the shortest spelling for a tutorial — real code declares a helper per
+piece of vocabulary and writes `slug("acme")`
+([Branded fields](/explanation/branded-fields#everywhere-else-parse-through-a-mint-helper)).
 
 ::: tip `getOrThrow()` is for a tutorial
 It is the shortest way to get at a value while you are exploring. Real code
@@ -222,10 +229,7 @@ class Organization extends Entity("Organization")(
     generated: ["id", "createdAt"],
     immutable: ["id", "createdAt", "slug"],
     computed: {
-      shout: Entity.computed(
-        Upper,
-        (d) => d.name.toUpperCase() as z.infer<typeof Upper>,
-      ),
+      shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },
   },
 ) {

@@ -55,7 +55,7 @@ export class Organization extends Entity("Organization")(
     computed: {
       displayLabel: Entity.computed(
         DisplayLabel,
-        (d) => `${d.name} (${d.slug})` as z.infer<typeof DisplayLabel>,
+        (d) => `${d.name} (${d.slug})`,
       ),
     },
     invariants: [
@@ -98,10 +98,7 @@ export abstract class BillingDocumentBase extends Entity.abstract(
     generated: ["issuedAt"],
     immutable: ["issuedAt", "issuedTo"],
     computed: {
-      period: Entity.computed(
-        AccountingPeriod,
-        (d) => d.issuedAt.slice(0, 7) as z.infer<typeof AccountingPeriod>,
-      ),
+      period: Entity.computed(AccountingPeriod, (d) => d.issuedAt.slice(0, 7)),
     },
     invariants: [
       Entity.invariant(
@@ -170,8 +167,8 @@ in — bound once, at the composition root:
 
 ```ts
 export const createOrganization = Organization.factory({
-  id: () => crypto.randomUUID() as z.infer<typeof OrganizationId>,
-  createdAt: () => new Date().toISOString() as z.infer<typeof Instant>,
+  id: () => crypto.randomUUID(),
+  createdAt: () => new Date().toISOString(),
 });
 ```
 

@@ -1,5 +1,4 @@
 import { Entity } from "@btravstack/entity";
-import type { z } from "zod";
 
 import { DisplayLabel, DisplayName, Instant, OrganizationId, Slug } from "./vocabulary.js";
 
@@ -18,10 +17,7 @@ export class Organization extends Entity("Organization")(
     generated: ["id", "createdAt"],
     immutable: ["id", "createdAt", "slug"],
     computed: {
-      displayLabel: Entity.computed(
-        DisplayLabel,
-        (d) => `${d.name} (${d.slug})` as z.infer<typeof DisplayLabel>,
-      ),
+      displayLabel: Entity.computed(DisplayLabel, (d) => `${d.name} (${d.slug})`),
     },
     invariants: [
       Entity.invariant((d) => d.name.length <= 80, "name must be at most 80 characters"),
