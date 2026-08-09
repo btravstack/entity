@@ -76,6 +76,20 @@ const rebuild = (
   nextOptions: Record<string, unknown> | undefined,
 ): { prototype: object } => {
   const parent = declarationOf(receiver);
+
+  const clashes = Object.keys(nextFields).filter((k) => parent !== undefined && k in parent.fields);
+  if (clashes.length > 0) {
+    // A redeclared field is a bug in the declaration, not caller input.
+    // Failing here names the key while the declaration is on the stack —
+    // the same precedent as union()'s duplicate-discriminant defect. It is
+    // also what keeps a variant's flags unsheddable: a bare-schema
+    // redeclaration used to silently drop the root's `Entity.field` flags.
+    // oxlint-disable-next-line unthrown/no-throw
+    throw new Error(
+      `${nextTag}: field(s) ${clashes.map((k) => JSON.stringify(k)).join(", ")} already declared by the root — a variant adds fields, it does not redeclare them.`,
+    );
+  }
+
   const parentOptions = parent?.options as Mergeable | undefined;
   const childOptions = nextOptions as Mergeable | undefined;
 

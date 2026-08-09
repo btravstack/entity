@@ -332,8 +332,21 @@ export type MergedComputed<A extends Schemas, A2 extends Schemas> = Omit<A, keyo
  * — 42 per variant, against the 274,048 an unnamed type expands to — and all
  * four `typecheck` steps stayed clean on both compilers. The `TS7056` budget is
  * serialised characters, and a named alias barely spends it.
+ *
+ * `NoRedeclaredKeys` now forbids `keyof S ∩ keyof S2` outright, so the
+ * child-wins branch here is unreachable at compile time; the alias stays as
+ * the runtime-honest spelling, and `base.test-d.ts` guards the rejection
+ * itself rather than the merge's resolution, in case the forbid ever loosens.
  */
 export type MergedFields<S extends Fields, S2 extends Fields> = Omit<S, keyof S2> & S2;
+
+/** The error message is the type name, same trick as `shape.ts`'s rejections. */
+type FieldAlreadyDeclaredByTheRoot = { readonly __fieldAlreadyDeclaredByTheRoot: never };
+
+/** Rejects any `S2` key the root `S` already declares, flagged or not. */
+type NoRedeclaredKeys<S extends Fields, S2 extends Fields> = {
+  [K in keyof S2]: K extends keyof S ? FieldAlreadyDeclaredByTheRoot : S2[K];
+};
 
 /**
  * What `Entity.abstract(name)(fields, options?)` returns.
@@ -361,7 +374,7 @@ export type AbstractEntity<Name extends string, S extends Fields, A extends Sche
     this: This,
     tag: Tag2,
   ): <S2 extends Fields, A2 extends Schemas = Record<never, never>>(
-    fields: S2 & OnlyNominal<S2>,
+    fields: S2 & OnlyNominal<S2> & NoRedeclaredKeys<S, S2>,
     options?: {
       readonly computed?: {
         [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<MergedFields<S, S2>>>;

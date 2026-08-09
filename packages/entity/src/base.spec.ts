@@ -290,22 +290,13 @@ test("generated flags accumulate, so a variant cannot make a root's key caller-s
   expect(Object.keys(Doc.createInput.shape).toSorted()).toEqual(["id", "note"]);
 });
 
-test("a variant redeclaring a field replaces the root's schema for that key", () => {
-  // The two schemas accept overlapping but neither-contains-the-other sets, so
-  // all three candidate merges are told apart rather than only two of them.
-  const Code5 = z.string().length(5).brand("Code5");
-  const Digits = z.string().regex(/^\d+$/).brand("Digits");
-  abstract class Coded extends Entity.abstract("Coded")({ id: AccountId, code: Code5 }) {}
-  class Numbered extends Coded.extend("Numbered")({ code: Digits }) {}
-
-  // accepted by the root, rejected by the variant — rules out parent-wins
-  expect(Numbered.make({ id, code: "abcde" }).isErr()).toBe(true);
-  // rejected by the root, accepted by the variant — rules out an intersection,
-  // which is the merge this key's *type* used to claim
-  expect(Numbered.make({ id, code: "42" }).getOrThrow().code).toBe("42");
-  // accepted by both, so the key is not simply dropped
-  expect(Numbered.make({ id, code: "12345" }).getOrThrow().code).toBe("12345");
-  expect(Object.keys(Numbered.output.shape).toSorted()).toEqual(["code", "id"]);
+test("redeclaring an inherited field is a declaration-time defect", () => {
+  // A redeclared field is a bug in the declaration, not caller input — the
+  // same ruling as union's duplicate discriminant, and it fails at the same
+  // moment: while the declaration is on the stack.
+  expect(() => (AccountBase.extend("Clash") as (f: object) => unknown)({ label: Label })).toThrow(
+    /label.*already declared/,
+  );
 });
 
 test("a variant redefining one computed key overrides that entry only", () => {
