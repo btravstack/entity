@@ -77,8 +77,18 @@ export function field<T extends z.core.$ZodType, const F extends Partial<Flags>>
   };
 }
 
-/** A field-map entry is a schema, or a schema with flags. */
+/**
+ * A field-map entry is a schema, or a schema with flags. The two positive
+ * checks are `Object.hasOwn` so a polluted `Object.prototype` cannot make an
+ * arbitrary object classify as a spec; the negative `_zod` check deliberately
+ * stays `in` — anything carrying zod's slot anywhere on its chain is
+ * schema-shaped, and excluding broadly is the safe direction.
+ */
 export const isFieldSpec = (v: unknown): v is FieldSpec<z.core.$ZodType, Flags> =>
-  typeof v === "object" && v !== null && "schema" in v && "flags" in v && !("_zod" in v);
+  typeof v === "object" &&
+  v !== null &&
+  Object.hasOwn(v, "schema") &&
+  Object.hasOwn(v, "flags") &&
+  !("_zod" in v);
 
 export const schemaOf = (entry: unknown): unknown => (isFieldSpec(entry) ? entry.schema : entry);
