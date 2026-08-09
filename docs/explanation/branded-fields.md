@@ -1,6 +1,6 @@
 ---
 title: Branded fields
-description: Why every field must be nominal, what counts as nominal, why the compile error is a type name, and the two blessed ways to mint a branded value.
+description: Why every field must be nominal, what counts as nominal, why the compile error is a type name, and where a branded value actually has to be minted.
 ---
 
 # Branded fields
@@ -76,39 +76,78 @@ trick: `new SomeEntity(...)` fails on a missing property called
 `__useMakeOrFactoryInstead`
 ([Sealed construction](/explanation/sealed-construction)).
 
-## The cost, and the two blessed patterns
+## The cost, and where it falls
 
 The cost is ceremony: a branded type has no literal syntax, so somewhere a
-plain value has to become a branded one. There are exactly two honest ways.
+plain value has to become a branded one. The question is where — and the
+answer is narrower than it first looks, because the two places you would most
+expect to pay are the two that cost nothing.
 
-**At a boundary, parse.** The schema is the brand's gatekeeper, so crossing
-from untrusted to trusted goes through it — and for entity fields that
-boundary already exists: `make` takes `unknown` and validates every field, so
-a database row or request body never needs pre-branded values.
+### Producers pay nothing
 
-```ts
-const slug = Slug.parse(raw); // z.infer<typeof Slug> — or safeParse, handled
-```
+A factory generator and a `computed` derivation both hand a value to a
+schema, not to a caller. A generated field is spread into `make`, which
+validates it like any other data; a computed field's output is checked against
+its own schema on every construction path. The parse already happens, and it
+happens after the callback returns.
 
-**Where the value is locally proven, cast.** Inside a generator or a
-`computed` derivation the value is constructed in place and its validity is
-visible in the same expression — and the package keeps the cast honest:
-a factory's output goes through `make`'s validation, and a computed field's
-output is checked against its own schema on every construction.
+So both positions are typed as the schema's **input**, not its branded output.
+A plain expression is already the right type:
 
 ```ts
 const createOrg = Organization.factory({
-  id: () => crypto.randomUUID() as z.infer<typeof OrgId>,
+  id: () => crypto.randomUUID(),
 });
 
 computed: {
-  shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
+  shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
 }
 ```
 
-An `as` anywhere else — deep in application code, on a value that came from
-outside — is not minting a brand, it is forging one: it silences the exact
-check the rule exists to run.
+Both callbacks once ended in a cast — ~~`crypto.randomUUID() as z.infer<typeof
+OrgId>`~~ — that the parse immediately re-proved. Demanding the branded form
+there bought nothing: a cast cannot make a value valid, only make its author
+assert that it is. Dropping it weakens no check, because the check was never
+the cast. A wrong _type_ still fails to compile; a wrong _value_ still fails to
+parse. (Code still carrying the old cast compiles unchanged — a branded value
+assigns to its own unbranded input.)
+
+### Everywhere else, parse through a mint helper
+
+Outside those two positions the brand has to be minted, and the schema is its
+only gatekeeper. Crossing from untrusted to trusted therefore goes through the
+schema, and for entity fields that crossing already exists: `make` takes
+`unknown` and validates every field, so a database row or a request body never
+needs pre-branded values at all.
+
+What is left is the code that writes values by hand — fixtures, seeds,
+literals in a test — where a brand really does have to be minted one call at a
+time. The spelling that keeps that readable is a helper declared beside the
+vocabulary:
+
+```ts
+const slug = (value: string) => Slug.parse(value);
+const name = (value: string) => DisplayName.parse(value);
+const money = (amount: number, currency: "EUR" | "USD" | "GBP") =>
+  Money.parse({ amount, currency });
+```
+
+`slug("acme")` then reads like the literal it replaces, and the schema stays
+the only thing that decides whether the value is a `Slug`. A helper is a named
+parse, not a cast: it can fail.
+
+Failing is also the one thing to know before reaching for one, because a helper
+**throws**. That makes it right where a violation would be a bug in the code
+that wrote it — a fixture, a seed, a literal — and wrong on anything that came
+from outside the program. Untrusted data has its own entry point, and that one
+returns a `Result` rather than throwing: `make`'s job, not a helper's.
+
+A cast reaches the same shape without any of that. On a literal you wrote two
+lines up it is merely unchecked; on a value that came from outside — a field
+plucked off a response body, a string threaded through three functions — it is
+not minting a brand but forging one, silencing the exact check the rule exists
+to run. The helper costs one line and never has to be re-audited for which of
+those two it is.
 
 ## Related
 

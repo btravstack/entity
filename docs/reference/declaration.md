@@ -71,8 +71,8 @@ One derived field: its schema, and the function producing it.
 
 ```ts
 computed: {
-  fullName: Entity.computed(FullName, (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>),
-  initials: Entity.computed(Initials, (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>),
+  fullName: Entity.computed(FullName, (d) => `${d.first} ${d.last}`),
+  initials: Entity.computed(Initials, (d) => `${d.first[0]}${d.last[0]}`),
 }
 ```
 

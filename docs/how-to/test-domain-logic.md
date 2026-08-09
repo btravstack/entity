@@ -16,15 +16,38 @@ tests without stubbing `Date.now` or `crypto.randomUUID`.
 > import { Entity } from "@btravstack/entity";
 > ```
 
+## Mint fixture values with a helper, not a cast
+
+Every field is branded, so a bare `"acme"` is not a `Slug` and a test that
+passes one does not compile. Declare one helper per piece of vocabulary, beside
+the vocabulary, and the rest of the file reads like literals:
+
+```ts
+const slug = (value: string) => Slug.parse(value);
+const name = (value: string) => DisplayName.parse(value);
+const money = (amount: number, currency: "EUR" | "USD" | "GBP") =>
+  Money.parse({ amount, currency });
+
+createOrg({ slug: "acme", name: "Acme" }); // ✗ compile error — not branded
+createOrg({ slug: slug("acme"), name: name("Acme") }); // ✓
+```
+
+A helper is a named `parse`, not a cast — an invalid fixture fails loudly
+instead of being asserted into existence. It throws, which is what you want
+here: a bad literal in a test is a bug in the test. Untrusted data goes through
+`make` instead and comes back as a `Result`.
+
+One thing worth knowing while you read a test file: `vitest` transpiles without
+type-checking, so a branding violation is invisible to `vitest run`. Only `tsc`
+sees it — which is why this package's own example compiles its declarations.
+
 ## Bind fixed generators instead of stubbing globals
 
 The entity generates nothing itself, so a test binds its own sources:
 
 ```ts
-const FIXED_ID = "0199b1f4-1b1e-7000-8000-000000000000" as z.infer<
-  typeof OrgId
->;
-const FIXED_AT = "2026-08-06T09:00:00Z" as z.infer<typeof Instant>;
+const FIXED_ID = "0199b1f4-1b1e-7000-8000-000000000000";
+const FIXED_AT = "2026-08-06T09:00:00Z";
 
 const createOrg = Organization.factory({
   id: () => FIXED_ID,
@@ -32,10 +55,16 @@ const createOrg = Organization.factory({
 });
 
 test("a new organization starts on its trial", () => {
-  const org = createOrg({ slug, name }).getOrThrow();
+  const org = createOrg({
+    slug: slug("acme"),
+    name: name("Acme"),
+  }).getOrThrow();
   expect(org.createdAt).toBe(FIXED_AT);
 });
 ```
+
+The generators need no cast: a generated value is spread into `make` and
+validated there, so each one is typed as its schema's input.
 
 No global patching, no module mocking, no reset in `afterEach`. Production
 binds the same factory to real ports at the composition root.
@@ -45,10 +74,7 @@ Need distinct ids across a test? Generators are called once per create:
 ```ts
 let n = 0;
 const createOrg = Organization.factory({
-  id: () =>
-    `0199b1f4-1b1e-7000-8000-${String((n += 1)).padStart(12, "0")}` as z.infer<
-      typeof OrgId
-    >,
+  id: () => `0199b1f4-1b1e-7000-8000-${String((n += 1)).padStart(12, "0")}`,
   createdAt: () => FIXED_AT,
 });
 ```
@@ -129,4 +155,4 @@ guarantee is lost.
 One trap worth knowing: do not use `as never` for the values in such a test.
 `never` is assignable to _anything_, including a function type, so an assertion
 written with it can silently stop testing what you meant. Use real branded
-values.
+values — the mint helpers above are exactly what they are for.

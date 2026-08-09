@@ -31,6 +31,23 @@ createOrg({ slug, name }); // Result<Organization, InvalidEntity>
 
 Pass an arrow, not a bare method reference — `{ id: ids.next }` loses `this`.
 
+Each generator returns its field schema's **input**, not the branded output:
+generated values go through `make`'s validation like any other data, so
+`() => crypto.randomUUID()` needs no cast.
+
+An entity that declares no `generated` fields still has a factory: its
+generators map has no keys, so `{}` is what you pass.
+
+```ts
+class Note extends Entity("Note")({ id: NoteId, label: Label }) {}
+
+const createNote = Note.factory({});
+createNote({ id, label }); // Result<Note, InvalidEntity>
+```
+
+That call is the fully-typed way in for such an entity — every caller field is
+named and type-checked, where `Note.make(data)` takes `unknown`.
+
 ## `SomeEntity.factoryAsync(generators)` → `(input) => AsyncResult<SomeEntity, InvalidEntity>`
 
 The same for promise-returning generators — an id from a database sequence,
@@ -50,6 +67,36 @@ const createOrgAsync = Organization.factoryAsync({
 The only way in. Validates against `input`, re-derives the computed fields,
 checks the invariants, constructs. Extra keys are ignored, so a stored row
 carrying computed columns round-trips.
+
+`data` is `unknown`, which is what lets a driver's row in without a cast — and
+it means the compiler checks nothing at the call site. `Entity.Input<typeof X>`
+names the shape `make` accepts, so a hand-written literal can opt back into the
+full check with `satisfies`:
+
+```ts
+const slug = (value: string) => Slug.parse(value);
+const name = (value: string) => DisplayName.parse(value);
+const id = (value: string) => OrgId.parse(value);
+const at = (value: string) => Instant.parse(value);
+
+const row = {
+  id: id("0199b1f4-1b1e-7000-8000-000000000000"),
+  slug: slug("acme"),
+  name: name("Acme SA"),
+  createdAt: at("2026-08-06T09:00:00.000Z"),
+} satisfies Entity.Input<typeof Organization>;
+
+const org = Organization.make(row); // Result<Organization, InvalidEntity>
+```
+
+`satisfies` rather than a type annotation, so `row` keeps its literal type and
+stays usable as itself.
+
+`Entity.Input` is the **parsed, branded** shape, so the values must be branded
+too — which is why the helpers above are part of the pattern rather than
+decoration. Written with bare literals (`slug: "acme"`), the same object fails
+on every branded field. That failure is the brand doing its job: an unbranded
+string is not a `Slug`, and this is the one form that says so at the call site.
 
 ## `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>`
 
