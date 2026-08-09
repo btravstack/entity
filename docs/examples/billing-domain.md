@@ -222,19 +222,16 @@ self-alias still compiles and simply degenerates.
 ## The union discriminates data, not instances
 
 ```ts
-export class BillingDocument extends Entity.union("kind", [
-  Invoice,
-  CreditNote,
-]) {}
+export const BillingDocument = Entity.union("kind", [Invoice, CreditNote]);
+export type BillingDocument = Entity.Instance<typeof BillingDocument>;
 ```
 
-A class, not a value: `BillingDocument` is a type as well as a namespace for
-statics, and as a type it is `BillingDocumentBase` — the root both members
-share. `BillingDocument.make(row)` still returns the exact
-`Result<Invoice | CreditNote, InvalidEntity>` — the spec asserts which class
-comes back — and `Entity.Instance<typeof BillingDocument>` names that union,
-which `emit-guards.ts` pins. The body holds statics only; the union has no
-instances of its own.
+A value, and a type of the same name beside it. `BillingDocument.make(row)`
+returns `Result<Invoice | CreditNote, InvalidEntity>` — the spec asserts which
+class comes back — and the type is that same `Invoice | CreditNote`, which
+`emit-guards.ts` pins. There is no class form to reach for: putting the union at
+a base-class position is `TS2507` at the declaration, because a class's instance
+type cannot be a union at all (`TS2509`).
 
 `kind` is a **declared domain field** — `z.literal("INVOICE")` on one member and
 `z.literal("CREDIT_NOTE")` on the other, both flagged `generated` so no caller

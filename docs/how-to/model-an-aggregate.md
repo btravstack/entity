@@ -127,7 +127,8 @@ class ServiceAccount extends MemberBase.extend("ServiceAccount")({
   }
 }
 
-class Member extends Entity.union("kind", [User, ServiceAccount]) {}
+export const Member = Entity.union("kind", [User, ServiceAccount]);
+export type Member = Entity.Instance<typeof Member>;
 
 Member.make(row).getOrThrow(); // User | ServiceAccount — the real class
 ```
@@ -136,20 +137,25 @@ The discriminant is an ordinary declared field. The root is what lets the two
 variants share `id` and the `label()` contract — declaring `abstract label()`
 there makes a variant that forgets it a compile error, not a runtime surprise.
 
-## Put statics, not methods, in the union's body
+## Put entry points beside the union, not on it
 
 Nothing is ever an instance of a union: `make` dispatches to a member and
-constructs **that** class. An instance method written in the union's body could
-never reach a member, and `new Member(...)` is a defect. Statics are what the
-body is for — the same declaration, with an entry point on it:
+constructs **that** class. `Entity.union` returns a value, so there is no class
+body to put an unreachable instance method in — and no class body to hang a
+static off either. An entry point is a plain function next to the const:
 
 ```ts
-class Member extends Entity.union("kind", [User, ServiceAccount]) {
-  static fromRow(row: unknown) {
-    return Member.make(row);
-  }
-}
+export const Member = Entity.union("kind", [User, ServiceAccount]);
+export type Member = Entity.Instance<typeof Member>;
+
+export const memberFromRow = (row: unknown) => Member.make(row);
 ```
+
+If you are migrating from the class form, this is the one change that is not
+mechanical: `static fromRow` in the old body becomes `memberFromRow` here, and
+the call sites lose the `Member.` prefix. Everything else — `make`, `input`,
+`output`, `members`, `discriminant` — is reached off the const exactly as it was
+reached off the class.
 
 The union dispatches on the discriminant rather than trying each branch, so a
 member whose own validation fails reports _its_ issues rather than every
@@ -174,16 +180,18 @@ class Audit extends Entity("Audit")({ id: AuditId, actor: Member }) {}
 
 ## Name what comes back
 
-`Member` as a **type** is `MemberBase`, the root its members share — a base
-class cannot be a union type, so that is what the class can claim. Ask for the
-exact union by name instead:
+`Member` as a **type** is `User | ServiceAccount` — the `export type` line
+beside the const, which is why both halves of the pair are written. `MemberBase`
+is the other annotation worth naming:
 
 ```ts
-type AnyMember = Entity.Instance<typeof Member>; // User | ServiceAccount
+declare function render(member: Member): string; // needs a variant's own fields
+declare function idOf(member: MemberBase): MemberId; // needs only the shared half
 ```
 
-Either annotation is usable: the root gives you `label()` and `id`, the member
-union gives you each variant's own fields.
+Both are usable and they are not interchangeable: the root gives you `label()`
+and `id` for any variant present or future, the member union gives you each
+variant's own fields and narrows under `P.tag(...)`.
 ([Why the two differ](/explanation/unions-and-roots).)
 
 ## Match exhaustively on what comes back

@@ -1,12 +1,12 @@
 ---
 title: Unions and roots
-description: Why a union's class type is the members' shared root rather than the member union, why an abstract root carries no tag, and what survives the intersection that builds a variant.
+description: Why a union is a value with no class form, why an abstract root carries no tag, and what survives the intersection that builds a variant.
 ---
 
 # Unions and roots
 
-Two of the declarations in this package are classes you extend rather than
-values you hold:
+One declaration in this package is a class you extend, and one is a value you
+hold:
 
 ```ts
 abstract class AccountBase extends Entity.abstract("Account")({
@@ -14,66 +14,72 @@ abstract class AccountBase extends Entity.abstract("Account")({
   label: Label,
 }) {}
 
-class Account extends Entity.union("kind", [Personal, Business]) {}
+export const Account = Entity.union("kind", [Personal, Business]);
+export type Account = Entity.Instance<typeof Account>;
 ```
 
-Both shapes were forced by what TypeScript accepts at a base-class position.
-This page is the reasoning; [Declaring an entity](/reference/declaration) is the
-surface.
+Which is which was settled by what TypeScript accepts at a base-class position:
+a root can sit there, and a union cannot. This page is the reasoning;
+[Declaring an entity](/reference/declaration) is the surface.
 
-## Why a union's type is its members' root, not its members
+## Why a union has no class form
 
-A base-constructor return type may not be a union. Claiming one fails with
+`Entity.union` returns a value with no construct signature, so reaching for the
+class form is an error at the declaration itself:
+
+```
+TS2507: Type 'EntityUnion<"kind", readonly [typeof Personal, typeof Business]>'
+is not a constructor function type
+```
+
+It used to compile, which is what made it worth removing. A base-constructor
+return type may not be a union — claiming one fails with
 
 ```
 TS2509: Base constructor return type 'Personal | Business' is not an object
 type or intersection of object types with statically known members
 ```
 
-so `Entity.union` cannot describe its class as the thing its `make` returns.
-What it claims instead is the **root its members share** — one object type,
-which the rule accepts. Members that do not share one claim the empty type
-instead, rather than a supertype that does not exist.
+so no class form could ever have typed as the thing its `make` returns. What it
+typed as instead was the **root its members share**: one object type, which the
+rule accepts.
 
-"Share one" is read off the `extend` call, not off the inheritance graph, and
-the difference is easy to walk into. Members extended from an **intermediate**
-root carry that intermediate's instance type, so
+That left the class form both redundant and treacherous.
+
+Redundant, because the root is a class the author has already declared and
+named. A type that is either `AccountBase` — the name already in scope — or, for
+members sharing no root, the empty type, adds nothing you could not write
+yourself.
+
+Treacherous, because it failed **late**. The declaration compiled clean; so did
+every line touching only shared fields. The error surfaced at the first call
+site reading a member-only field off a value annotated with the union's name,
+which is arbitrarily far from the declaration that caused it. `TS2507` fires
+where the mistake is written.
+
+`Entity.Instance<typeof Account>` is where the member union lives, and the
+`export type Account = …` line beside the const is what puts it under the name a
+reader expects:
 
 ```ts
-class Personal extends AccountBase.extend("Personal")({ … }) {}
-class Business extends Auditable.extend("Business")({ … }) {} // Auditable extends AccountBase
+export const Account = Entity.union("kind", [Personal, Business]);
+export type Account = Entity.Instance<typeof Account>; // Personal | Business
+
+declare const account: Account;
+account._tag; // "Personal" | "Business" — P.tag(...) narrows it
 ```
 
-do have `AccountBase` in common, and are still not one type: `Personal` claims
-`AccountBase`, `Business` claims `Auditable`, the two do not reduce to a single
-object type, and `Entity.union("kind", [Personal, Business])` is the empty type.
-Extending every member of a union from the **same** class is what keeps the
-union's type useful; `Entity.Instance<typeof Account>` is unaffected either way.
-
-The exact union is not lost, only spelled elsewhere:
-
-```ts
-class Account extends Entity.union("kind", [Personal, Business]) {}
-
-declare const account: Account; // AccountBase — the shared root
-type AnyAccount = Entity.Instance<typeof Account>; // Personal | Business
-```
-
-`Account.make(row)` is unaffected: it returns
-`Result<Personal | Business, InvalidEntity>`, and each instance carries its own
-`_tag`, so `P.tag(...)` narrows it. The narrowing is only absent from the class
-name used as an annotation.
+`AccountBase` is still the right annotation when a function needs only the
+shared behaviour, and a variant is a real instance of it, so `instanceof`
+narrows too. Neither name is a fallback for the other.
 
 ## Why a union has no instances
 
 `make` dispatches on the discriminant and constructs a **member**, so nothing is
-ever an instance of the union itself. A union's class body therefore holds
-statics — an instance method written there could never reach a member, which is
-why reaching the constructor is a defect rather than an `InvalidEntity`:
-
-```
-Invoice | CreditNote: a union has no instances — use make()
-```
+ever an instance of the union itself. The value form makes that structural
+rather than a rule to remember: there is no constructor to reach, and no class
+body in which to write an instance method that could never run. An entry point
+that would once have been a static is a plain function beside the const.
 
 ## Why the root carries no tag
 
@@ -122,11 +128,10 @@ class Forgot extends AccountBase.extend("Forgot")({
 That is what makes a root a place to state a contract and not only a place to
 share fields.
 
-The union is the deliberate exception: it strips the abstractness back off.
-It has to. A union has no instances, so inheriting the root's abstract members
-would demand implementations from a class body that can never be constructed —
-`class Account extends Entity.union("kind", [Personal, Business]) {}` would
-itself fail with TS2515, for a method that could never run.
+A union never inherits that obligation, and no longer needs anything to strip it
+back off. It is a value, not a class, so there is no class body for an
+`abstract` member to bind to, and nothing to implement it with — a union has no
+instances. The obligation stays on the variants, which have them.
 
 ## What a root cannot take over
 

@@ -146,7 +146,7 @@ Organization.make({ ...row, name: "" }).match({
 
 An entity is **final**. Fields and behaviour shared by several entities go on a
 root, `Entity.abstract(name)(fields)`, and extension lives there; a union of
-entities is declared as a class:
+entities is a value you name:
 
 ```ts
 abstract class AccountBase extends Entity.abstract("Account")({
@@ -165,14 +165,21 @@ class Personal extends AccountBase.extend("Personal")({
 }
 
 // `Business` is declared the same way, on the same root
-class Account extends Entity.union("kind", [Personal, Business]) {}
+export const Account = Entity.union("kind", [Personal, Business]);
+export type Account = Entity.Instance<typeof Account>;
 
 Account.make(row); // Result<Personal | Business, InvalidEntity>
 ```
 
-A variant is a real instance of its root, so `instanceof` narrows to it, and
-`Account` used as a type _is_ that root. `Entity.Instance<typeof Account>` is
-the exact member union.
+The const and the type are one declaration in two halves, and both names are
+needed: the const is what you call, the type is `Personal | Business`, so
+`P.tag(...)` narrows it. A variant is still a real instance of its root, so
+`instanceof` narrows to it too and `AccountBase` stays the annotation for "I
+only need the shared behaviour".
+
+There is no class form. Putting the union at a base-class position is `TS2507`
+at the declaration, because a class's instance type cannot be a union at all
+(`TS2509`).
 ([Why](https://btravstack.github.io/entity/explanation/unions-and-roots).)
 
 ## Documentation
@@ -184,7 +191,7 @@ with VitePress from [`docs/`](./docs), and organised by the four
 - **[Tutorial](https://btravstack.github.io/entity/tutorial/getting-started)** — from nothing to a working entity, one step at a time.
 - **How-to guides** — [expose an HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
 - **[Reference](https://btravstack.github.io/entity/reference/declaration)** — every member, option and type, with signatures. Plus the [generated API reference](https://btravstack.github.io/entity/api/).
-- **[Explanation](https://btravstack.github.io/entity/explanation/why-entity)** — why it is built this way: sealed construction, deep immutability, no I/O, why an entity is final and a union is a class.
+- **[Explanation](https://btravstack.github.io/entity/explanation/why-entity)** — why it is built this way: sealed construction, deep immutability, no I/O, why an entity is final and a union has no class form.
 
 ## Development
 

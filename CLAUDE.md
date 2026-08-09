@@ -156,13 +156,17 @@ what they own:
   makes a schema built from a subclass yield that subclass.
 - **`union.ts`** — `Entity.union(discriminant, members)`. Dispatches on the
   declared discriminant rather than trying each branch, so a failing member
-  reports its own issues. It returns a **class**, so the idiom is
-  `class Account extends Entity.union("kind", [Personal, Business]) {}` — a
-  union's class body is for statics, and its constructor defects. A base
-  constructor may not return a union (TS2509), so `SoleType` claims the root
-  the members share and falls back to the empty type when they share none;
-  `Plain` strips that root's abstractness, which a union could never implement.
-  `Entity.Instance<typeof Account>` is where the exact member union lives.
+  reports its own issues. It returns a **value** with no construct signature, so
+  the idiom is the pair —
+  `export const Account = Entity.union("kind", [Personal, Business])` plus
+  `export type Account = Entity.Instance<typeof Account>`, and an entry point is
+  a plain function beside the const rather than a static. There is no class
+  form: a class's instance type cannot be a union (**TS2509**), so the class
+  form could only ever type as the members' shared root, which never narrowed
+  and was redundant with the root the author had already named — and it failed
+  late, at the first call site touching a member-only field. Reaching for it is
+  now **TS2507** at the declaration, pinned by a used `@ts-expect-error` in
+  `union.test-d.ts`.
 - **`field.ts`** — `field(schema, flags)`, public as `Entity.field`, and the
   `FieldSpec` it returns: a plain `{ schema, flags }` record, never a proxy or a
   subclass, because anything standing in front of an entity-class field breaks
@@ -206,15 +210,16 @@ design — `contract.spec.ts` pins that both ways.
   carry a targeted `oxlint-disable` with a reason — several already exist for
   `no-catch-all-pattern` where `SchemaIssues` is a single non-union type.
 - **Comments recording measurements are regression guards.** Many comments
-  cite a specific TS diagnostic code (TS2344, TS2411, TS2425, TS2509, TS2515,
-  TS2526, TS4020, TS4111) or a measured library behaviour. The four around roots
-  and unions: a base constructor may not return a union or a `never`-collapsed
-  intersection (**TS2509** — `SoleType`, and `RootInstance` widening `_tag` to
-  `string`), a mapped behaviour type turns a method into a property and breaks
-  a variant's `override` (**TS2425** — `BehaviourOf`, which must stay unmapped),
-  and abstractness **does** propagate through the intersection (**TS2515**),
-  which is why a root's `abstract` member binds every variant and why `Plain`
-  strips it back off for the union. Verify before "simplifying" them away — the
+  cite a specific TS diagnostic code (TS2344, TS2411, TS2425, TS2507, TS2509,
+  TS2515, TS2526, TS4020, TS4111) or a measured library behaviour. The four
+  around roots and unions: a base constructor may not return a union or a
+  `never`-collapsed intersection (**TS2509** — why a union has no class form,
+  and `RootInstance` widening `_tag` to `string`; **TS2507** is what a reader
+  now hits at the declaration instead), a mapped behaviour type turns a method
+  into a property and breaks a variant's `override` (**TS2425** — `BehaviourOf`,
+  which must stay unmapped), and abstractness **does** propagate through the
+  intersection (**TS2515**), which is why a root's `abstract` member binds every
+  variant. Verify before "simplifying" them away — the
   catalog in
   `pnpm-workspace.yaml` pins `typescript` and `@orpc/zod` to the exact versions
   those measurements were taken against, with the reason inline.
