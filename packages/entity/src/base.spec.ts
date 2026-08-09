@@ -284,6 +284,24 @@ test("generated accumulates, so a variant cannot make a root's key caller-suppli
   expect(Object.keys(Doc.createInput.shape).toSorted()).toEqual(["note"]);
 });
 
+test("a variant redeclaring a field replaces the root's schema for that key", () => {
+  // The two schemas accept overlapping but neither-contains-the-other sets, so
+  // all three candidate merges are told apart rather than only two of them.
+  const Code5 = z.string().length(5).brand("Code5");
+  const Digits = z.string().regex(/^\d+$/).brand("Digits");
+  abstract class Coded extends Entity.abstract("Coded")({ id: AccountId, code: Code5 }) {}
+  class Numbered extends Coded.extend("Numbered")({ code: Digits }) {}
+
+  // accepted by the root, rejected by the variant — rules out parent-wins
+  expect(Numbered.make({ id, code: "abcde" }).isErr()).toBe(true);
+  // rejected by the root, accepted by the variant — rules out an intersection,
+  // which is the merge this key's *type* used to claim
+  expect(Numbered.make({ id, code: "42" }).getOrThrow().code).toBe("42");
+  // accepted by both, so the key is not simply dropped
+  expect(Numbered.make({ id, code: "12345" }).getOrThrow().code).toBe("12345");
+  expect(Object.keys(Numbered.output.shape).toSorted()).toEqual(["code", "id"]);
+});
+
 test("a variant redefining one computed key overrides that entry only", () => {
   class Louder extends AccountBase.extend("Louder")(
     { note: Label },

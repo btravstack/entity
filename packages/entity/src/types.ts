@@ -270,13 +270,37 @@ export type BehaviourOf<This> = This extends abstract new (...args: never[]) => 
  * expand the alias structurally and bring the identical dangling `A2` straight
  * back. See the export list there, and do not un-export it.
  *
- * The *fields* half of the same merge is `S & S2`, not this shape, and carries
- * the same lie: the runtime spread is child-wins there too, so a redefined field
- * types as `Parent & Child`. Left as is deliberately — the `Omit` form costs
- * serialised characters against the `TS7056` budget on **every** entity, where
- * this one is only paid by an entity that declares `computed`.
+ * The *fields* half of the same merge is `MergedFields`, below.
  */
 export type MergedComputed<A extends Fields, A2 extends Fields> = Omit<A, keyof A2> & A2;
+
+/**
+ * A root's field map merged with a variant's — what `extend` hands
+ * `EntityStatic` as its `S`.
+ *
+ * `Omit<S, keyof S2> & S2`, never `S & S2`, for `MergedComputed`'s reason one
+ * map over: the runtime spread is `{ ...parent.fields, ...nextFields }`, so a
+ * variant redeclaring an inherited field wins, and a plain intersection would
+ * type that key as `ZodBranded<Parent> & ZodBranded<Child>` while the schema
+ * held is the child's alone.
+ *
+ * Named and exported from the start for the reason **measured** on
+ * `MergedComputed`: written inline, the 5.9.3 emitter copied that alias's `A2`
+ * through unsubstituted and consumers failed with `TS2304`. This is the same
+ * alias in the same position, so it was never written inline here and the
+ * `S2` spelling of that failure has not been observed — it is inferred from the
+ * `A2` one, not a second measurement. See the export list in `index.ts`, and do
+ * not un-export it.
+ *
+ * Serialised width was the recorded reason this half was deferred, since every
+ * variant pays it where `MergedComputed` is paid only by one declaring
+ * `computed`. Measured rather than assumed: the emitter writes the alias **by
+ * reference**, so the billing fixture's `index.d.ts` grew 10,061 → 10,145 bytes
+ * — 42 per variant, against the 274,048 an unnamed type expands to — and all
+ * four `typecheck` steps stayed clean on both compilers. The `TS7056` budget is
+ * serialised characters, and a named alias barely spends it.
+ */
+export type MergedFields<S extends Fields, S2 extends Fields> = Omit<S, keyof S2> & S2;
 
 /**
  * What `Entity.abstract(name)(fields, options?)` returns.
@@ -312,19 +336,21 @@ export type AbstractEntity<
   ): <
     S2 extends Fields,
     A2 extends Fields = Record<never, never>,
-    const G2 extends readonly (keyof (S & S2))[] = [],
-    const I2 extends readonly (keyof OutputOf<S & S2, MergedComputed<A, A2>>)[] = [],
+    const G2 extends readonly (keyof MergedFields<S, S2>)[] = [],
+    const I2 extends readonly (keyof OutputOf<MergedFields<S, S2>, MergedComputed<A, A2>>)[] = [],
   >(
     fields: S2 & OnlyNominal<S2>,
     options?: {
       readonly generated?: G2;
       readonly immutable?: I2;
-      readonly computed?: { [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<S & S2>> };
-      readonly invariants?: readonly InvariantOf<InputOf<S & S2>>[];
+      readonly computed?: {
+        [K in keyof A2]: ComputedFieldOf<A2[K], InputOf<MergedFields<S, S2>>>;
+      };
+      readonly invariants?: readonly InvariantOf<InputOf<MergedFields<S, S2>>>[];
     },
   ) => EntityStatic<
     Tag2,
-    S & S2,
+    MergedFields<S, S2>,
     MergedComputed<A, A2>,
     G | G2[number],
     I | I2[number],

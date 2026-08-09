@@ -213,9 +213,10 @@ design — `contract.spec.ts` pins that both ways.
   library can be "done". Resist convenience aliases.
 - **`index.ts` exports `Entity`, and nothing else you write against.** A bare
   `computed` or `union` is too generic to take from a consumer's import scope,
-  so everything hangs off the builder. The sole exception is the seven
+  so everything hangs off the builder. The sole exception is the nine
   declaration-emit names — `AbstractEntity`, `BaseInstance`, `ConstructionKey`,
-  `EntityStatic`, `EntityUnion`, `Sealed`, `UnionMember` — exported at the top
+  `EntityStatic`, `EntityUnion`, `MergedComputed`, `MergedFields`, `Sealed`,
+  `UnionMember` — exported at the top
   level as well: a downstream
   library compiling with `declaration: true` emits the _underlying_ name, not
   the namespace path aliasing it, so hiding them fails the consumer pass with

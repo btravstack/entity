@@ -33,11 +33,16 @@ export { Entity } from "./entity.js";
 // against a root declaring no `computed`: the emitter expands the alias
 // structurally again and the identical dangling `A2` comes back, `TS2304` and
 // all. Naming it without exporting it fixes nothing. Do not un-export it.
+//
+// `MergedFields` is that alias for the *field* map — the second type argument —
+// and carries the identical hazard with `S2` in place of `A2`. It was named and
+// exported from the start rather than measured into existence a second time.
 export type {
   BaseInstance,
   ConstructionKey,
   EntityStatic,
   MergedComputed,
+  MergedFields,
   Sealed,
 } from "./types.js";
 
