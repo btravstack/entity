@@ -287,9 +287,12 @@ test("producers are castless: from and generators take the schema's input", () =
     },
   ) {}
 
-  // a generator needs no cast either — its value goes through make
+  // no generated fields means the factory's typed entry is the empty map,
+  // the docs' `factory({})` claim
   const createShouty = Shouty.factory({});
   void createShouty;
+
+  // a generator needs no cast either — its value goes through make
   class Stamped extends Entity("Stamped")({ id: StampId, name: Slug }, { generated: ["id"] }) {}
   const createStamped = Stamped.factory({
     id: () => crypto.randomUUID(),
@@ -318,6 +321,17 @@ test("producers are castless: from and generators take the schema's input", () =
     },
   ) {}
   void Legacy;
+
+  // the one narrowing: an optional generated field's generator key is still
+  // required, since its return type now includes `undefined`
+  const OptionalId = z.uuid().brand("OptionalId");
+  class Optional extends Entity("Optional")(
+    { id: StampId, theField: OptionalId.optional() },
+    { generated: ["theField"] },
+  ) {}
+  // @ts-expect-error `theField`'s generator is required even though the field is optional
+  Optional.factory({});
+  Optional.factory({ theField: () => undefined });
 });
 
 test("the helper types name each shape", () => {
