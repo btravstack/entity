@@ -8,11 +8,15 @@ description: Deterministic entity tests without stubbing Date.now or crypto.rand
 **Problem:** entities involve ids and timestamps, and you want deterministic
 tests without stubbing `Date.now` or `crypto.randomUUID`.
 
-> Snippets below assume this import:
+> Snippets below run in a vitest test file — `test` and `expect` in scope —
+> plus:
 >
 > ```ts
 > import { P } from "unthrown";
 > ```
+>
+> Branded vocabulary (`Slug`, `Organization`, `createOrg`, …) is whatever your
+> own domain declares; the sections below build the helpers from it.
 
 ## Mint fixture values with a helper, not a cast
 
