@@ -27,7 +27,6 @@ import {
   Level,
   LineItem,
 } from "./vocabulary.js";
-import type { Instant, OrganizationId } from "./vocabulary.js";
 
 export * from "./organization.js";
 export * from "./root.js";
@@ -99,15 +98,15 @@ export class BillingDocument extends Entity.union("kind", [Invoice, CreditNote])
    come in, bound once at the composition root — which is what leaves the
    entities themselves trivially testable.                                 */
 
-const now = () => new Date().toISOString() as z.infer<typeof Instant>;
+const now = () => new Date().toISOString();
 
 export const createOrganization = Organization.factory({
-  id: () => crypto.randomUUID() as z.infer<typeof OrganizationId>,
+  id: () => crypto.randomUUID(),
   createdAt: now,
 });
 
 export const createInvoice = Invoice.factory({
-  id: () => crypto.randomUUID() as z.infer<typeof InvoiceId>,
+  id: () => crypto.randomUUID(),
   issuedAt: now,
   // The discriminant is domain-generated, not caller-supplied: an invoice that
   // could be created claiming `kind: "CREDIT_NOTE"` would be a bug waiting to
@@ -116,7 +115,7 @@ export const createInvoice = Invoice.factory({
 });
 
 export const createCreditNote = CreditNote.factory({
-  id: () => crypto.randomUUID() as z.infer<typeof CreditNoteId>,
+  id: () => crypto.randomUUID(),
   issuedAt: now,
   kind: () => "CREDIT_NOTE" as const,
 });

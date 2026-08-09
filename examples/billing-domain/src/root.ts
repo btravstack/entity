@@ -1,5 +1,4 @@
 import { Entity } from "@btravstack/entity";
-import type { z } from "zod";
 
 import { Organization } from "./organization.js";
 import { AccountingPeriod, Instant, Money } from "./vocabulary.js";
@@ -43,10 +42,7 @@ export abstract class BillingDocumentBase extends Entity.abstract("BillingDocume
     generated: ["issuedAt"],
     immutable: ["issuedAt", "issuedTo"],
     computed: {
-      period: Entity.computed(
-        AccountingPeriod,
-        (d) => d.issuedAt.slice(0, 7) as z.infer<typeof AccountingPeriod>,
-      ),
+      period: Entity.computed(AccountingPeriod, (d) => d.issuedAt.slice(0, 7)),
     },
     invariants: [Entity.invariant((d) => d.total.amount >= 0, "total must not be negative")],
   },
