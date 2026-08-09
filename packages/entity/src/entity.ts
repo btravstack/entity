@@ -85,7 +85,8 @@ export function Entity<Tag extends string>(tag: Tag) {
     // keying off schema identity collapsed: registering the three in
     // `z.globalRegistry` under distinct ids silently kept only the last, and
     // `z.toJSONSchema` emitted one `$def` that all three properties `$ref`'d.
-    // `contract.spec.ts` missed it because its fixture declares both options.
+    // `contract.spec.ts` missed it because its fixture leaves no branch empty:
+    // its fields carry `generated` flags and it declares `computed`.
     const omitBy = (o: z.ZodObject<Schemas>, keys: readonly PropertyKey[]) =>
       (o.omit as (m: Record<string, true>) => z.ZodObject<Schemas>)(maskOf(keys));
 

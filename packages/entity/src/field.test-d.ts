@@ -30,6 +30,14 @@ test("an unbranded schema is rejected inside Entity.field too", () => {
   Entity.field(z.string(), { immutable: true });
 });
 
+test("a misspelled flag name is a compile error, not a silently-mutable field", () => {
+  // @ts-expect-error "imutable" alone is rejected (TS2561 suggests the spelling)
+  Entity.field(Id, { imutable: true });
+  // @ts-expect-error a typo beside a correct flag is the dangerous shape — excess-property
+  // checking alone lets it through, and the field would be silently mutable
+  Entity.field(Id, { generated: true, imutable: true });
+});
+
 test("the removed options are gone", () => {
   // @ts-expect-error `generated` is no longer an option — flag the field instead
   Entity("Gone")({ id: Id }, { generated: ["id"] });

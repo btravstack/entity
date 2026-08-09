@@ -15,6 +15,9 @@ export type FieldSpec<T extends z.core.$ZodType, F extends Flags> = {
   readonly flags: F;
 };
 
+/** The rejection type for a misspelled flag name — named so it survives truncation and *is* the message, `shape.ts`'s trick. */
+type UnknownFlagIsRejected = { readonly __unknownFlagIsRejected: never };
+
 /**
  * Declares a field with modifiers, public as `Entity.field`:
  *
@@ -29,7 +32,11 @@ export type FieldSpec<T extends z.core.$ZodType, F extends Flags> = {
  */
 export function field<T extends z.core.$ZodType, const F extends Partial<Flags>>(
   schema: T & OnlyNominal<{ value: T }>["value"],
-  flags: F,
+  // Not bare `F`: a constraint is not an excess-property check, so
+  // `{ generated: true, imutable: true }` satisfied `Partial<Flags>` and
+  // compiled clean — measured, and the misspelled field was silently mutable.
+  // The intersection maps every unknown key to the rejection type instead.
+  flags: F & Record<Exclude<keyof F, keyof Flags>, UnknownFlagIsRejected>,
 ): FieldSpec<
   T,
   {
