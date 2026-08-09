@@ -143,7 +143,7 @@ test("an invariant sees the declared fields, never a computed one", () => {
   );
 });
 
-test("computed's function is contextually typed and must return brands", () => {
+test("computed's function is contextually typed over the declared fields, but its return needs no brand", () => {
   const Upper = z.string().brand("Upper");
   Entity("Probe2")(
     { id: OrgId, slug: Slug },
