@@ -45,11 +45,8 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
     level: Level,
   },
   {
-    // `generated` and `immutable` **replace** the root's list per key rather
-    // than adding to it, so a variant re-states every key it needs —
-    // `issuedAt` and `issuedTo` here. Only `invariants` concatenate.
-    generated: ["id", "issuedAt", "kind"],
-    immutable: ["id", "issuedAt", "issuedTo", "kind"],
+    generated: ["id", "kind"],
+    immutable: ["id", "kind"],
     invariants: [
       Entity.invariant(
         (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
@@ -76,8 +73,8 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
 export class CreditNote extends BillingDocumentBase.extend("CreditNote")(
   { id: CreditNoteId, kind: z.literal("CREDIT_NOTE"), against: InvoiceId },
   {
-    generated: ["id", "issuedAt", "kind"],
-    immutable: ["id", "issuedAt", "issuedTo", "against", "kind"],
+    generated: ["id", "kind"],
+    immutable: ["id", "against", "kind"],
   },
 ) {
   override signedAmount(): number {

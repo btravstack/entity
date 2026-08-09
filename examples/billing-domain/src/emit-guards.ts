@@ -6,7 +6,7 @@
  * library **and emits its own declarations**. It replaced
  * `packages/entity/consumer/`.
  *
- * Two rules that are easy to destroy by tidying:
+ * Three rules that are easy to destroy by tidying:
  *
  *  1. **An unused `@ts-expect-error` here is a failure, not noise.** A
  *     namespace member emitted as a circular self-alias still *compiles*; the
@@ -14,7 +14,22 @@
  *     signal. Every member of `Entity` is therefore named below, so
  *     declaration emit has to walk each one.
  *
- *  2. **The widths in `vocabulary.ts` are load bearing.** `TS7056` is a
+ *  2. **The gate checks the emitted declarations, not only that emitting
+ *     succeeded.** `typecheck`'s last step feeds the emitted
+ *     `node_modules/.emit-check` back through the 5.9.3 compiler. Without it the
+ *     pass caught only emit-time diagnostics (`TS4020` and friends); a *dangling
+ *     type-parameter reference in the output* is not one, and one shipped —
+ *     `Omit<A, keyof A2> & A2` written inline at `extend`'s return type emitted
+ *     a bare `A2`, which failed a consumer with `TS2304`. The step names
+ *     `index.d.ts`, `emit-guards.d.ts` and `index.spec.d.ts` rather than
+ *     `index.d.ts` alone: a file is checked only if it is in the named set or
+ *     something in it imports the file, and **nothing imports this one**, so on
+ *     `index.d.ts` alone the emitted form of every namespace member below went
+ *     unchecked. `organization`/`root`/`vocabulary` need no naming — `index`
+ *     imports them. Never add `--skipLibCheck`: it turns off `.d.ts` checking
+ *     entirely and the run exits 0 on the broken output. Both measured.
+ *
+ *  3. **The widths in `vocabulary.ts` are load bearing.** `TS7056` is a
  *     threshold on serialised *characters*, so `Invoice` — declared in
  *     `index.ts`, built from those schemas — needs its full dunning
  *     vocabulary, its branded timestamp and its six-member level union to stay
@@ -68,13 +83,14 @@ export type OrgPatch = Entity.Patch<typeof Organization>;
 export type Derived = Entity.ComputedField<typeof DisplayLabel, { slug: z.infer<typeof Slug> }>;
 export type Rule = Entity.Invariant<{ slug: z.infer<typeof Slug> }>;
 export type SealedRow = Entity.Sealed<Row>;
-export type Base = Entity.BaseInstance<{ slug: typeof Slug }, Record<never, never>, []>;
+export type Base = Entity.BaseInstance<{ slug: typeof Slug }, Record<never, never>, never>;
+// `G` and `I` are unions of keys, so the empty case is `never` rather than `[]`.
 export type Static = Entity.Static<
   "Organization",
   { slug: typeof Slug },
   Record<never, never>,
-  [],
-  []
+  never,
+  never
 >;
 export type Members = Entity.Union<"kind", [typeof Invoice, typeof CreditNote]>;
 export type AnyDocument = Entity.Instance<typeof BillingDocument>;
@@ -83,9 +99,10 @@ export type Root = Entity.Abstract<
   "BillingDocument",
   { total: typeof Money },
   Record<never, never>,
-  [],
-  []
+  never,
+  never
 >;
+export type Merged = Entity.MergedComputed<{ label: typeof DisplayLabel }, Record<never, never>>;
 
 /** The error is reachable as both a value and a type. */
 export const isInvalid = (error: unknown): error is Entity.InvalidEntity =>

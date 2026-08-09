@@ -43,12 +43,30 @@ const declarationOf = (receiver: object) => {
   return undefined;
 };
 
+/** The options `rebuild` merges rather than overwrites. */
+type Mergeable = {
+  readonly generated?: readonly PropertyKey[];
+  readonly immutable?: readonly PropertyKey[];
+  readonly computed?: Record<string, unknown>;
+  readonly invariants?: readonly Invariant<unknown>[];
+};
+
+const concat = <T>(parent: readonly T[] | undefined, child: readonly T[] | undefined): T[] => [
+  ...(parent ?? []),
+  ...(child ?? []),
+];
+
 /**
- * Options merge per key, child winning — except `invariants`, which
- * **concatenates** parent-then-child. Inheriting matters more than it might
- * look: silently dropping the parent's `immutable` or `invariants` would leave
- * the extension quietly laxer than what it extends. An extension can add rules;
- * it cannot shed them.
+ * Every option accumulates parent-then-child; nothing is shed. An extension can
+ * add rules, keys and derived fields; it cannot drop the ones it inherits.
+ *
+ * `computed` merges per key rather than concatenating, because it is a map:
+ * a variant adding `murmur` keeps the root's `shout`, and one redefining
+ * `shout` overrides that entry alone.
+ *
+ * Lists are not deduplicated. A repeated key is harmless — `maskOf` builds an
+ * object from them, so duplicates collapse — and leaving it out keeps the merge
+ * one expression.
  */
 const rebuild = (
   buildEntity: BuildEntity,
@@ -58,19 +76,23 @@ const rebuild = (
   nextOptions: Record<string, unknown> | undefined,
 ): { prototype: object } => {
   const parent = declarationOf(receiver);
-  const parentOptions = parent?.options as
-    | { readonly invariants?: readonly Invariant<unknown>[] }
-    | undefined;
-  const childInvariants = (
-    nextOptions as { readonly invariants?: readonly Invariant<unknown>[] } | undefined
-  )?.invariants;
-  const invariants = [...(parentOptions?.invariants ?? []), ...(childInvariants ?? [])];
+  const parentOptions = parent?.options as Mergeable | undefined;
+  const childOptions = nextOptions as Mergeable | undefined;
+
+  const generated = concat(parentOptions?.generated, childOptions?.generated);
+  const immutable = concat(parentOptions?.immutable, childOptions?.immutable);
+  const invariants = concat(parentOptions?.invariants, childOptions?.invariants);
+  const computed = { ...parentOptions?.computed, ...childOptions?.computed };
+
   return buildEntity(nextTag)(
     { ...parent?.fields, ...nextFields },
     {
       ...parent?.options,
       ...nextOptions,
+      ...(generated.length > 0 ? { generated } : {}),
+      ...(immutable.length > 0 ? { immutable } : {}),
       ...(invariants.length > 0 ? { invariants } : {}),
+      ...(Object.keys(computed).length > 0 ? { computed } : {}),
     },
   );
 };
@@ -121,7 +143,7 @@ export const createBase =
       readonly computed?: { [K in keyof A]: ComputedField<A[K], InputOf<S>> };
       readonly invariants?: readonly Invariant<InputOf<S>>[];
     },
-  ): AbstractEntity<Name, S, A, G, I> => {
+  ): AbstractEntity<Name, S, A, G[number], I[number]> => {
     class Root {
       static readonly entityName = name;
       constructor() {
@@ -135,5 +157,5 @@ export const createBase =
     }
     record(Root, fields as Fields, options as Record<string, unknown> | undefined);
     defineRootExtend(Root, buildEntity);
-    return Root as unknown as AbstractEntity<Name, S, A, G, I>;
+    return Root as unknown as AbstractEntity<Name, S, A, G[number], I[number]>;
   };

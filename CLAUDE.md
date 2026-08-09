@@ -34,6 +34,12 @@ that are not derivable from there:
   shape and reported only `TS4020`. Widen the entity and both report it. So a
   band of realistic domain widths fails for consumers and passes here —
   which is the band issues #31 and #32 shipped through.
+  A fourth step then **type-checks the emitted `node_modules/.emit-check` with
+  5.9.3**, because emitting cleanly is not the same as emitting something that
+  compiles: a dangling type-parameter reference in the output is no emit-time
+  diagnostic, and one shipped that way (`TS2304`, a bare `A2` from `extend`'s
+  return type). Never give that step `--skipLibCheck` — it disables `.d.ts`
+  checking outright and the run passes on broken output. Measured.
   That example keeps its abstract root in `src/root.ts`, exported, rather than
   beside its variants: a root reaches a variant's `.d.ts` as a synthesised local
   `declare abstract class` when the two share a module and as a **named import**
@@ -107,10 +113,12 @@ what they own:
   class-body **field** is typed but never initialised (the variant's generated
   base extends nothing, so a root's constructor never runs), and the
   construction seal is unaffected. `docs/reference/declaration.md` states all
-  three; `base.spec.ts` pins them. Options merge per key, child winning, except
-  `invariants`, which concatenate — so a variant declaring `computed` **drops**
-  the root's derived fields. Built against a loosened `BuildEntity` passed in from
-  `entity.ts`, so this module imports no builder and there is no cycle.
+  three; `base.spec.ts` pins them. Every option **accumulates** root-then-child:
+  `generated`, `immutable` and `invariants` concatenate, and `computed` merges
+  **per key**, so a variant can add or redefine a derived field but never drop
+  the root's. Relaxing is not expressible — `immutable: []` on a variant is a
+  no-op. Built against a loosened `BuildEntity` passed in from `entity.ts`, so
+  this module imports no builder and there is no cycle.
 - **`equal.ts`** — `deepEqual`, the primitive behind `equals`. Not
   `JSON.stringify`: that **threw** on a `bigint` field, compared `Set`/`Map`/
   typed-array fields with different contents as **equal**, and reported a
@@ -174,17 +182,21 @@ design — `contract.spec.ts` pins that both ways.
   carry a targeted `oxlint-disable` with a reason — several already exist for
   `no-catch-all-pattern` where `SchemaIssues` is a single non-union type.
 - **Comments recording measurements are regression guards.** Many comments
-  cite a specific TS diagnostic code (TS2411, TS2425, TS2509, TS2515, TS2526,
-  TS4020, TS4111) or a measured library behaviour. The four around roots and
-  unions: a base constructor may not return a union or a `never`-collapsed
+  cite a specific TS diagnostic code (TS2344, TS2411, TS2425, TS2509, TS2515,
+  TS2526, TS4020, TS4111) or a measured library behaviour. The four around roots
+  and unions: a base constructor may not return a union or a `never`-collapsed
   intersection (**TS2509** — `SoleType`, and `RootInstance` widening `_tag` to
   `string`), a mapped behaviour type turns a method into a property and breaks
   a variant's `override` (**TS2425** — `BehaviourOf`, which must stay unmapped),
   and abstractness **does** propagate through the intersection (**TS2515**),
   which is why a root's `abstract` member binds every variant and why `Plain`
-  strips it back off for the union. Verify before "simplifying" them away — the
-  catalog in `pnpm-workspace.yaml` pins `typescript` and `@orpc/zod` to the
-  exact versions those measurements were taken against, with the reason inline.
+  strips it back off for the union. The accumulating `extend` options add a
+  fifth: `EntityStatic`'s `G`/`I` are key **unions**, not tuples, because
+  `readonly [...I, ...I2]` is rejected with **TS2344** — TypeScript will not
+  prove the parent's key set is a subset of the child's through zod's inference
+  chain. Verify before "simplifying" them away — the catalog in
+  `pnpm-workspace.yaml` pins `typescript` and `@orpc/zod` to the exact versions
+  those measurements were taken against, with the reason inline.
 - **Type-level behaviour lives in `*.test-d.ts`**, checked by
   `tsc --noEmit -p tsconfig.test-d.json`. They are excluded from the main tsc
   pass, from oxlint, and from knip. Changing a compile-time guarantee (the

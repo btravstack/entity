@@ -47,13 +47,14 @@ surrounding declaration.
 
 ## The declaration-emit names
 
-Seven types are exported at the top level: `AbstractEntity`, `BaseInstance`,
-`ConstructionKey`, `EntityStatic`, `EntityUnion`, `Sealed`, `UnionMember`. They
-are the one exception to the single-import rule, and none of them is part of the
-API you write against. Six also have namespace aliases for anyone annotating by
-hand — `Entity.Abstract`, `Entity.BaseInstance`, `Entity.ConstructionKey`,
-`Entity.Sealed`, `Entity.Static`, `Entity.Union` — but a consumer's _emitted
-declarations_ use the top-level names.
+Eight types are exported at the top level: `AbstractEntity`, `BaseInstance`,
+`ConstructionKey`, `EntityStatic`, `EntityUnion`, `MergedComputed`, `Sealed`,
+`UnionMember`. They are the one exception to the single-import rule, and none of
+them is part of the API you write against. Seven also have namespace aliases for
+anyone annotating by hand — `Entity.Abstract`, `Entity.BaseInstance`,
+`Entity.ConstructionKey`, `Entity.MergedComputed`, `Entity.Sealed`,
+`Entity.Static`, `Entity.Union` — but a consumer's _emitted declarations_ use the
+top-level names.
 
 ```ts
 import type {
@@ -62,6 +63,7 @@ import type {
   ConstructionKey,
   EntityStatic,
   EntityUnion,
+  MergedComputed,
   Sealed,
   UnionMember,
 } from "@btravstack/entity";
@@ -86,6 +88,15 @@ top-level name. What each one buys was measured, not assumed:
   writing `abstract class X extends Entity.abstract("X")(…) {}` emits the
   underlying name into its declarations, not the `Entity.Abstract` path that
   aliases it.
+- **`MergedComputed`** — a root's computed map merged with a variant's, which
+  `extend` hands `EntityStatic` as its `A`. Written inline as
+  `Omit<A, keyof A2> & A2`, TypeScript 5.9.3 copied the type parameter `A2`
+  through unsubstituted whenever the root declared no `computed` — the default
+  — so consumers' declarations carried a name that resolved to nothing and
+  failed with `TS2304: Cannot find name 'A2'`. 7.0.2 substitutes the same
+  position correctly, so only downstream builds saw it. Naming it is half the
+  fix and exporting it is the other half: unexported, the emitter expands the
+  alias structurally again and the identical dangling `A2` comes back.
 - **`EntityUnion`, `UnionMember`** — the same story for
   `Entity.union(...)` assigned to an exported `const`: without a top-level
   name the members expand structurally and reach `$brand`, failing with
@@ -93,6 +104,9 @@ top-level name. What each one buys was measured, not assumed:
   `EntityUnion` because it is that type's own constraint.
 
 A fixture in CI compiles a consumer with declaration emit against the built
-types, so none of this can regress. See
+types, on two TypeScript versions, and then **type-checks what it emitted** —
+which is not the same guarantee: `MergedComputed` above was found only because
+that last step exists, since a dangling reference in the output is no emit-time
+diagnostic. See
 [Sealed construction](/explanation/sealed-construction) for what the seal buys
 and what the two rejected alternatives cost.

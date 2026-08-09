@@ -16,6 +16,21 @@ export const DisplayLabel = z.string().min(1).brand("DisplayLabel");
 export const Instant = z.iso.datetime().brand("Instant");
 export const LineLabel = z.string().min(1).brand("LineLabel");
 
+/**
+ * The accounting period a document falls in — `2026-03`. Billing reports and
+ * revenue recognition both work per period, so it is derived from the issue
+ * date rather than stored beside it, where the two could disagree.
+ *
+ * The month alternation is not decoration. A derived field's schema is what
+ * makes `from`'s unchecked `as` cast honest — see `computed.ts` — so a laxer
+ * `\d{2}` would bless `2026-00` and `2026-99` on the way out of a derivation
+ * that is supposed to have proved them impossible.
+ */
+export const AccountingPeriod = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+  .brand("AccountingPeriod");
+
 export const Currency = z.enum(["EUR", "USD", "GBP"]);
 
 /**
