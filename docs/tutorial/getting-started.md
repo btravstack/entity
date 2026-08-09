@@ -38,11 +38,18 @@ const OrgId = z.uuid().brand("OrgId");
 const Slug = z.string().min(1).brand("Slug");
 const DisplayName = z.string().min(1).brand("DisplayName");
 const Instant = z.iso.datetime().brand("Instant");
+
+const slug = (value: string) => Slug.parse(value);
+const name = (value: string) => DisplayName.parse(value);
 ```
 
 The reason is the one every domain modeller already knows: with plain strings,
-`findOrg(slug, name)` type-checks with the arguments swapped. Branded, it does
-not. ([The full argument](/explanation/branded-fields).)
+`findOrg(orgSlug, orgName)` type-checks with the arguments swapped. Branded, it
+does not. ([The full argument](/explanation/branded-fields).)
+
+`slug` and `name` are **mint helpers** — a named `parse` declared beside the
+vocabulary it mints, for the two fields a caller supplies by hand later in this
+page.
 
 ## 2. Declare the entity
 
@@ -112,8 +119,8 @@ Now a create use case supplies only the caller's fields:
 
 ```ts
 const created = createOrganization({
-  slug: "acme" as z.infer<typeof Slug>,
-  name: "Acme" as z.infer<typeof DisplayName>,
+  slug: slug("acme"),
+  name: name("Acme"),
 });
 
 const org = created.getOrThrow();
@@ -126,11 +133,11 @@ startup still yields a fresh id per entity. And a test can bind fixed generators
 instead of stubbing globals. ([Why no I/O](/explanation/no-io).)
 
 Note the asymmetry between the two blocks. A generator hands its value to the
-entity, which validates it, so `crypto.randomUUID()` needs nothing; a caller
-field is a branded value you are supplying, so it has to be minted. The cast
-above is the shortest spelling for a tutorial — real code declares a helper per
-piece of vocabulary and writes `slug("acme")`
-([Branded fields](/explanation/branded-fields#everywhere-else-parse-through-a-mint-helper)).
+entity, which validates it, so `crypto.randomUUID()` needs no brand of its own;
+a caller field is a branded value you are supplying, so it has to be minted —
+which is exactly what `slug` and `name`, declared in step 1, are for. Real code
+follows the same pattern for every piece of vocabulary written by hand.
+([Branded fields](/explanation/branded-fields#everywhere-else-parse-through-a-mint-helper).)
 
 ::: tip `getOrThrow()` is for a tutorial
 It is the shortest way to get at a value while you are exploring. Real code
@@ -143,7 +150,7 @@ The entity is immutable in both halves — the binding is non-writable and the
 value is deep-frozen:
 
 ```ts
-org.name = "Other" as z.infer<typeof DisplayName>; // ✗ compile error — read-only property
+org.name = name("Other"); // ✗ compile error — read-only property
 ```
 
 And you cannot sidestep the entry points:
@@ -251,9 +258,7 @@ re-derives](/explanation/computed-fields).)
 `update` returns a **new** entity — the original is untouched:
 
 ```ts
-const renamed = org
-  .update({ name: "Acme Corp" as z.infer<typeof DisplayName> })
-  .getOrThrow();
+const renamed = org.update({ name: name("Acme Corp") }).getOrThrow();
 
 renamed.name; // "Acme Corp"
 renamed.shout; // "ACME CORP" — re-derived, never stale

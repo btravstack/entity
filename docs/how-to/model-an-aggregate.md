@@ -16,6 +16,9 @@ entity rather than a bare schema.
 > import { match, P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
+>
+> Domain vocabulary — entities, brands, factories — is whatever your own
+> domain declares.
 
 ## Use the class as a field
 

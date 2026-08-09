@@ -14,6 +14,9 @@ modelled as a value; a bug in domain code goes down the separate defect channel.
 > import { P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
+>
+> Domain vocabulary — entities, brands, factories — is whatever your own
+> domain declares.
 
 ## `Entity.InvalidEntity`
 
