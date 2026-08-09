@@ -203,8 +203,9 @@ export function union<
   // `z.object({ member: Member })`, or as a field of another entity
   const slots = instance as unknown as Record<string, unknown>;
   // checked against the real members, so a mistyped key here is a compile
-  // error; `_zod`/`~standard`/`__instance` are added below, past what
-  // `satisfies` can check
+  // error. The three omitted keys are omitted for two different reasons:
+  // `_zod`/`~standard` are installed below, and `__instance` is a type-level
+  // carrier that never exists at runtime.
   const core = {
     discriminant,
     members,
