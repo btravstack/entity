@@ -15,6 +15,9 @@ without the storage layer knowing about entity internals.
 > import { P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
+>
+> Domain vocabulary — entities, brands, factories — is whatever your own
+> domain declares.
 
 ## Write with `toJSON()`
 

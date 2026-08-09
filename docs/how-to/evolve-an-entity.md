@@ -16,6 +16,9 @@ the same: do the old rows still validate?
 > import { z } from "zod";
 > import { Entity } from "@btravstack/entity";
 > ```
+>
+> Domain vocabulary — entities, brands, factories — is whatever your own
+> domain declares.
 
 ## Add an optional field
 

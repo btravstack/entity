@@ -16,6 +16,9 @@ from the model.
 > import { P } from "unthrown";
 > import { Entity } from "@btravstack/entity";
 > ```
+>
+> Domain vocabulary — entities, brands, factories — is whatever your own
+> domain declares.
 
 ## Use the four `ZodObject` members directly
 
