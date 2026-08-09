@@ -14,7 +14,7 @@ class Customer extends Entity("Customer")(
   { id: CustomerId, name: Name },
   {
     computed: {
-      shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
+      shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },
   },
 ) {}
