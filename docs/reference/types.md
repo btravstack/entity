@@ -19,21 +19,26 @@ type OrgPatch = Entity.Patch<typeof Organization>; // what update() accepts
 
 ## `Entity.Instance<E>`
 
-The instance type of an entity **or a union** — for a union, the exact member
-union, which the class name as a type is not
-([why](/explanation/unions-and-roots#why-a-union-s-type-is-its-members-root-not-its-members)):
+The instance type of an entity **or a union**. `Entity.union` returns a value,
+so for a union this is the only spelling there is — there is no class name to
+use as a type
+([why](/explanation/unions-and-roots#why-a-union-has-no-class-form)):
 
 ```ts
-class Account extends Entity.union("kind", [Personal, Business]) {}
+export const Account = Entity.union("kind", [Personal, Business]);
+export type Account = Entity.Instance<typeof Account>; // Personal | Business
 
-type AnyAccount = Entity.Instance<typeof Account>; // Personal | Business
 type OnePersonal = Entity.Instance<typeof Personal>; // Personal
 ```
 
+The `export type` line beside the const is the idiom: it puts the member union
+under the name a reader already expects, and a value and a type may share one
+name in TypeScript.
+
 It is read off the declaration, so it cannot drift out of step with the members
 the way a hand-written `InstanceType<typeof Personal> | InstanceType<typeof
-Business>` silently can. The result narrows under `P.tag(...)` like any other
-union of entities.
+Business>` silently can. The result narrows under `P.tag(...)`, and under the
+declared discriminant, like any other union of entities.
 
 ## The other namespace members
 

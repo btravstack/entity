@@ -95,6 +95,11 @@ test("the members are reachable, for exhaustiveness and registries", () => {
   expect(Member.members.map((m) => m.entityName)).toEqual(["User", "ServiceAccount"]);
 });
 
+test("the union value's own enumerable keys are exactly the five public ones", () => {
+  expect(Object.keys(Member)).toEqual(["discriminant", "members", "input", "output", "make"]);
+  expect(Object.keys({ ...Member })).toEqual(Object.keys(Member));
+});
+
 test("a union member can itself be a field of another entity", () => {
   class Audit extends Entity("Audit")({ id: UserId, actor: Member }) {}
   const a = Audit.make({ id: userRow.id, actor: svcRow }).getOrThrow();
@@ -172,27 +177,16 @@ class Business extends AccountBase.extend("Business")({ kind: z.literal("busines
   }
 }
 
-class Account extends Entity.union("kind", [Personal, Business]) {
-  static ofLabel(label: string) {
-    return Account.make({ id: "0199b1f4-1b1e-7000-8000-000000000002", label, kind: "personal" });
-  }
-}
+const Account = Entity.union("kind", [Personal, Business]);
 
-test("a union declared as a class still dispatches to the member", () => {
-  expect(Account.ofLabel("Ada").getOrThrow()).toBeInstanceOf(Personal);
+test("a union dispatches to the member from a row", () => {
+  const row = { id: "0199b1f4-1b1e-7000-8000-000000000002", label: "Ada", kind: "personal" };
+  expect(Account.make(row).getOrThrow()).toBeInstanceOf(Personal);
   expect(Account.discriminant).toBe("kind");
   expect(Account.members.map((m) => m.entityName)).toEqual(["Personal", "Business"]);
 });
 
-test("a union declared as a class is still a schema", () => {
+test("a union is a schema, so it nests", () => {
   const row = { id: "0199b1f4-1b1e-7000-8000-000000000003", label: "Acme", kind: "business" };
   expect(z.array(Account).parse([row])[0]).toBeInstanceOf(Business);
-});
-
-test("a union has no instances", () => {
-  const Ctor = Account as unknown as new () => unknown;
-  // A union's `make` dispatches to a member class, so nothing is ever an
-  // instance of the union itself — an instance method written in a union's
-  // class body would never reach a member, and this is what says so.
-  expect(() => new Ctor()).toThrow(/no instances/);
 });

@@ -381,15 +381,12 @@ matters.
 
 ## `Entity.union(discriminant, members)`
 
-A union of entities, declared as a class.
+A union of entities. `Entity.union` returns a **value**, so a union is declared
+the way any other value is — a `const`, and a type of the same name beside it:
 
 ```ts
-class Account extends Entity.union("kind", [Personal, Business]) {
-  /** a union's class body is for statics — it has no instances */
-  static parse(row: unknown) {
-    return Account.make(row);
-  }
-}
+export const Account = Entity.union("kind", [Personal, Business]);
+export type Account = Entity.Instance<typeof Account>;
 
 Account.make(row); // Result<Personal | Business, InvalidEntity>
 Account.input; // discriminated union, one branch per member
@@ -398,18 +395,28 @@ Account.members; // the tuple, for registries and exhaustiveness
 Account.discriminant; // "kind"
 ```
 
-As a **type**, `Account` is the root its members share — `AccountBase` above —
-or the empty type when they share none. The exact member union is
-`Entity.Instance<typeof Account>`; `make` returns it either way.
-([Why](/explanation/unions-and-roots#why-a-union-s-type-is-its-members-root-not-its-members).)
+Both halves are needed and they say different things: the const is what you
+call, and the type is the exact member union — `Personal | Business`, which
+`P.tag(...)` and the discriminant both narrow.
 
-`new Account(...)` does not compile, and reaching the constructor at runtime is
-a defect — `make` dispatches to a member, so nothing is ever an instance of the
-union:
+There is no class body, so an entry point that would once have been a static is
+a plain function beside the const:
+
+```ts
+export const parseAccount = (row: unknown) => Account.make(row);
+```
+
+Reaching for the class form fails at the declaration, not at a later call site:
 
 ```
-Personal | Business: a union has no instances — use make()
+TS2507: Type 'EntityUnion<"kind", readonly [typeof Personal, typeof Business]>'
+is not a constructor function type
 ```
+
+A second code is the reason it is unfixable rather than unimplemented: a class's
+instance type may not be a union (`TS2509`), so the class form could only ever
+type as the members' shared root, which never narrowed to a member.
+([Why](/explanation/unions-and-roots#why-a-union-has-no-class-form).)
 
 `discriminant` names a declared domain field, not `_tag`. The union dispatches
 on it rather than trying each branch, so a failing member reports its own
@@ -430,3 +437,26 @@ Entity.union("kind", [User, AlsoUser]);
 
 `_tag` cannot serve as the discriminant here, and that is not an oversight —
 [it never reaches the wire](/explanation/tags-and-identity).
+
+### When to declare a union and when to write one by hand
+
+`Entity.Instance<typeof Account>` **is** `Personal | Business`, so the type is
+not what a union buys you. Everything else it carries is:
+
+| You need                                       | `Entity.union` gives                                      |
+| ---------------------------------------------- | --------------------------------------------------------- |
+| a member out of untrusted input                | `make(unknown)`, dispatching on the declared discriminant |
+| the union as a field of another entity         | it is a schema — `Entity("Audit")({ actor: Account })`    |
+| a contract, or JSON Schema in either direction | `input` and `output`, real `z.discriminatedUnion`s        |
+| a failure a caller can act on                  | the matched member's own issues, not every branch's       |
+| two members claiming one value caught          | a defect at declaration time, naming both members         |
+| a registry, or an exhaustiveness check         | `members` and `discriminant`, reachable at runtime        |
+
+The type is also **derived**. Add a third variant to `members` and
+`Entity.Instance<typeof Account>` follows it; a hand-written
+`Personal | Business` stays two members wide, keeps compiling, and drifts
+silently — which is the failure the derivation exists to prevent.
+
+So write the bare union by hand when you only need to _name_ two entities in a
+signature, and nothing parses, nests, serialises or reports. Declare an
+`Entity.union` the moment any of those enter the picture.
