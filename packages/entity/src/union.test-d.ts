@@ -64,17 +64,21 @@ declare const p: Payment;
 
 test("a union has no class form", () => {
   // The class form typed as the members' shared root and could not narrow
-  // (#57). A class's instance type cannot be a union at all — `TS2509` —
-  // so the value plus `Entity.Instance` is the only honest spelling.
+  // (#57). `TS2507` is what fires below; `TS2509` is why it is unfixable — a
+  // class's instance type cannot be a union at all — so the value plus
+  // `Entity.Instance` is the only honest spelling.
   // @ts-expect-error a union is a value, not a constructor
   class Nope extends Entity.union("kind", [Personal, Business]) {}
   void Nope;
 });
 
 test("the const plus Entity.Instance pair narrows to a member", () => {
-  const onTag: string = p._tag === "Personal" ? p.describe() : p.describe();
+  // narrowing on `_tag` reaches the member's own literal `kind` value —
+  // without it, `p.kind` stays the two-member union and the annotation fails
+  const onTag: "personal" = p._tag === "Personal" ? p.kind : "personal";
   void onTag;
-  // narrowing on the declared discriminant reaches member-only fields
-  const onDiscriminant: string = p.kind === "personal" ? p._tag : p._tag;
+  // narrowing on the declared discriminant reaches the member's own `_tag` —
+  // without it, `p._tag` stays "Personal" | "Business" and the annotation fails
+  const onDiscriminant: "Personal" = p.kind === "personal" ? p._tag : "Personal";
   void onDiscriminant;
 });

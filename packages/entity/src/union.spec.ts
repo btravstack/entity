@@ -185,3 +185,13 @@ test("a union is a schema, so it nests", () => {
   const row = { id: "0199b1f4-1b1e-7000-8000-000000000003", label: "Acme", kind: "business" };
   expect(z.array(Account).parse([row])[0]).toBeInstanceOf(Business);
 });
+
+test("a union value composes as a field of another entity, through make", () => {
+  class Ledger extends Entity("Ledger")({ id: UserId, holder: Account }) {}
+  const row = { id: "0199b1f4-1b1e-7000-8000-000000000004", label: "Ada", kind: "personal" };
+  const ledger = Ledger.make({
+    id: "0199b1f4-1b1e-7000-8000-000000000005",
+    holder: row,
+  }).getOrThrow();
+  expect(ledger.holder).toBeInstanceOf(Personal);
+});

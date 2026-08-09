@@ -97,16 +97,19 @@ const discriminantValues = (member: UnionMember, discriminant: string): readonly
  * A union of entities that is itself usable like one: it validates, it makes
  * the right class, and it hands a contract layer plain schemas.
  *
- * Returns a **class**, so a union is declared the way an entity is:
+ * Returns a **value**, so a union is declared and named the way any other
+ * value is:
  *
  * ```ts
- * class Member extends union("kind", [User, ServiceAccount]) {}
+ * const Member = union("kind", [User, ServiceAccount]);
+ * type Member = Entity.Instance<typeof Member>;
+ *
  * Member.make(row).getOrThrow(); // User | ServiceAccount
  * ```
  *
- * As a type, `Member` is the root its members share — or the empty type when
- * they share none. `Entity.Instance<typeof Member>` is where the exact member
- * union lives. The class body holds statics only; the union has no instances.
+ * `Entity.Instance<typeof Member>` is where the exact member union lives —
+ * there is no class body to hold statics or to narrow through, and nothing is
+ * ever constructed from `Member` itself.
  *
  * `discriminant` names a **declared domain field**, not the entity's `_tag`.
  * The tag is non-enumerable and absent after serialisation, so a union built
@@ -199,13 +202,23 @@ export function union<
   // the same two slots an entity carries, so a union composes identically —
   // `z.object({ member: Member })`, or as a field of another entity
   const slots = instance as unknown as Record<string, unknown>;
-  return {
+  // checked against the real members, so a mistyped key here is a compile
+  // error; `_zod`/`~standard`/`__instance` are added below, past what
+  // `satisfies` can check
+  const core = {
     discriminant,
     members,
     input,
     output,
     make,
-    _zod: slots["_zod"],
-    "~standard": slots["~standard"],
-  } as unknown as EntityUnion<K, M>;
+  } satisfies Omit<EntityUnion<K, M>, "__instance" | "_zod" | "~standard">;
+  // non-enumerable, like `entity.ts` installs `_tag` — so `Object.keys`,
+  // spread and `JSON.stringify` on the union value don't reach zod's internals
+  return Object.defineProperties(
+    { ...core },
+    {
+      _zod: { value: slots["_zod"], enumerable: false, configurable: true },
+      "~standard": { value: slots["~standard"], enumerable: false, configurable: true },
+    },
+  ) as unknown as EntityUnion<K, M>;
 }
