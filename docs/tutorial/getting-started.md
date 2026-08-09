@@ -44,8 +44,8 @@ const name = (value: string) => DisplayName.parse(value);
 ```
 
 The reason is the one every domain modeller already knows: with plain strings,
-`findOrg(slug, name)` type-checks with the arguments swapped. Branded, it does
-not. ([The full argument](/explanation/branded-fields).)
+`findOrg(orgSlug, orgName)` type-checks with the arguments swapped. Branded, it
+does not. ([The full argument](/explanation/branded-fields).)
 
 `slug` and `name` are **mint helpers** — a named `parse` declared beside the
 vocabulary it mints, for the two fields a caller supplies by hand later in this
