@@ -85,12 +85,13 @@ cannot run against it. Measured — the reason is inline in
 
 ## Architecture
 
-Twelve source modules under `packages/entity/src` besides `index.ts`, split by
+Thirteen source modules under `packages/entity/src` besides `index.ts`, split by
 what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
   four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
-  one field map plus `generated` / `immutable` / `computed`,
+  one field map — the `generated` / `immutable` flags its entries carry —
+  plus `computed`,
   then returns a `Base` class carrying them as statics. `create` delegates to
   `make`; `update` delegates to `make`; every path funnels through
   `construct`, which runs `invariants` and seals the constructor call. Data
@@ -99,7 +100,7 @@ what they own:
   `JSON.stringify`, or spread. `toJSON()` is the **only** public projection —
   it, `equals` and `update` all route through a module-private `project`, so
   there is no second public spelling of the same data. It also carries the
-  whole public surface: `Entity.computed` / `Entity.invariant` /
+  whole public surface: `Entity.field` / `Entity.computed` / `Entity.invariant` /
   `Entity.abstract` / `Entity.union` / `Entity.InvalidEntity` as expando
   properties, and every public type in a
   merged `declare namespace Entity`. Namespace members alias imported types
@@ -120,11 +121,14 @@ what they own:
   class-body **field** is typed but never initialised (the variant's generated
   base extends nothing, so a root's constructor never runs), and the
   construction seal is unaffected. `docs/reference/declaration.md` states all
-  three; `base.spec.ts` pins them. Every option **accumulates** root-then-child:
-  `generated`, `immutable` and `invariants` concatenate, and `computed` merges
-  **per key**, so a variant can add or redefine a derived field but never drop
-  the root's. Relaxing is not expressible — `immutable: []` on a variant is a
-  no-op. Built against a loosened `BuildEntity` passed in from `entity.ts`, so
+  three; `base.spec.ts` pins them. A variant **accumulates** onto the root:
+  `invariants` concatenate, `computed` merges **per key**, and the flags need no
+  merging at all — they ride the field-map spread, wrapped, so a variant
+  inherits them with the fields. Relaxing is not expressible. **Redeclaring an
+  inherited field is forbidden**, flagged or not: a compile error naming
+  `FieldAlreadyDeclaredByTheRoot`, plus a declaration-time defect naming the
+  keys and the tag — a bare-schema redeclaration used to drop the root's flags
+  silently. Built against a loosened `BuildEntity` passed in from `entity.ts`, so
   this module imports no builder and there is no cycle.
 - **`equal.ts`** — `deepEqual`, the primitive behind `equals`. Not
   `JSON.stringify`: that **threw** on a `bigint` field, compared `Set`/`Map`/
@@ -159,6 +163,19 @@ what they own:
   the members share and falls back to the empty type when they share none;
   `Plain` strips that root's abstractness, which a union could never implement.
   `Entity.Instance<typeof Account>` is where the exact member union lives.
+- **`field.ts`** — `field(schema, flags)`, public as `Entity.field`, and the
+  `FieldSpec` it returns: a plain `{ schema, flags }` record, never a proxy or a
+  subclass, because anything standing in front of an entity-class field breaks
+  `make`, which constructs through `this` (`TypeError: Ctor is not a
+constructor` — measured). Two spellings in the signature are load bearing and
+  both are commented there: `flags` is intersected with a mapped rejection so a
+  misspelled key is a compile error (a constraint is not an excess-property
+  check — `{ generated: true, imutable: true }` compiled clean and left the
+  field mutable), and `schema` is **bare `T`**, never intersected with
+  `OnlyNominal`, because an intersection at an inference site broke zod's
+  `$ZodBranded` alias preservation across every branded field (measured, −874 B
+  over the billing fixture's emitted `.d.ts`). The nominal check lives at the
+  field map, which already unwraps `FieldSpec` through `SchemaOf`.
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
   fields, and `shape()`, which builds the validated field map. Both are
   internal; neither is exported from `index.ts`.
@@ -197,26 +214,41 @@ design — `contract.spec.ts` pins that both ways.
   a variant's `override` (**TS2425** — `BehaviourOf`, which must stay unmapped),
   and abstractness **does** propagate through the intersection (**TS2515**),
   which is why a root's `abstract` member binds every variant and why `Plain`
-  strips it back off for the union. The accumulating `extend` options add a
-  fifth: `EntityStatic`'s `G`/`I` are key **unions**, not tuples, because
-  `readonly [...I, ...I2]` is rejected with **TS2344** — TypeScript will not
-  prove the parent's key set is a subset of the child's through zod's inference
-  chain. Verify before "simplifying" them away — the catalog in
+  strips it back off for the union. Verify before "simplifying" them away — the
+  catalog in
   `pnpm-workspace.yaml` pins `typescript` and `@orpc/zod` to the exact versions
   those measurements were taken against, with the reason inline.
+- **The dead-end ledger: a key union in type-argument position cannot be
+  de-aliased.** `GeneratedKeys<S>` / `ImmutableKeys<S>` are computed **inside**
+  `EntityStatic` / `AbstractEntity` / `BaseInstance`, never passed as type
+  arguments, and the comment on `GeneratedKeys` in `types.ts` is the record.
+  In argument position the printer re-carries the whole field map at every
+  appearance — the spike measured **+57.8%** on the billing fixture's emitted
+  declarations, +104% on `index.d.ts` alone — and three attempts to make the
+  emitter write the alias instead all failed on **both** 7.0.2 and 5.9.3: an
+  alias annotation, a defaulted parameter plus `infer`, and a
+  mapped-object-plus-`keyof` indirection each reconstituted the alias through
+  union-origin tracking. The fix is **arity reduction**, not a better spelling:
+  `Entity.Static<Tag, S, A, B?>`, `Entity.Abstract<Name, S, A>`,
+  `Entity.BaseInstance<S, A>`. Inside a body `S` prints by name and the map
+  appears once — measured at **+8.0%** total, ~90 B per flagged-field
+  appearance, with **zero** `GeneratedKeys<` / `ImmutableKeys<` in the emitted
+  `.d.ts` set. That grep is the acceptance test; do not move these into a
+  parameter list.
 - **Type-level behaviour lives in `*.test-d.ts`**, checked by
   `tsc --noEmit -p tsconfig.test-d.json`. They are excluded from the main tsc
   pass, from oxlint, and from knip. Changing a compile-time guarantee (the
-  seal, `generated`/`immutable` rules, `computed`'s contextual typing) means
+  seal, the `generated`/`immutable` flags, the redeclaration forbid,
+  `computed`'s contextual typing) means
   updating the matching `@ts-expect-error` assertion.
 - **One concept, one name.** The surface is meant to stay small enough that the
   library can be "done". Resist convenience aliases.
 - **`index.ts` exports `Entity`, and nothing else you write against.** A bare
   `computed` or `union` is too generic to take from a consumer's import scope,
-  so everything hangs off the builder. The sole exception is the nine
+  so everything hangs off the builder. The sole exception is the ten
   declaration-emit names — `AbstractEntity`, `BaseInstance`, `ConstructionKey`,
-  `EntityStatic`, `EntityUnion`, `MergedComputed`, `MergedFields`, `Sealed`,
-  `UnionMember` — exported at the top
+  `EntityStatic`, `EntityUnion`, `FieldSpec`, `MergedComputed`, `MergedFields`,
+  `Sealed`, `UnionMember` — exported at the top
   level as well: a downstream
   library compiling with `declaration: true` emits the _underlying_ name, not
   the namespace path aliasing it, so hiding them fails the consumer pass with

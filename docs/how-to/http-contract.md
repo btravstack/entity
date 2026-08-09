@@ -23,14 +23,14 @@ from the model.
 ## Use the four `ZodObject` members directly
 
 ```ts
-const CreateBody = Organization.createInput; // input minus generated
-const UpdateBody = Organization.updateInput; // output minus immutable and computed, partial
+const CreateBody = Organization.createInput; // input minus the generated fields
+const UpdateBody = Organization.updateInput; // output minus the immutable and computed fields, partial
 const ResponseBody = Organization.output; // stored state
 ```
 
-Nothing to maintain: `createInput` drops whatever `generated` names, and
-`updateInput` drops whatever `immutable` names plus the computed fields. Add a
-generated field to the entity and the create body follows.
+Nothing to maintain: `createInput` drops every field flagged `generated`, and
+`updateInput` drops every field flagged `immutable` plus the computed ones. Add
+a generated field to the entity and the create body follows.
 
 ## Convert to JSON Schema
 

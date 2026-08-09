@@ -1,11 +1,12 @@
 ---
 title: Declaring an entity
-description: Entity(tag)(fields, options), the field rules, the four options, and the Entity.computed / Entity.invariant / Entity.abstract / Entity.union declaration helpers.
+description: Entity(tag)(fields, options), the field rules, the field flags, the two options, and the Entity.field / Entity.computed / Entity.invariant / Entity.abstract / Entity.union declaration helpers.
 ---
 
 # Declaring an entity
 
-The builder itself, the rules a field map must satisfy, the four options, and the
+The builder itself, the rules a field map must satisfy, the flags a field can
+carry, the two options, and the
 helpers that go inside them. For _why_ it is shaped this way, see
 [Explanation](/explanation/why-entity); for task recipes, see the
 [how-to guides](/how-to/http-contract).
@@ -34,7 +35,9 @@ this one entity goes in its own class body.
 
 ### `fields`
 
-A map of field name to schema. Every field must be **nominal** — a branded
+A map of field name to schema, or to
+[`Entity.field(schema, flags)`](#entity-field-schema-flags) where the field
+carries modifiers. Every field must be **nominal** — a branded
 schema, a narrow literal union, a boolean, or another entity class. A bare
 `z.string()` is a compile error naming `DomainFieldMustBeBrandedOrAnEntity`.
 ([Why](/explanation/branded-fields).)
@@ -50,20 +53,74 @@ Four names are reserved, because an entity installs them on every instance:
 
 ### `options`
 
-| Option       | Type                               | Effect                                                                             |
-| ------------ | ---------------------------------- | ---------------------------------------------------------------------------------- |
-| `generated`  | `readonly (keyof fields)[]`        | omitted from `createInput`; supplied by a factory's generators                     |
-| `immutable`  | `readonly (keyof output)[]`        | omitted from `updateInput`; `update()` rejects them even if smuggled past the type |
-| `computed`   | `{ [name]: Entity.ComputedField }` | derived fields; added to `output`, re-derived on every construction                |
-| `invariants` | `readonly Entity.Invariant[]`      | rules spanning two or more declared fields; any failing rule rejects               |
+| Option       | Type                               | Effect                                                               |
+| ------------ | ---------------------------------- | -------------------------------------------------------------------- |
+| `computed`   | `{ [name]: Entity.ComputedField }` | derived fields; added to `output`, re-derived on every construction  |
+| `invariants` | `readonly Entity.Invariant[]`      | rules spanning two or more declared fields; any failing rule rejects |
 
-`generated` and `immutable` are keyed off the field names, so a typo is a
-compile error rather than a silently-inert entry.
+Both are optional, and so is the whole object: an entity that declares neither
+is `Entity("Note")({ … })` with one argument.
+
+There is no `generated` option and no `immutable` option. Both are **flags on
+the field itself** — see [`Entity.field`](#entity-field-schema-flags). Writing
+either key here is a compile error.
 
 `Entity.ComputedField<T, D>` and `Entity.Invariant<D>` are both generic; the
 parameters are elided above because you never write them. `Entity.computed` and
 `Entity.invariant` infer them from the surrounding declaration, which is what
 makes `d` contextually typed with no annotation.
+
+## `Entity.field(schema, flags)`
+
+One field with modifiers, written in the field map where the schema would
+otherwise go:
+
+```ts
+class Organization extends Entity("Organization")({
+  id: Entity.field(OrgId, { generated: true, immutable: true }),
+  slug: Entity.field(Slug, { immutable: true }),
+  name: DisplayName,
+}) {}
+```
+
+| Flag        | Default | Effect                                                                                 |
+| ----------- | ------- | -------------------------------------------------------------------------------------- |
+| `generated` | `false` | drops the key from `createInput`; a factory's generators supply it instead             |
+| `immutable` | `false` | drops the key from `updateInput`; `update()` rejects it even if smuggled past the type |
+
+An unflagged field is a bare schema — `name` above. There is no third state:
+both flags default to `false`, so `Entity.field(Slug, { immutable: true })` is
+`generated: false`.
+
+The flags argument is **required**. The function exists to flag, so
+`Entity.field(Slug, {})` is legal and does exactly nothing; write the bare
+schema instead.
+
+A misspelled flag name is a compile error:
+
+```ts
+Entity.field(Slug, { imutable: true }); // ✗ UnknownFlagIsRejected
+Entity.field(Slug, { generated: true, imutable: true }); // ✗ same
+```
+
+The second line is the dangerous shape, and the reason the check exists.
+A constraint is not an excess-property check: against `Partial<Flags>` alone
+that object compiled clean and the field was silently mutable — measured. Every
+unknown key is mapped to `UnknownFlagIsRejected`, which is both the type and the
+message.
+
+The nominal-field rule is enforced at the **field map**, not at this call.
+`Entity.field(z.string(), { immutable: true })` type-checks on its own; placed
+under a key it is rejected naming `DomainFieldMustBeBrandedOrAnEntity`, exactly
+as a bare `z.string()` there would be. Checking the schema here as well cost
+zod's `$ZodBranded` alias in consumers' emitted declarations: every branded
+field expanded structurally instead, worth 874 bytes over the
+[billing-domain](/examples/billing-domain) fixture's emitted `.d.ts` set, and
+recovered when the redundant check was dropped.
+
+Flags ride their field. A variant extending a root inherits the root's fields
+_with_ their flags, and cannot restate them
+([below](#root-extend-tag-fields-options)).
 
 ## `Entity.computed(schema, from)`
 
@@ -127,10 +184,10 @@ A **root**: the fields and the behaviour several entities share, in a class that
 is extended rather than instantiated.
 
 ```ts
-abstract class AccountBase extends Entity.abstract("Account")(
-  { id: AccountId, label: Label },
-  { immutable: ["id"] },
-) {
+abstract class AccountBase extends Entity.abstract("Account")({
+  id: Entity.field(AccountId, { immutable: true }),
+  label: Label,
+}) {
   abstract describe(): string;
 
   get slug(): string {
@@ -140,8 +197,8 @@ abstract class AccountBase extends Entity.abstract("Account")(
 ```
 
 `fields` and `options` are exactly what `Entity(tag)(…)` takes — same field
-rules, same four options — and both are inherited by every entity extended from
-the root.
+rules, same flags, same two options — and all of it is inherited by every entity
+extended from the root.
 
 A root is **not** an entity. It has no `make`, no `factory`, and none of the
 four schema members; those belong to a variant, which has a tag to build them
@@ -261,44 +318,64 @@ A variant's declaration **accumulates** onto the root's, root-then-variant. It
 adds to what it inherits and cannot shed it, so it is never quietly laxer than
 its root.
 
-| Declaration part | How a variant's declaration meets the root's                   |
-| ---------------- | -------------------------------------------------------------- |
-| `fields`         | merged **per key** — a repeated key takes the variant's schema |
-| `generated`      | concatenated, root-then-variant                                |
-| `immutable`      | concatenated, root-then-variant                                |
-| `invariants`     | concatenated, root-then-variant                                |
-| `computed`       | merged **per key** — a repeated key takes the variant's entry  |
+| Declaration part | How a variant's declaration meets the root's                             |
+| ---------------- | ------------------------------------------------------------------------ |
+| `fields`         | **added** — a key the root already declares is a compile error           |
+| field flags      | ride their fields; the merged map's flags are the union of the two maps' |
+| `invariants`     | concatenated, root-then-variant                                          |
+| `computed`       | merged **per key** — a repeated key takes the variant's entry            |
 
 A variant names only what it adds. `Personal` above declares no options and
-inherits everything `AccountBase` declared; a variant declaring
-`immutable: ["kind"]` is immutable in `kind` **and** in every key the root
-listed.
+inherits everything `AccountBase` declared, `id`'s `immutable` flag included.
 
-Relaxing is not expressible. `immutable: []` on a variant does not widen
-`updateInput`, and `invariants: []` does not clear the root's rules — an empty
-list contributes nothing, which is not the same as taking something away.
+#### A variant may not redeclare an inherited field
 
-The key lists are not deduplicated, and do not need to be. Each is turned into a
-keyed lookup before it reaches a schema or a patch check, so naming a key the
-root already declared is harmless.
+A key the root declares is the root's. Naming it again in a variant's field map
+is a compile error, whether or not either spelling carries flags:
 
-`fields` and `computed` merge per key rather than concatenating, because both
-are maps. A variant can add to either beside what the root declared, and can
-**redeclare** an entry the root declared — its schema, and for `computed` its
-derivation, replace that entry alone — but cannot drop one.
+```ts
+AccountBase.extend("Clash")({ label: Label }); // ✗ FieldAlreadyDeclaredByTheRoot
+AccountBase.extend("Clash2")({
+  label: Entity.field(Label, { immutable: true }), // ✗ same
+});
+```
 
-Redeclaring an inherited key, in either map, has one edge, measured. The
-variant's schema is what validates and its derivation is what runs, and every
-surface read off the declaration agrees: `Variant.output.shape`, `toJSON()` and
-`Entity.Output<typeof Variant>` all carry the variant's schema. The **instance
-property** does not — it keeps the root's type intersected in, so a key the root
-branded `Upper` and the variant rebranded `Label` reads as `Upper & Label` on an
-instance, and is still assignable where the root's brand is expected. The root's
-instance type is intersected into every variant **unmapped**, and subtracting a
-key from it is exactly what `TS2425` forbids: any mapped form turns the root's
-methods into function-typed properties and breaks every variant implementing an
-`abstract` member. There is no fix pending; read the key off
-`Entity.Output<typeof Variant>` where its exact type matters.
+The type-level rejection is backed by a runtime one, because a declaration
+compiled from JavaScript or through a cast reaches the same place. It is a
+**declaration-time defect** — thrown while the declaration is on the stack, the
+same ruling as `Entity.union`'s duplicate discriminant — and it names the keys
+and the tag:
+
+```
+Clash: field(s) "label" already declared by the root — a variant adds fields,
+it does not redeclare them.
+```
+
+A consequence worth stating plainly: a variant cannot flag a root-declared
+field **at all**. A field's flags live at its declaration site, and the only way
+to make `label` immutable for `Personal` is to flag it on `AccountBase`, where
+every variant gets it.
+
+Relaxing is not expressible either, and there is no spelling that asks for it.
+`invariants: []` on a variant does not clear the root's rules — an empty list
+contributes nothing, which is not the same as taking something away.
+
+`computed` is the one map a variant may still redeclare into, per key rather
+than by concatenating: a variant can add entries beside the root's and can
+replace one of the root's derivations, but cannot drop one.
+
+Redeclaring an inherited **computed** key has one edge, measured. The variant's
+derivation is what runs, and every surface read off the declaration agrees:
+`Variant.output.shape`, `toJSON()` and `Entity.Output<typeof Variant>` all carry
+the variant's schema. The **instance property** does not — it keeps the root's
+type intersected in, so a key the root branded `Upper` and the variant rebranded
+`Label` reads as `Upper & Label` on an instance, and is still assignable where
+the root's brand is expected. The root's instance type is intersected into every
+variant **unmapped**, and subtracting a key from it is exactly what `TS2425`
+forbids: any mapped form turns the root's methods into function-typed properties
+and breaks every variant implementing an `abstract` member. There is no fix
+pending; read the key off `Entity.Output<typeof Variant>` where its exact type
+matters.
 
 `extend` lives only on a root. The entity it returns is final.
 

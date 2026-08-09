@@ -29,10 +29,13 @@ const Instant = z.iso.datetime().brand("Instant");
 const Upper = z.string().min(1).brand("Upper");
 
 class Organization extends Entity("Organization")(
-  { id: OrgId, slug: Slug, name: Name, createdAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
+    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: Name,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     computed: {
       shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },
@@ -55,13 +58,17 @@ const loaded = Organization.make(row).getOrThrow(); // rows, imports, event fold
 const renamed = loaded.update({ name: next }).getOrThrow(); // a NEW entity
 ```
 
-| Schema member | For                                                                 |
-| ------------- | ------------------------------------------------------------------- |
-| `input`       | everything `make()` accepts                                         |
-| `output`      | stored state and response body                                      |
-| `createInput` | create request — `input` minus `generated`                          |
-| `updateInput` | update request — `output` minus `immutable` and `computed`, partial |
-| _the class_   | parses to an instance; valid as a field                             |
+| Schema member | For                                                                          |
+| ------------- | ---------------------------------------------------------------------------- |
+| `input`       | everything `make()` accepts                                                  |
+| `output`      | stored state and response body                                               |
+| `createInput` | create request — `input` minus the `generated` fields                        |
+| `updateInput` | update request — `output` minus the `immutable` and computed fields, partial |
+| _the class_   | parses to an instance; valid as a field                                      |
+
+`generated` and `immutable` are **flags on the field**, written with
+`Entity.field(schema, flags)`; a field carrying neither is a bare schema.
+`computed` and `invariants` are the two declaration options.
 
 An entity is **final**. Fields and behaviour shared by several entities go on a
 root, `Entity.abstract(name)(fields)`, and extension lives there; a union of

@@ -12,13 +12,11 @@
     "BehaviourOf",
     "ComputedField",
     "ComputedFieldSrc",
-    "ComputedOf",
     "ConstructedInstance",
     "ConstructionKeySrc",
     "CreateInputOf",
     "DeepReadonly",
     "DomainFieldMustBeBrandedOrAnEntity",
-    "Entry",
     "EntityFactory",
     "EntityStaticSrc",
     "EntityUnionSrc",
@@ -36,6 +34,7 @@
     "IsNominalField",
     "MergedComputedSrc",
     "MergedFieldsSrc",
+    "NoRedeclaredKeys",
     "OnlyNominal",
     "OutputOf",
     "PatchOf",
@@ -45,6 +44,7 @@
     "SchemasOf",
     "SealedSrc",
     "SharedBase",
+    "UnknownFlagIsRejected",
     "UpdateInputShapeOf"
   ]
 }

@@ -1,6 +1,6 @@
 ---
 title: Billing domain example
-description: Declaring entities — branded fields, generated/immutable/computed, invariants, nesting, abstract roots, unions and factories — in a runnable package.
+description: Declaring entities — branded fields, the generated/immutable flags, computed, invariants, nesting, abstract roots, unions and factories — in a runnable package.
 ---
 
 # Billing domain
@@ -48,10 +48,13 @@ satisfy the branded type, which is exactly the point.
 
 ```ts
 export class Organization extends Entity("Organization")(
-  { id: OrganizationId, slug: Slug, name: DisplayName, createdAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
+    id: Entity.field(OrganizationId, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: DisplayName,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     computed: {
       displayLabel: Entity.computed(
         DisplayLabel,
@@ -72,11 +75,12 @@ export class Organization extends Entity("Organization")(
 }
 ```
 
-`generated` names what the domain produces rather than the caller, so those
-fields drop out of `createInput`. `immutable` names what `update` refuses.
-`computed` is re-derived on **every** construction path, so it cannot drift from
-its sources — the spec checks that by renaming an organization and asserting the
-label followed.
+`Entity.field(schema, flags)` is how a field says more than its shape.
+`generated` marks what the domain produces rather than the caller, so those
+fields drop out of `createInput`; `immutable` marks what `update` refuses.
+`name` carries neither, so it stays a bare schema. `computed` is re-derived on
+**every** construction path, so it cannot drift from its sources — the spec
+checks that by renaming an organization and asserting the label followed.
 
 Behaviour lives in the class body. This is a real class, not a record with
 functions bolted beside it.
@@ -93,10 +97,12 @@ extended rather than instantiated:
 export abstract class BillingDocumentBase extends Entity.abstract(
   "BillingDocument",
 )(
-  { issuedTo: Organization, total: Money, issuedAt: Instant },
   {
-    generated: ["issuedAt"],
-    immutable: ["issuedAt", "issuedTo"],
+    issuedTo: Entity.field(Organization, { immutable: true }),
+    total: Money,
+    issuedAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     computed: {
       period: Entity.computed(AccountingPeriod, (d) => d.issuedAt.slice(0, 7)),
     },
@@ -118,11 +124,21 @@ export abstract class BillingDocumentBase extends Entity.abstract(
 
 // index.ts
 export class Invoice extends BillingDocumentBase.extend("Invoice")(
-  { id: InvoiceId, kind: z.literal("INVOICE") /* … */ },
   {
-    generated: ["id", "kind"],
-    immutable: ["id", "kind"],
-    /* … invariants, one of them */
+    id: Entity.field(InvoiceId, { generated: true, immutable: true }),
+    kind: Entity.field(z.literal("INVOICE"), {
+      generated: true,
+      immutable: true,
+    }),
+    /* … lines, status, dunningReasons, level */
+  },
+  {
+    invariants: [
+      Entity.invariant(
+        (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
+        "a void invoice cannot be in dunning",
+      ),
+    ],
   },
 ) {
   override signedAmount(): number {
@@ -138,10 +154,13 @@ is the other half: behaviour written once and inherited, which is what a
 rebuilt-from-the-declaration extension could not carry. An entity itself is
 final; `extend` lives only here.
 
-Note what the variants do **not** state. Every option accumulates,
-root-then-variant, so `Invoice` names only the keys it introduces: `issuedAt` is
-generated and `issuedAt`/`issuedTo` immutable because the root said so, and the
-variant adding `id` and `kind` does not disturb that. `computed` accumulates too,
+Note what the variants do **not** state. `Invoice` declares only the fields it
+introduces: `issuedAt` is generated and `issuedAt`/`issuedTo` immutable because
+the root's fields carry those flags, and the flags travel with the fields into
+every variant. Restating one is not the way to keep it — a variant that named
+`issuedAt` again would not compile at all
+([why](/reference/declaration#a-variant-may-not-redeclare-an-inherited-field)).
+The options accumulate root-then-variant, `computed`
 merging per key rather than concatenating: `period` — the accounting period,
 derived from `issuedAt`, because reports work per period and a stored copy could
 disagree with the date — is on every variant without either of them naming it.
@@ -218,8 +237,8 @@ which `emit-guards.ts` pins. The body holds statics only; the union has no
 instances of its own.
 
 `kind` is a **declared domain field** — `z.literal("INVOICE")` on one member and
-`z.literal("CREDIT_NOTE")` on the other, both `generated` so no caller can supply
-the wrong one.
+`z.literal("CREDIT_NOTE")` on the other, both flagged `generated` so no caller
+can supply the wrong one.
 
 It is tempting to reach for `_tag` here, since every entity has one. That does
 not work, and fails quietly rather than loudly: `_tag` is non-enumerable, so it

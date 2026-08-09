@@ -1,6 +1,6 @@
 ---
 title: Helper types
-description: Entity.Input, Entity.Output, Entity.CreateInput, Entity.Patch, Entity.Instance — and the nine declaration-emit names exported at the top level.
+description: Entity.Input, Entity.Output, Entity.CreateInput, Entity.Patch, Entity.Instance — and the ten declaration-emit names exported at the top level.
 ---
 
 # Helper types
@@ -38,21 +38,46 @@ union of entities.
 ## The other namespace members
 
 Also `Entity.ComputedField` and `Entity.Invariant`, the shapes `Entity.computed`
-and `Entity.invariant` return; `Entity.Union`, what `Entity.union` returns;
+and `Entity.invariant` return; `Entity.FieldSpec`, what `Entity.field` returns;
+`Entity.Union`, what `Entity.union` returns;
 `Entity.Abstract`, what `Entity.abstract(name)(fields, options)` returns; and
 `Entity.Static`, the full static surface `Entity(tag)(fields, options)` returns
 — the type of the anonymous class the declaration form extends. You rarely name
 any of them: the declaration helpers infer their parameters from the
 surrounding declaration.
 
+Three of them changed arity in the release that moved `generated`/`immutable`
+onto the fields:
+
+| Type                  | Arity             | Was                  |
+| --------------------- | ----------------- | -------------------- |
+| `Entity.Static`       | `<Tag, S, A, B?>` | `<Tag, S, A, G, I>`  |
+| `Entity.Abstract`     | `<Name, S, A>`    | `<Name, S, A, G, I>` |
+| `Entity.BaseInstance` | `<S, A>`          | `<S, A, I>`          |
+
+Their top-level spellings moved with them: `EntityStatic<Tag, S, A, B?>` — the
+one place `B` was already exposed, so it went from six parameters to four —
+`AbstractEntity<Name, S, A>` and `BaseInstance<S, A>`.
+
+The dropped parameters were the generated- and immutable-key unions. They are
+computed inside each type's body from the flags `S` carries, and that is the
+whole point: a key union standing in **argument position** cannot be de-aliased
+by the emitter, so it re-serialises the entire field map at every appearance in
+a consumer's `.d.ts`. Measured on the billing fixture, the naive spelling grew
+the emitted declarations by 57.8%; computing the unions inside the bodies
+instead leaves ~90 bytes per flagged-field appearance, +8.0% total, and no
+`GeneratedKeys<` or `ImmutableKeys<` anywhere in the output.
+
 ## The declaration-emit names
 
-Nine types are exported at the top level: `AbstractEntity`, `BaseInstance`,
-`ConstructionKey`, `EntityStatic`, `EntityUnion`, `MergedComputed`,
-`MergedFields`, `Sealed`, `UnionMember`. They are the one exception to the
-single-import rule, and none of them is part of the API you write against. Eight
+Ten types are exported at the top level: `AbstractEntity`, `BaseInstance`,
+`ConstructionKey`, `EntityStatic`, `EntityUnion`, `FieldSpec`,
+`MergedComputed`, `MergedFields`, `Sealed`, `UnionMember`. They are the one
+exception to the single-import rule, and none of them is part of the API you
+write against. Nine
 also have namespace aliases for anyone annotating by hand — `Entity.Abstract`,
-`Entity.BaseInstance`, `Entity.ConstructionKey`, `Entity.MergedComputed`,
+`Entity.BaseInstance`, `Entity.ConstructionKey`, `Entity.FieldSpec`,
+`Entity.MergedComputed`,
 `Entity.MergedFields`, `Entity.Sealed`, `Entity.Static`, `Entity.Union` — but a
 consumer's _emitted declarations_ use the top-level names.
 
@@ -63,6 +88,7 @@ import type {
   ConstructionKey,
   EntityStatic,
   EntityUnion,
+  FieldSpec,
   MergedComputed,
   MergedFields,
   Sealed,
@@ -85,6 +111,11 @@ top-level name. What each one buys was measured, not assumed:
   (240 bytes with the name), a realistic enum crossed the serialisation
   ceiling (`TS7056`, issue #31), and a branded object field expanded until
   zod's module-private `$brand` symbol could not be named (`TS4020`, #32).
+- **`FieldSpec`** — what `Entity.field(schema, flags)` returns, and therefore
+  the declared type of every flagged field in a consumer's field map. Their
+  `.d.ts` has to name it. `emit-guards.ts` names it too: a namespace member
+  emitted as a circular self-alias still compiles, so only a fixture that walks
+  it catches the degradation.
 - **`AbstractEntity`** — the same story one declaration form over: a consumer
   writing `abstract class X extends Entity.abstract("X")(…) {}` emits the
   underlying name into its declarations, not the `Entity.Abstract` path that

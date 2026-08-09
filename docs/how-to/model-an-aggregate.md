@@ -42,6 +42,11 @@ class Order extends Entity("Order")({
 }) {}
 ```
 
+A nested entity is a field like any other in the second sense too: it can carry
+flags. `customer: Entity.field(Customer, { immutable: true })` makes the whole
+nested entity unpatchable, and the billing example's root does exactly that with
+its `issuedTo`.
+
 `Order` is a real entity: invariants, deep immutability, `make`, `update`,
 `toJSON`. The nested entities keep everything that makes _them_ entities:
 

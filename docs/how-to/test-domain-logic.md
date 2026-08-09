@@ -138,7 +138,7 @@ expect(trial.update({ trialEndsAt: earlier }).isErr()).toBe(true);
 ## Pin compile-time guarantees in `*.test-d.ts`
 
 Some behaviour only exists at the type level — the seal, the
-`generated`/`immutable` rules, a computed field being underivable. Those belong
+`generated`/`immutable` flags, a computed field being underivable. Those belong
 in a `.test-d.ts` file, checked by `tsc`:
 
 ```ts

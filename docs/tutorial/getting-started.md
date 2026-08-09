@@ -85,22 +85,25 @@ differ.
 Declare that:
 
 ```ts
-class Organization extends Entity("Organization")(
-  { id: OrgId, slug: Slug, name: DisplayName, createdAt: Instant },
-  {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
-  },
-) {}
+class Organization extends Entity("Organization")({
+  id: Entity.field(OrgId, { generated: true, immutable: true }),
+  slug: Entity.field(Slug, { immutable: true }),
+  name: DisplayName,
+  createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+}) {}
 ```
 
-- `generated` drops those fields from `createInput` — a create request cannot
-  carry them.
-- `immutable` drops them from `updateInput` — and `update()` rejects them at
-  runtime even if something smuggles them past the type, so a change that
+`Entity.field(schema, flags)` wraps a field that carries modifiers; `name`,
+which carries none, stays a bare schema.
+
+- `generated` drops that field from `createInput` — a create request cannot
+  carry it.
+- `immutable` drops it from `updateInput` — and `update()` rejects it at
+  runtime even if something smuggles it past the type, so a change that
   cannot happen is reported rather than quietly ignored.
 
-Both are keyed off the field names, so a typo is a compile error rather than a
+The flags sit on the field, so there is no second list to keep in step with the
+field names, and a misspelled flag (`imutable`) is a compile error rather than a
 silently-inert entry.
 
 ## 4. Create one
@@ -202,10 +205,13 @@ A single field's schema cannot express "these two fields must agree".
 
 ```ts
 class Organization extends Entity("Organization")(
-  { id: OrgId, slug: Slug, name: DisplayName, createdAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
+    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: DisplayName,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     invariants: [
       Entity.invariant(
         (d) => d.name.length <= 80,
@@ -231,10 +237,13 @@ Two different things live in a class, and they go in two different places:
 const Upper = z.string().min(1).brand("Upper");
 
 class Organization extends Entity("Organization")(
-  { id: OrgId, slug: Slug, name: DisplayName, createdAt: Instant },
   {
-    generated: ["id", "createdAt"],
-    immutable: ["id", "createdAt", "slug"],
+    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    slug: Entity.field(Slug, { immutable: true }),
+    name: DisplayName,
+    createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     computed: {
       shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },
@@ -266,7 +275,7 @@ org.name; // "Acme" — the original is unchanged
 renamed.equals(org); // false
 ```
 
-`org.update({ slug })` does not compile: `slug` is `immutable`.
+`org.update({ slug })` does not compile: `slug` is flagged `immutable`.
 
 ## 10. Send it over the wire
 
