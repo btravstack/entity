@@ -25,9 +25,17 @@ test("flags are extracted precisely", () => {
   Org.factory({ id: () => "", slug: () => "" });
 });
 
-test("an unbranded schema is rejected inside Entity.field too", () => {
-  // @ts-expect-error same named rejection as a bare unbranded field
-  Entity.field(z.string(), { immutable: true });
+test("an unbranded schema wrapped in Entity.field is rejected at the field map, not the call", () => {
+  // `field()` itself does no nominal check — the map-level `OnlyNominal` already unwraps
+  // `FieldSpec` (via `SchemaOf`) before judging, so a second check here would be redundant.
+  // The rejection surfaces at the map key rather than at this call, which type-checks fine
+  // on its own.
+  const spec = Entity.field(z.string(), { immutable: true });
+  class Bad extends Entity("Bad")({
+    // @ts-expect-error same named rejection as a bare unbranded field
+    id: spec,
+  }) {}
+  void Bad;
 });
 
 test("a misspelled flag name is a compile error, not a silently-mutable field", () => {

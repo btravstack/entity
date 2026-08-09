@@ -1,7 +1,5 @@
 import type { z } from "zod";
 
-import type { OnlyNominal } from "./shape.js";
-
 export type Flags = { readonly generated: boolean; readonly immutable: boolean };
 
 /**
@@ -31,7 +29,20 @@ type UnknownFlagIsRejected = { readonly __unknownFlagIsRejected: never };
  * object is legal and does nothing.
  */
 export function field<T extends z.core.$ZodType, const F extends Partial<Flags>>(
-  schema: T & OnlyNominal<{ value: T }>["value"],
+  // Bare `T`, not `T & OnlyNominal<{ value: T }>["value"]`: the intersection at an
+  // inference site measurably breaks zod's alias preservation. An unbranded schema
+  // intersected this way still resolved and was rejected, but every *branded* one paid
+  // for it too — `$ZodBranded<ZodString, "Slug", "out">` expanded to
+  // `ZodString & { _zod: { output: string & $brand<"Slug"> } }` in the emitted `.d.ts`,
+  // ~42 bytes per appearance (measured: -874 B / 21 flagged-field appearances in the
+  // billing-domain fixture's emitted .d.ts, removing this intersection), for a check
+  // that never had anything left to reject once the map-level check below ran.
+  // The map-level `OnlyNominal<S>` (`shape.ts`, applied at every `Entity(...)`/`extend`
+  // call site) already unwraps `FieldSpec` through `SchemaOf` before judging nominality,
+  // so an unbranded schema placed in `Entity.field(...)` is still rejected — the error
+  // just surfaces at the field-map key instead of at this call. See the map-position
+  // pin in `field.test-d.ts`.
+  schema: T,
   // Not bare `F`: a constraint is not an excess-property check, so
   // `{ generated: true, imutable: true }` satisfied `Partial<Flags>` and
   // compiled clean — measured, and the misspelled field was silently mutable.
