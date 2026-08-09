@@ -14,14 +14,8 @@ class Person extends Entity("Person")(
   {
     immutable: ["id"],
     computed: {
-      fullName: Entity.computed(
-        FullName,
-        (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>,
-      ),
-      initials: Entity.computed(
-        Initials,
-        (d) => `${d.first[0]}${d.last[0]}` as z.infer<typeof Initials>,
-      ),
+      fullName: Entity.computed(FullName, (d) => `${d.first} ${d.last}`),
+      initials: Entity.computed(Initials, (d) => `${d.first[0]}${d.last[0]}`),
     },
   },
 ) {}
@@ -107,10 +101,7 @@ test("an invariant constrains a computed value through its sources", () => {
     { id: PersonId, first: NamePart, last: NamePart },
     {
       computed: {
-        fullName: Entity.computed(
-          FullName,
-          (d) => `${d.first} ${d.last}` as z.infer<typeof FullName>,
-        ),
+        fullName: Entity.computed(FullName, (d) => `${d.first} ${d.last}`),
       },
       invariants: [
         Entity.invariant(
@@ -137,7 +128,7 @@ test("computed output failing its own schema is a defect, not bad input", () => 
     {
       // FullName requires at least 1 char; this returns an empty string
       computed: {
-        fullName: Entity.computed(FullName, () => "" as z.infer<typeof FullName>),
+        fullName: Entity.computed(FullName, () => ""),
       },
     },
   ) {}
@@ -165,7 +156,7 @@ test("a defect names the field that produced it", () => {
     { id: PersonId, first: NamePart, last: NamePart },
     {
       computed: {
-        initials: Entity.computed(Initials, () => "" as z.infer<typeof Initials>),
+        initials: Entity.computed(Initials, () => ""),
       },
     },
   ) {}

@@ -13,7 +13,7 @@ abstract class AccountBase extends Entity.abstract("Account")(
   {
     immutable: ["id"],
     computed: {
-      shout: Entity.computed(Upper, (d) => d.label.toUpperCase() as z.infer<typeof Upper>),
+      shout: Entity.computed(Upper, (d) => d.label.toUpperCase()),
     },
   },
 ) {
@@ -119,7 +119,7 @@ test("a redefined computed key takes the variant's type, not an intersection", (
     { note: Label },
     {
       computed: {
-        shout: Entity.computed(Label, (d) => d.label.toLowerCase() as z.infer<typeof Label>),
+        shout: Entity.computed(Label, (d) => d.label.toLowerCase()),
       },
     },
   ) {

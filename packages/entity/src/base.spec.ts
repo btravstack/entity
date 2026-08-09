@@ -13,7 +13,7 @@ abstract class AccountBase extends Entity.abstract("Account")(
   {
     immutable: ["id"],
     computed: {
-      shout: Entity.computed(Upper, (d) => d.label.toUpperCase() as z.infer<typeof Upper>),
+      shout: Entity.computed(Upper, (d) => d.label.toUpperCase()),
     },
     invariants: [Entity.invariant((d) => d.label.length <= 20, "label must be at most 20 chars")],
   },
@@ -181,7 +181,7 @@ test("a variant declaring computed keeps the root's", () => {
     { note: Label },
     {
       computed: {
-        murmur: Entity.computed(Label, (d) => d.label.toLowerCase() as z.infer<typeof Label>),
+        murmur: Entity.computed(Label, (d) => d.label.toLowerCase()),
       },
     },
   ) {
@@ -289,7 +289,7 @@ test("a variant redefining one computed key overrides that entry only", () => {
     { note: Label },
     {
       computed: {
-        shout: Entity.computed(Upper, (d) => `${d.label}!`.toUpperCase() as z.infer<typeof Upper>),
+        shout: Entity.computed(Upper, (d) => `${d.label}!`.toUpperCase()),
       },
     },
   ) {

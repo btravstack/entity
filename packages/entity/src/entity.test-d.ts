@@ -127,7 +127,7 @@ test("an invariant sees the declared fields, never a computed one", () => {
     { id: OrgId, slug: Slug },
     {
       computed: {
-        shout: Entity.computed(Upper, (d) => d.slug.toUpperCase() as z.infer<typeof Upper>),
+        shout: Entity.computed(Upper, (d) => d.slug.toUpperCase()),
       },
       invariants: [
         Entity.invariant((d) => {
@@ -143,7 +143,7 @@ test("an invariant sees the declared fields, never a computed one", () => {
   );
 });
 
-test("computed's function is contextually typed and must return brands", () => {
+test("computed's function is contextually typed over the declared fields, but its return needs no brand", () => {
   const Upper = z.string().brand("Upper");
   Entity("Probe2")(
     { id: OrgId, slug: Slug },
@@ -158,7 +158,7 @@ test("computed's function is contextually typed and must return brands", () => {
           // @ts-expect-error a plain string is not Upper
           const bad: { slugUpper: z.infer<typeof Upper> } = { slugUpper: "x" };
           void bad;
-          return "X" as z.infer<typeof Upper>;
+          return "X";
         }),
       },
     },
@@ -196,10 +196,10 @@ test("factory generators are functions, and must cover exactly the generated fie
   ) {}
 
   // `as never` would defeat every assertion below — it is assignable to any
-  // type, including a function — so these use real branded values.
-  const id = "0199b1f4-1b1e-7000-8000-000000000000" as z.infer<typeof OrgId>;
-  const at = "2026-08-06T09:00:00Z" as z.infer<typeof Instant>;
-  const slug = "s" as z.infer<typeof Slug>;
+  // type, including a function — so these use real values instead.
+  const id = "0199b1f4-1b1e-7000-8000-000000000000";
+  const at = "2026-08-06T09:00:00Z";
+  const slug = "s";
 
   Org.factory({ id: () => id, createdAt: () => at });
 
@@ -224,7 +224,7 @@ test("a computed field is immutable without being declared immutable", () => {
     { id: OrgId, slug: Slug },
     {
       computed: {
-        slugUpper: Entity.computed(Upper, (d) => d.slug.toUpperCase() as z.infer<typeof Upper>),
+        slugUpper: Entity.computed(Upper, (d) => d.slug.toUpperCase()),
       },
     },
   ) {}
@@ -311,7 +311,8 @@ test("producers are castless: from and generators take the schema's input", () =
   ) {}
   void Wrong;
 
-  // back-compat: a branded (cast) return still assigns — brand ⊂ input
+  // Legacy: the one deliberate producer cast left in the repo, kept as the
+  // back-compat net — do not sweep it.
   class Legacy extends Entity("Legacy")(
     { id: StampId, name: Slug },
     {
