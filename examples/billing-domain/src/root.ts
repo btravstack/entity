@@ -13,7 +13,7 @@ import { AccountingPeriod, Instant, Money } from "./vocabulary.js";
  * zod schema, so it parses back to a real `Organization`, behaviour and all.
  *
  * **Exported, and in a module of its own, on purpose.** A root's instance type
- * is the sixth type argument of every variant's `EntityStatic`, so it lands in
+ * is the fourth type argument of every variant's `EntityStatic`, so it lands in
  * the emitted `.d.ts` of whatever module the variants are exported from — and
  * it lands there two different ways. Kept beside its variants, TypeScript
  * synthesises a local `declare abstract class`; across a module boundary it has
@@ -37,10 +37,12 @@ import { AccountingPeriod, Instant, Money } from "./vocabulary.js";
  * on the value.
  */
 export abstract class BillingDocumentBase extends Entity.abstract("BillingDocument")(
-  { issuedTo: Organization, total: Money, issuedAt: Instant },
   {
-    generated: ["issuedAt"],
-    immutable: ["issuedAt", "issuedTo"],
+    issuedTo: Entity.field(Organization, { immutable: true }),
+    total: Money,
+    issuedAt: Entity.field(Instant, { generated: true, immutable: true }),
+  },
+  {
     computed: {
       period: Entity.computed(AccountingPeriod, (d) => d.issuedAt.slice(0, 7)),
     },
