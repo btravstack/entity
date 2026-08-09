@@ -272,6 +272,54 @@ test("an entity is final: extend lives on an abstract root", () => {
   Final.extend("Extended")({});
 });
 
+test("producers are castless: from and generators take the schema's input", () => {
+  const Upper = z.string().min(1).brand("Upper");
+  const StampId = z.uuid().brand("StampId");
+
+  // a computed derivation needs no cast — its value is parsed on every
+  // construction path, so the type asks for the schema's input
+  class Shouty extends Entity("Shouty")(
+    { id: StampId, name: Slug },
+    {
+      computed: {
+        shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
+      },
+    },
+  ) {}
+
+  // a generator needs no cast either — its value goes through make
+  const createShouty = Shouty.factory({});
+  void createShouty;
+  class Stamped extends Entity("Stamped")({ id: StampId, name: Slug }, { generated: ["id"] }) {}
+  const createStamped = Stamped.factory({
+    id: () => crypto.randomUUID(),
+  });
+  void createStamped;
+
+  // the tie to the field's own schema survives the loosening
+  class Wrong extends Entity("Wrong")(
+    { id: StampId, name: Slug },
+    {
+      computed: {
+        // @ts-expect-error a number is not the input of a string schema
+        shout: Entity.computed(Upper, (d) => d.name.length),
+      },
+    },
+  ) {}
+  void Wrong;
+
+  // back-compat: a branded (cast) return still assigns — brand ⊂ input
+  class Legacy extends Entity("Legacy")(
+    { id: StampId, name: Slug },
+    {
+      computed: {
+        shout: Entity.computed(Upper, (d) => d.name.toUpperCase() as z.infer<typeof Upper>),
+      },
+    },
+  ) {}
+  void Legacy;
+});
+
 test("the helper types name each shape", () => {
   const Instant = z.iso.datetime().brand("Instant");
   class Org extends Entity("Org")(

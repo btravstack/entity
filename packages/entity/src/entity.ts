@@ -191,8 +191,9 @@ export function Entity<Tag extends string>(tag: Tag) {
      * Only the derived values are checked, never the declared ones: those were
      * already validated against `input`, and re-running a field schema over
      * its own output is not a no-op — a non-idempotent transform applies twice,
-     * and a type-changing one rejects its own output. Checking the derived
-     * output is what makes `from`'s unchecked `as Brand` cast honest.
+     * and a type-changing one rejects its own output. This check is also why
+     * `from` may return the schema's plain `z.input`: the brand is applied by
+     * this parse, not demanded of the author.
      */
     const computedParsers = computedFields.map(
       ([key, f]) => [key, f.from, fromSchema(f.schema)] as const,

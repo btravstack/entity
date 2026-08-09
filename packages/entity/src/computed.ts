@@ -5,7 +5,12 @@ import type { OnlyNominal } from "./shape.js";
 /** One derived field: its schema, and the function that produces it. */
 export type ComputedField<T extends z.core.$ZodType, D> = {
   readonly schema: T;
-  readonly from: (d: D) => z.infer<T>;
+  // `z.input`, not `z.infer`: the produced value goes straight to this
+  // schema's own parser on every construction path, so demanding the branded
+  // output only forced an `as` cast the parse then re-proved. The input form
+  // is castless and still rejects a wrong type; a branded return still
+  // assigns (brand ⊂ unbranded input), so pre-existing casts keep compiling.
+  readonly from: (d: D) => z.input<T>;
 };
 
 /**
@@ -21,12 +26,12 @@ export type ComputedField<T extends z.core.$ZodType, D> = {
  * `from` reads the declared fields and re-runs on every construction, so a
  * derived value cannot go stale against its sources. `D` is fixed by the
  * expected type at the call site, so `d` needs no annotation, and the return
- * type is checked against *this* field's schema — a wrong brand reports on the
+ * type is checked against *this* field's schema — a wrong type reports on the
  * field that produced it rather than on the whole map.
  */
 export function computed<T extends z.core.$ZodType, D>(
   schema: T & OnlyNominal<{ value: T }>["value"],
-  from: (d: D) => z.infer<T>,
+  from: (d: D) => z.input<T>,
 ): ComputedField<T, D> {
   return { schema: schema as T, from };
 }

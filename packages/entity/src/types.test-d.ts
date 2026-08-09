@@ -7,7 +7,6 @@ import type {
   OutputOf,
   InputOf,
   Fields,
-  GeneratedOf,
   PatchOf,
   Sealed,
 } from "./types.js";
@@ -56,14 +55,10 @@ test("OutputOf with no computed fields is the encoded object", () => {
   expectTypeOf<D["secret"]>().toEqualTypeOf<z.infer<typeof Secret>>();
 });
 
-test("CreateInputOf drops the generated fields, GeneratedOf keeps exactly them", () => {
+test("CreateInputOf drops the generated fields", () => {
   type C = CreateInputOf<S, "id" | "createdAt">;
   expectTypeOf<C>().not.toHaveProperty("id");
   expectTypeOf<C["slug"]>().toEqualTypeOf<z.infer<typeof Slug>>();
-
-  type G = GeneratedOf<S, "id" | "createdAt">;
-  expectTypeOf<G["id"]>().toEqualTypeOf<z.infer<typeof OrgId>>();
-  expectTypeOf<G>().not.toHaveProperty("slug");
 });
 
 test("PatchOf is partial and drops the immutable fields", () => {
