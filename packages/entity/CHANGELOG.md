@@ -1,5 +1,127 @@
 # @btravstack/entity
 
+## 0.4.0
+
+### Minor Changes
+
+- 3ba6b63: Add `Entity.abstract(name)(fields, options?)`, a tagless root that carries shared
+  fields **and shared behaviour** into every entity extended from it, and make
+  `Entity.union(...)` return a class so a union can be declared with
+  `class X extends Entity.union(...) {}` and used as a type. `Entity.Instance<T>`
+  recovers an entity's or a union's instance type.
+
+  A root is a real supertype: `variant instanceof Root` is true, an `abstract`
+  member on the root is enforced on every variant (`TS2515`), and a
+  behaviour-only intermediate `abstract class` between the two is picked up. A
+  union's class body is for **statics** — it has no instances, and as a type it is
+  the root its members share; `Entity.Instance<typeof X>` is the exact member
+  union.
+
+  **Breaking:** `extend` is no longer on an entity — an entity is final. Wrap the
+  shared fields in an abstract root and declare both entities as variants of it:
+
+  ```ts
+  // before
+  class Person extends Entity("Person")({ id: Id, name: Name }) {}
+  class PersonWithAge extends Person.extend("PersonWithAge")({ age: Age }) {}
+
+  // after
+  abstract class PersonBase extends Entity.abstract("Person")({
+    id: Id,
+    name: Name,
+  }) {}
+  class Person extends PersonBase.extend("Person")({}) {}
+  class PersonWithAge extends PersonBase.extend("PersonWithAge")({
+    age: Age,
+  }) {}
+  ```
+
+  A root is where behaviour shared by every variant lives, which is what the old
+  `extend` could not carry: it rebuilt from the declaration alone, so class-body
+  members had to be written again per extension.
+
+- c554864: `extend` options now accumulate instead of replacing. `generated` and
+  `immutable` concatenate root-then-variant, and `computed` merges per key — the
+  rule `invariants` already followed. A variant adds to what its root declared and
+  can no longer shed it.
+
+  Before, a variant that declared `immutable` replaced the root's list wholesale,
+  so this silently made `issuedAt` and `issuedTo` patchable:
+
+  ```ts
+  // root
+  abstract class BillingDocumentBase extends Entity.abstract("BillingDocument")(
+    fields,
+    { immutable: ["issuedAt", "issuedTo"] },
+  ) {}
+  // variant — before this change, the root's two were gone, with no diagnostic
+  class Invoice extends BillingDocumentBase.extend("Invoice")(fields, {
+    immutable: ["id", "kind"],
+  }) {}
+  ```
+
+  Now the variant's effective list is all four, and re-stating inherited keys is
+  unnecessary — delete them.
+
+  `computed` merges per key rather than concatenating, because it is a map: a
+  variant may add a derived field beside the root's, and may redefine one, but
+  cannot drop it. A redefined key gives the variant's schema and derivation on
+  `output.shape`, `toJSON()` and `Entity.Output`. One measured caveat: the
+  **instance** property keeps the root's type intersected in, because a root's
+  instance type is carried into every variant unmapped and subtracting from it is
+  what `TS2425` forbids. Read a redefined key off `Entity.Output` where its exact
+  type matters.
+
+  **Breaking, in two ways.**
+
+  Relaxing is no longer expressible: `immutable: []` in a variant does not widen
+  `updateInput`. Code relying on it breaks loudly — `updateInput` shrinks, so the
+  patch call stops typechecking rather than changing behaviour silently. To fix
+  it, move the key the other way: a field only some variants need locked comes off
+  the root's `immutable` and goes on each variant that wants it locked. The end
+  state is the same, and it is the only direction still expressible — a variant
+  can add to what the root declared, never subtract from it.
+
+  `Entity.Static<…>`'s fourth and fifth arguments are now unions of keys rather
+  than tuples, so the empty case is `never`:
+
+  ```ts
+  // before
+  type Before = Entity.Static<
+    "Organization",
+    { slug: typeof Slug },
+    Record<never, never>,
+    [],
+    []
+  >;
+  // after
+  type After = Entity.Static<
+    "Organization",
+    { slug: typeof Slug },
+    Record<never, never>,
+    never,
+    never
+  >;
+  ```
+
+  The tuple form could not express the merge — `readonly [...I, ...I2]` is
+  rejected with `TS2344`, because TypeScript will not prove the parent's key set is
+  a subset of the child's through zod's inference chain.
+
+  The same `TS2344` loosens the constraint on both. `Entity.Static` and
+  `Entity.BaseInstance` now take any `PropertyKey` where they previously required a
+  tuple constrained to `keyof`; tightening one back on its own reintroduces the
+  error, so it is not fixable asymmetrically. Hand-written entity declarations are
+  unaffected — the builders still constrain the real call sites — but both are
+  named in consumers' emitted declarations, which is why it is listed here.
+
+  For the same reason there is one new exported name, `MergedComputed` (and
+  `Entity.MergedComputed`): it is what `extend` hands `Entity.Static` as its
+  computed map, so it lands in the `.d.ts` of any library that declares a variant.
+  Not something to write against — written inline, the merge emitted an
+  unsubstituted type parameter and failed consumers on TypeScript 5.9.3 with
+  `TS2304: Cannot find name 'A2'`.
+
 ## 0.3.0
 
 ### Minor Changes
