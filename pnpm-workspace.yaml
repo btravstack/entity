@@ -23,7 +23,7 @@ catalog:
   # generation, the `[jsonSchema, optional]` return shape with no "unsupported"
   # flag). `@orpc/zod`'s stable "latest" line (1.x) predates the v2 API this
   # package's contract tests exercise.
-  "@orpc/zod": 2.0.0-beta.24
+  "@orpc/zod": 2.0.0-beta.25
   # Same release train as `@orpc/zod` above — the billing-api example defines a
   # contract and converts it to JSON Schema in the same file, so they move together.
   "@orpc/contract": 2.0.0-beta.24
