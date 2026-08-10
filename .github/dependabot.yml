@@ -20,6 +20,9 @@ updates:
       btravstack:
         patterns:
           - "@btravstack/*"
+      orpc:
+        patterns:
+          - "@orpc/*"
     open-pull-requests-limit: 10
 
   - package-ecosystem: "github-actions"
