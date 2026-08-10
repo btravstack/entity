@@ -31,8 +31,8 @@ catalogs:
       specifier: 21.2.1
       version: 21.2.1
     '@orpc/contract':
-      specifier: 2.0.0-beta.24
-      version: 2.0.0-beta.24
+      specifier: 2.0.0-beta.25
+      version: 2.0.0-beta.25
     '@orpc/json-schema':
       specifier: 2.0.0-beta.24
       version: 2.0.0-beta.24
@@ -173,7 +173,7 @@ importers:
         version: link:../billing-domain
       '@orpc/contract':
         specifier: 'catalog:'
-        version: 2.0.0-beta.24
+        version: 2.0.0-beta.25
       '@orpc/json-schema':
         specifier: 'catalog:'
         version: 2.0.0-beta.24
