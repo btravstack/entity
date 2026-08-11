@@ -64,11 +64,11 @@ clause, and inferring the arrow's return type forces the class to resolve
 mid-declaration. The annotation preempts that inference, and the body is
 checked later, once the class exists.
 
-The annotation is not an escape hatch — it is checked on both faces. A static
-returning the wrong type errors in the deriver body, on the offending line; an
-annotation disagreeing with the schema (or widened to `unknown`) errors at the
-`Entity.computed` call. And `d` stays contextually typed: an undeclared field
-is still a compile error.
+The annotation is not an escape hatch — it is checked on both faces, and both
+report as `TS2322` on the deriver's return expression: a body disagreeing with
+the annotation, and an annotation disagreeing with the schema (or widened to
+`unknown`). And `d` stays contextually typed: an undeclared field is still a
+compile error.
 
 The same rule and the same fix apply to `Entity.invariant`.
 

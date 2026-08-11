@@ -74,13 +74,13 @@ class WrongBody extends Entity("WrongBody")(
   { id: Entity.field(Id, { immutable: true }), tags: z.array(Tag) },
   {
     computed: {
-      // @ts-expect-error the static's boolean is not assignable to the `string` annotation
-      active: Entity.computed(z.boolean(), (d): string => WrongBody.isActive(d.tags)),
+      // @ts-expect-error the static's string is not assignable to the `boolean` annotation
+      active: Entity.computed(z.boolean(), (d): boolean => WrongBody.label(d.tags)),
     },
   },
 ) {
-  static isActive(tags: Tags): boolean {
-    return !tags.includes("ARCHIVED");
+  static label(tags: Tags): string {
+    return tags.join(",");
   }
 }
 
@@ -147,6 +147,42 @@ class Unannotated extends Entity("Unannotated")(
   }
 }
 
+// Unannotated deriver on an `Entity.abstract` root: same failure mode, same
+// fix — the root builder is `base.ts`, a different builder than `entity.ts`.
+// @ts-expect-error TS2506 — the class is referenced in its own base expression
+abstract class UnannotatedRoot extends Entity.abstract("UnannotatedRoot")(
+  { id: Entity.field(Id, { immutable: true }), tags: z.array(Tag) },
+  {
+    computed: {
+      // @ts-expect-error TS7024 — the deriver's return type cannot be inferred
+      active: Entity.computed(z.boolean(), (d) => UnannotatedRoot.isActive(d.tags)),
+    },
+  },
+) {
+  static isActive(tags: Tags): boolean {
+    return !tags.includes("ARCHIVED");
+  }
+}
+
+// Unannotated deriver on a `.extend` variant referencing its OWN static: same
+// failure mode, same fix. A variant referencing the ROOT's statics needs no
+// annotation (`Variant.calm` above) — but its own statics are no different
+// from any other self-reference.
+// @ts-expect-error TS2506 — the class is referenced in its own base expression
+class UnannotatedVariant extends Root.extend("UnannotatedVariant")(
+  { note: z.string().brand("Note") },
+  {
+    computed: {
+      // @ts-expect-error TS7024 — the deriver's return type cannot be inferred
+      loud: Entity.computed(z.boolean(), (d) => UnannotatedVariant.isLoud(d.note)),
+    },
+  },
+) {
+  static isLoud(note: string): boolean {
+    return note === note.toUpperCase();
+  }
+}
+
 // Unannotated invariant: same failure mode, same fix.
 // @ts-expect-error TS2506 — the class is referenced in its own base expression
 class BadRule extends Entity("BadRule")(
@@ -184,5 +220,15 @@ class ViaThis extends Entity("ViaThis")(
 }
 
 test("the dead-end classes still type as entities where suppressed", () => {
-  void [Unannotated, BadRule, ViaThis, WrongBody, WrongSchema, TooWide, StillTyped];
+  void [
+    Unannotated,
+    UnannotatedRoot,
+    UnannotatedVariant,
+    BadRule,
+    ViaThis,
+    WrongBody,
+    WrongSchema,
+    TooWide,
+    StillTyped,
+  ];
 });
