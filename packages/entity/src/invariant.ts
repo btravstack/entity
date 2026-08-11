@@ -34,6 +34,11 @@ export type Invariant<D> = {
  * carries the deferred `ComputedOf<A>` conditional, and `A` is not yet resolved
  * when this array is checked, so `d` would degrade to a bag of `unknown`.
  *
+ * A predicate calling the entity's **own** statics needs an explicit return
+ * annotation — `(d): boolean => Doc.isActive(d.tags)` — or the class resolves
+ * inside its own base expression (TS2506). Same idiom as `computed`; pinned in
+ * `computed.test-d.ts`.
+ *
  * `message` takes the data when the text depends on it. Every failing rule in
  * the list reports, not just the first, and none carries a `path`: an invariant
  * spans the entity, which is what distinguishes it from a field complaint.
