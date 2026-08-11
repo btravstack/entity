@@ -137,6 +137,11 @@ computed: {
 against **that field's** schema. A computed field cannot read another computed
 field — every derivation is a function of declared data only.
 
+A deriver may call the entity's **own** statics, given an explicit return
+annotation — `(d): boolean => Doc.isActive(d.tags)`. Why the unannotated form
+is `TS2506`:
+[Self-referencing derivers](/explanation/computed-fields#self-referencing-derivers).
+
 Output that fails its own schema is a `Defect`, named for the field
 (`Person.computed.initials: …`).
 
@@ -177,6 +182,10 @@ is already a Defect rather than something to re-check here.
 
 A predicate that throws is a Defect, not an `InvalidEntity`, on the same
 reasoning as `computed`.
+
+A predicate calling the entity's **own** statics needs the same explicit
+return annotation as a
+[computed deriver](/explanation/computed-fields#self-referencing-derivers).
 
 ## `Entity.abstract(name)(fields, options?)`
 
