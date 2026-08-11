@@ -28,6 +28,13 @@ export type ComputedField<T extends z.core.$ZodType, D> = {
  * expected type at the call site, so `d` needs no annotation, and the return
  * type is checked against *this* field's schema — a wrong type reports on the
  * field that produced it rather than on the whole map.
+ *
+ * A deriver may call the entity's **own** statics, given an explicit return
+ * annotation — `(d): boolean => Doc.isActive(d.tags)`. The unannotated form is
+ * TS2506: the options object sits in the `extends` clause, and inferring the
+ * arrow's return resolves the class mid-declaration; the annotation preempts
+ * that, and is still checked against both the body and the schema. Pinned in
+ * `computed.test-d.ts`.
  */
 export function computed<T extends z.core.$ZodType, D>(
   schema: T & OnlyNominal<{ value: T }>["value"],
