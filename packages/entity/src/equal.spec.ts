@@ -1,7 +1,8 @@
+import { isDeepStrictEqual as deepEqual } from "node:util";
+
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { deepEqual } from "./equal.js";
 import { Entity } from "./index.js";
 
 const Id = z.uuid().brand("Id");

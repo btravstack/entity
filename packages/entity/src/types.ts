@@ -266,8 +266,7 @@ type ConstructedInstance<Tag extends string, S extends Fields, A extends Schemas
  * (TS2509). `string & "Personal"` reduces to `"Personal"`, which is exactly
  * what the variant needs.
  */
-export type RootInstance<S extends Fields, A extends Schemas> = BaseInstance<S, A> &
-  DeepReadonly<OutputOf<S, A>> & { readonly _tag: string };
+export type RootInstance<S extends Fields, A extends Schemas> = ConstructedInstance<string, S, A>;
 
 /**
  * Whatever the receiver's own class body added, carried **unmapped**.

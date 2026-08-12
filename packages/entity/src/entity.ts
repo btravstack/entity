@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
 import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthrown";
 import type { z } from "zod";
@@ -5,7 +7,6 @@ import type { z } from "zod";
 import type { BuildEntity } from "./base.js";
 import { createBase, record } from "./base.js";
 import { computed, type ComputedField } from "./computed.js";
-import { deepEqual } from "./equal.js";
 import { InvalidEntity } from "./errors.js";
 import { field, isFieldSpec, type FieldSpec, type Flags } from "./field.js";
 import { deepFreeze } from "./freeze.js";
@@ -355,11 +356,13 @@ export function Entity<Tag extends string>(tag: Tag) {
        * Compares the projected data structurally, not by `JSON.stringify`:
        * serialising threw on a `bigint` field, equated `Set`/`Map`/typed-array
        * fields with different contents, and reported a nested record as changed
-       * when only its key order differed. See `equal.ts`.
+       * when only its key order differed. `node:util`'s `isDeepStrictEqual`
+       * handles all three, plus cycles — every case is pinned in
+       * `equal.spec.ts`. It is what makes this package Node-only.
        */
       equals(other: unknown): boolean {
         if (!(other instanceof Base)) return false;
-        return deepEqual(project(this), project(other));
+        return isDeepStrictEqual(project(this), project(other));
       }
 
       /**
