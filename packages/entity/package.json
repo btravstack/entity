@@ -48,7 +48,6 @@
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
-    "test:types": "tsc --noEmit -p tsconfig.test-d.json",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test-d.json"
   },
   "devDependencies": {

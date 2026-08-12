@@ -1,29 +1,23 @@
 import { z } from "zod";
 
-import { schemaOf } from "./field.js";
+import { isFieldSpec } from "./field.js";
 import type { Fields, SchemaOf, SchemasOf } from "./types.js";
 
 /** A field is nominal if its inferred type is branded, or is already non-interchangeable. */
 type Nominal = z.core.$brand<string | symbol> | boolean;
 
 /**
- * True when `Wide` is assignable to `Candidate` — i.e. `Candidate` is at
- * least as wide as `Wide`. Wrapped in a tuple so union `Candidate`s are
- * compared as a whole rather than distributed member-by-member.
- */
-type IsAtLeastAsWideAs<Candidate, Wide> = [Wide] extends [Candidate] ? true : false;
-
-/**
  * A string/number literal union (e.g. a `z.enum(...)`) is narrow: the wide
  * primitive it's drawn from is not assignable to it. Bare `string`/`number`
- * are the wide primitives themselves and are rejected.
+ * are the wide primitives themselves and are rejected. Each test is
+ * tuple-wrapped so a union `T` is compared as a whole rather than distributed.
  */
 type IsNarrowLiteral<T> = T extends string
-  ? IsAtLeastAsWideAs<T, string> extends true
+  ? [string] extends [T]
     ? false
     : true
   : T extends number
-    ? IsAtLeastAsWideAs<T, number> extends true
+    ? [number] extends [T]
       ? false
       : true
     : false;
@@ -100,7 +94,9 @@ type OnlyNominal<T extends Fields> = {
 
 /** The only sanctioned way to declare a domain shape. */
 export function shape<T extends Fields>(fields: T & OnlyNominal<T>): z.ZodObject<SchemasOf<T>> {
-  const unwrapped = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, schemaOf(v)]));
+  const unwrapped = Object.fromEntries(
+    Object.entries(fields).map(([k, v]) => [k, isFieldSpec(v) ? v.schema : v]),
+  );
   return z.object(unwrapped as SchemasOf<T>);
 }
 

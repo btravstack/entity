@@ -15,7 +15,6 @@
     "prepare": "lefthook install",
     "release": "pnpm build && changeset publish",
     "test": "turbo run test",
-    "test:types": "turbo run test:types",
     "typecheck": "turbo run typecheck",
     "version": "changeset version"
   },

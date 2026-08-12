@@ -85,7 +85,7 @@ cannot run against it. Measured — the reason is inline in
 
 ## Architecture
 
-Thirteen source modules under `packages/entity/src` besides `index.ts`, split by
+Twelve source modules under `packages/entity/src` besides `index.ts`, split by
 what they own:
 
 - **`entity.ts`** — the builder. `Entity(tag)(fields, options)` derives the
@@ -130,11 +130,13 @@ what they own:
   keys and the tag — a bare-schema redeclaration used to drop the root's flags
   silently. Built against a loosened `BuildEntity` passed in from `entity.ts`, so
   this module imports no builder and there is no cycle.
-- **`equal.ts`** — `deepEqual`, the primitive behind `equals`. Not
-  `JSON.stringify`: that **threw** on a `bigint` field, compared `Set`/`Map`/
-  typed-array fields with different contents as **equal**, and reported a
-  nested record as changed when only its key order differed. All three were
-  measured; `equal.spec.ts` pins them.
+- **Equality** — `equals` is `node:util`'s **`isDeepStrictEqual`**, not `JSON.stringify` and
+  not a hand-rolled walk: serialising **threw** on a `bigint` field, compared
+  `Set`/`Map`/typed-array fields with different contents as **equal**, and
+  reported a nested record as changed when only its key order differed. All
+  three were measured, as was the cyclic-field stack overflow;
+  `equal.spec.ts` pins every one against the stdlib function. This import is
+  what makes the package **Node-only**.
 - **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
   and recurses into arrays and plain objects, freezes `Date` as a leaf, and
   deliberately leaves `Map`/`Set`/class instances alone. Which _fields_ to skip

@@ -81,7 +81,6 @@ const discriminantValues = (member: UnionMember, discriminant: string): readonly
   // form that makes the singular `.value` getter throw.
   const values: unknown = schema?.values;
   if (values instanceof Set) return [...values];
-  if (Array.isArray(values)) return values;
 
   // `z.enum([...])` — `.options` is the declared member list.
   const options: unknown = schema?.options;

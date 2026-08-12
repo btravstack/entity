@@ -90,5 +90,3 @@ export const isFieldSpec = (v: unknown): v is FieldSpec<z.core.$ZodType, Flags> 
   Object.hasOwn(v, "schema") &&
   Object.hasOwn(v, "flags") &&
   !("_zod" in v);
-
-export const schemaOf = (entry: unknown): unknown => (isFieldSpec(entry) ? entry.schema : entry);

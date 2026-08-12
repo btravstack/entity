@@ -281,32 +281,5 @@ export default defineConfig({
         keywords: "TypeScript, zod, domain-driven design, entity, immutability, Result",
       }),
     ],
-    // WebSite JSON-LD for proper site name display in Google search
-    [
-      "script",
-      { type: "application/ld+json" },
-      JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: "entity",
-        url: SITE_URL,
-      }),
-    ],
-    // Organization JSON-LD for logo display in Google search
-    [
-      "script",
-      { type: "application/ld+json" },
-      JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: "entity",
-        url: SITE_URL,
-        logo: {
-          "@type": "ImageObject",
-          url: `${SITE_URL}logo.svg`,
-        },
-        sameAs: ["https://github.com/btravstack/entity"],
-      }),
-    ],
   ],
 });
