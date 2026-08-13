@@ -97,6 +97,11 @@ overrides:
   # Pinning vitest's vite apart would mean an inline `vite` devDependency on the
   # library package for a purely transitive concern; not worth it.
   "vite@<6.4.3": "6.4.3"
+  # GHSA-2v37-7h3g-55p8 (High): nanoid custom generators can loop indefinitely
+  # when size is zero. Reaches us only through the docs build —
+  # docs > @btravstack/theme > vitepress > postcss > nanoid — never the shipped
+  # package. 3.3.18 is the first release patched for the widened range.
+  "nanoid@<3.3.18": "3.3.18"
 
 peerDependencyRules:
   ignoreMissing:
