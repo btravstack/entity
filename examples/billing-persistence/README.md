@@ -47,3 +47,25 @@ persistence.
 
 See also the how-to: [Persist and
 rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate).
+
+## Gapless numbering
+
+`numbering.ts` is the other half of writing an entity down: giving it a number
+a regulator will count. A `DraftInvoice` has no `number` field at all, an
+`IssuedInvoice` has one that is `generated` and `immutable`, and both are
+variants of one root — so the numberless state is not a nullable column typed
+into every read site forever.
+
+```ts
+issue(numbers, at)(draft); // DraftInvoice → Result<IssuedInvoice, InvalidEntity>
+```
+
+The counter here is a `Map`, standing in for `update invoice_counter set last =
+last + 1 … returning last` inside the transaction that writes the row. That
+transaction is where gaplessness actually comes from: a database _sequence_
+hands out numbers outside it, so a rollback burns one permanently. The spec
+pins the case that proves it — an invariant rejecting an issue **after** the
+number was allocated, and the next invoice still taking that number.
+
+See also the how-to: [Number without
+gaps](https://btravstack.github.io/entity/how-to/number-without-gaps).
