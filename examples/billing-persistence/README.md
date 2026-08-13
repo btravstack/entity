@@ -57,7 +57,7 @@ variants of one root — so the numberless state is not a nullable column typed
 into every read site forever.
 
 ```ts
-issue(numbers, at)(draft); // DraftInvoice → Result<IssuedInvoice, InvalidEntity>
+await issue(numbers, at)(draft); // DraftInvoice → AsyncResult<IssuedInvoice, InvalidEntity>
 ```
 
 The counter here is a `Map`, standing in for `update invoice_counter set last =

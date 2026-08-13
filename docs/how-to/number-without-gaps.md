@@ -46,13 +46,15 @@ alter table invoice add constraint uq_invoice_number unique (series, number);
 ```
 
 ```ts
-const allocateNumber = async (tx: Tx, series: string) =>
-  (
-    await tx.query(
-      `update invoice_counter set last = last + 1 where series = $1 returning last`,
-      [series],
-    )
-  ).rows[0].last as InvoiceNumber;
+const allocateNumber = async (tx: Tx, series: string) => {
+  const { rows } = await tx.query(
+    `update invoice_counter set last = last + 1 where series = $1 returning last`,
+    [series],
+  );
+  // A driver hands back `unknown`. Mint the brand by parsing it, never by
+  // asserting it — the row is data crossing a boundary like any other.
+  return InvoiceNumber.parse(rows[0].last);
+};
 ```
 
 The row lock that `update` takes serialises concurrent writers, and the
