@@ -22,6 +22,7 @@ const GUIDE_SIDEBAR = [
       { text: "Persist and rehydrate", link: "/how-to/persist-and-rehydrate" },
       { text: "Evolve an entity", link: "/how-to/evolve-an-entity" },
       { text: "Model an aggregate", link: "/how-to/model-an-aggregate" },
+      { text: "Number without gaps", link: "/how-to/number-without-gaps" },
       { text: "Test domain logic", link: "/how-to/test-domain-logic" },
     ],
   },
