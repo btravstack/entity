@@ -1,7 +1,7 @@
 name: "Setup Node.js and pnpm"
 description: "Setup Node.js and pnpm, install dependencies"
 
-# CI and Release call btravstack/tools's reusable workflows, which do their own
+# CI and Release call the reusable workflows in btravstack/tools, which do their own
 # setup. This composite exists for Deploy Documentation, which runs its own
 # steps in this repo and needs the same toolchain.
 
