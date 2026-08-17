@@ -17,7 +17,7 @@ catalog:
   "@btravstack/tsconfig": 0.2.0
   "@btravstack/typedoc": 0.1.0
   "@changesets/cli": 2.31.1
-  "@commitlint/cli": 21.2.1
+  "@commitlint/cli": 21.2.2
   # Pinned to the exact prerelease the package's design doc measured
   # `ZodToJsonSchemaConverter`'s behaviour against (dual-direction JSON Schema
   # generation, the `[jsonSchema, optional]` return shape with no "unsupported"
