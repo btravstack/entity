@@ -36,8 +36,8 @@ catalog:
   "@unthrown/vitest": 5.1.0
   knip: 6.32.0
   lefthook: 2.1.10
-  oxfmt: 0.62.0
-  oxlint: 1.77.0
+  oxfmt: 0.63.0
+  oxlint: 1.78.0
   tsdown: 0.22.14
   turbo: 2.10.8
   typedoc: 0.28.20
