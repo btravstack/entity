@@ -31,14 +31,14 @@ catalogs:
       specifier: 21.2.1
       version: 21.2.1
     '@orpc/contract':
-      specifier: 2.0.0-beta.25
-      version: 2.0.0-beta.25
+      specifier: 2.0.0-beta.27
+      version: 2.0.0-beta.27
     '@orpc/json-schema':
-      specifier: 2.0.0-beta.25
-      version: 2.0.0-beta.25
+      specifier: 2.0.0-beta.27
+      version: 2.0.0-beta.27
     '@orpc/zod':
-      specifier: 2.0.0-beta.25
-      version: 2.0.0-beta.25
+      specifier: 2.0.0-beta.27
+      version: 2.0.0-beta.27
     '@types/node':
       specifier: 26.1.2
       version: 26.1.2
@@ -147,7 +147,7 @@ importers:
     devDependencies:
       '@btravstack/theme':
         specifier: 'catalog:'
-        version: 2.0.0(vitepress@1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.25)(typescript@6.0.3)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))
+        version: 2.0.0(vitepress@1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.26)(typescript@6.0.3)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))
       '@btravstack/typedoc':
         specifier: 'catalog:'
         version: 0.1.0(typedoc-plugin-markdown@4.12.0(typedoc@0.28.20(typescript@6.0.3)))(typedoc@0.28.20(typescript@6.0.3))
@@ -165,7 +165,7 @@ importers:
         version: 6.0.3
       vitepress:
         specifier: 'catalog:'
-        version: 1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.25)(typescript@6.0.3)(yaml@2.9.0)
+        version: 1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.26)(typescript@6.0.3)(yaml@2.9.0)
 
   examples/billing-api:
     dependencies:
@@ -174,13 +174,13 @@ importers:
         version: link:../billing-domain
       '@orpc/contract':
         specifier: 'catalog:'
-        version: 2.0.0-beta.25
+        version: 2.0.0-beta.27
       '@orpc/json-schema':
         specifier: 'catalog:'
-        version: 2.0.0-beta.25
+        version: 2.0.0-beta.27
       '@orpc/zod':
         specifier: 'catalog:'
-        version: 2.0.0-beta.25(zod@4.4.3)
+        version: 2.0.0-beta.27(zod@4.4.3)
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -273,7 +273,7 @@ importers:
         version: 0.2.0
       '@orpc/zod':
         specifier: 'catalog:'
-        version: 2.0.0-beta.25(zod@4.4.3)
+        version: 2.0.0-beta.27(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.1.2
@@ -823,6 +823,13 @@ packages:
       '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.3
       '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.3
 
+  '@napi-rs/wasm-runtime@1.2.3':
+    resolution: {integrity: sha512-UMduMbqO5s5zF2NkNacMT/yK5Y5QiKvWr2+50bzIIxFDwVJ2h49b+oyjaCGPhJxd2/gC2x39EHv/gHVuu36x2Q==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=23.5.0}
+    peerDependencies:
+      '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.4
+      '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.4
+
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
     engines: {node: '>= 8'}
@@ -835,17 +842,17 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@orpc/client@2.0.0-beta.25':
-    resolution: {integrity: sha512-DnSLYhXX1qLPwsQA8Dx6rDwRl5zswp/ClhIZDWaLi8OP/g38Jepf9Q7Qp5QpE2wpZrnQZqaXIJ7HECCwGJRB9Q==}
+  '@orpc/client@2.0.0-beta.27':
+    resolution: {integrity: sha512-wQ9D0ghcmGvC6+pkC7ccWm3syNs8/hvh257jmz+j+bdEYwSgDhxa1BVi70T4/IoAhbf0d6ohRYp78zlm9wchhQ==}
 
-  '@orpc/contract@2.0.0-beta.25':
-    resolution: {integrity: sha512-bTbpTh1LWDas2NR2sVoeTv80NqUoCClThKDsSNLKag5wh7QrLL7zU2VEddJ/z9KUkpTSGVYtzTLyHKn5aYs2tQ==}
+  '@orpc/contract@2.0.0-beta.27':
+    resolution: {integrity: sha512-8gER4DaJ1jFYyCTc2kS4+oCsaEvi1WUwSnXhhVsnfog5Mw0MmHI7nWXIrVN/zVILrLJNxoTbPWM/mdY6qJndsQ==}
 
-  '@orpc/json-schema@2.0.0-beta.25':
-    resolution: {integrity: sha512-B6N7qf9mi5UQ7Dz1+LTiTpP9tzsh1DEMM4zsEgLsZ9wGb3WhXU2bZ4ENgiIDScqnnhbFVVbQ3lE3oouJo9N60Q==}
+  '@orpc/json-schema@2.0.0-beta.27':
+    resolution: {integrity: sha512-duyJOLKeSpnkeaOnBzj7AINncAaSbEKHEonGuIU3pHT/3cBpBJbVDn2QDUPsw7MmD7WFvDskfLUUZQ4vqcD1yw==}
 
-  '@orpc/server@2.0.0-beta.25':
-    resolution: {integrity: sha512-qyEWWKTYGVh4HyFb0OLPQsojIWnb3DcAdmzGvce1JGIizv5yVpov9dhxPZKCLNrQHsgbTTP7+KTaby4p8AhrDQ==}
+  '@orpc/server@2.0.0-beta.27':
+    resolution: {integrity: sha512-OisRMmqfCOrF7+zX2maGJSGtl/xukeNo5ooPOlyQBH5z/V8Og9VE81AcmOso9P+LXWyn8syNs+tSyS7EEJN8jQ==}
     peerDependencies:
       crossws: '>=0.3.4'
       fastify: '>=5.6.1'
@@ -855,16 +862,16 @@ packages:
       fastify:
         optional: true
 
-  '@orpc/shared@2.0.0-beta.25':
-    resolution: {integrity: sha512-6Uah75bNnxudWiADIk5Sv+pyh5y6+eQFwGxAKwfmfo3xK+hFOrM24N79w1E3EKPrDst2/T2Y6YBYgq55KJkavQ==}
+  '@orpc/shared@2.0.0-beta.27':
+    resolution: {integrity: sha512-TrlZaNzzA6QMhTLma76S+58M9EUs1lUuqqJFFYMB47ZWLPyeotQ2AdckzUgL9PLcHlp48CbbREKaAB4OOwWkYQ==}
     peerDependencies:
       '@opentelemetry/api': '>=1.9.0'
     peerDependenciesMeta:
       '@opentelemetry/api':
         optional: true
 
-  '@orpc/zod@2.0.0-beta.25':
-    resolution: {integrity: sha512-eskpdlIEP+UKGtzPG2V9mKVFMFj/Wi6f0HVHyxrULbLUmSSUtPNtSccB38i24eaW4SQmlRG9aHtHdr5D/k8P1A==}
+  '@orpc/zod@2.0.0-beta.27':
+    resolution: {integrity: sha512-hFtC03B2+eY3xZDxpssClBgbF6QYg00MCCupIWH22tuLYm2Tij5jbEQFumj1LvYn5fd+9NVep+8cDp3pI+yMgA==}
     peerDependencies:
       zod: '>=4.3.5'
 
@@ -2826,8 +2833,8 @@ packages:
     resolution: {integrity: sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==}
     engines: {node: '>=6'}
 
-  postcss@8.5.25:
-    resolution: {integrity: sha512-DTPx3RWSSnWyzLxQnlH0rJP+EW5ekl16ZU4/psbIhA0e53kJfdgaN5vKM+xP7yJtXVu+nfdVFmlgFDEKAe4Pyw==}
+  postcss@8.5.26:
+    resolution: {integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==}
     engines: {node: ^10 || ^12 || >=14}
 
   preact@10.29.8:
@@ -3481,9 +3488,9 @@ snapshots:
     dependencies:
       oxlint: 1.77.0
 
-  '@btravstack/theme@2.0.0(vitepress@1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.25)(typescript@6.0.3)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))':
+  '@btravstack/theme@2.0.0(vitepress@1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.26)(typescript@6.0.3)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))':
     dependencies:
-      vitepress: 1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.25)(typescript@6.0.3)(yaml@2.9.0)
+      vitepress: 1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.26)(typescript@6.0.3)(yaml@2.9.0)
     optionalDependencies:
       vue: 3.5.41(typescript@6.0.3)
 
@@ -3929,6 +3936,13 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
+  '@napi-rs/wasm-runtime@1.2.3(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
+    dependencies:
+      '@emnapi/core': 1.11.2
+      '@emnapi/runtime': 1.11.2
+      '@tybys/wasm-util': 0.10.3
+    optional: true
+
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -3941,29 +3955,29 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@orpc/client@2.0.0-beta.25':
+  '@orpc/client@2.0.0-beta.27':
     dependencies:
-      '@orpc/shared': 2.0.0-beta.25
+      '@orpc/shared': 2.0.0-beta.27
       '@standardserver/core': 0.7.1
       '@standardserver/fetch': 0.7.1
       '@standardserver/peer': 0.7.1
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/contract@2.0.0-beta.25':
+  '@orpc/contract@2.0.0-beta.27':
     dependencies:
-      '@orpc/client': 2.0.0-beta.25
-      '@orpc/shared': 2.0.0-beta.25
+      '@orpc/client': 2.0.0-beta.27
+      '@orpc/shared': 2.0.0-beta.27
       '@standard-schema/spec': 1.1.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/json-schema@2.0.0-beta.25':
+  '@orpc/json-schema@2.0.0-beta.27':
     dependencies:
-      '@orpc/client': 2.0.0-beta.25
-      '@orpc/contract': 2.0.0-beta.25
-      '@orpc/server': 2.0.0-beta.25
-      '@orpc/shared': 2.0.0-beta.25
+      '@orpc/client': 2.0.0-beta.27
+      '@orpc/contract': 2.0.0-beta.27
+      '@orpc/server': 2.0.0-beta.27
+      '@orpc/shared': 2.0.0-beta.27
       '@standard-schema/spec': 1.1.0
       json-schema-typed: 8.0.2
     transitivePeerDependencies:
@@ -3971,11 +3985,11 @@ snapshots:
       - crossws
       - fastify
 
-  '@orpc/server@2.0.0-beta.25':
+  '@orpc/server@2.0.0-beta.27':
     dependencies:
-      '@orpc/client': 2.0.0-beta.25
-      '@orpc/contract': 2.0.0-beta.25
-      '@orpc/shared': 2.0.0-beta.25
+      '@orpc/client': 2.0.0-beta.27
+      '@orpc/contract': 2.0.0-beta.27
+      '@orpc/shared': 2.0.0-beta.27
       '@standardserver/aws-lambda': 0.7.1
       '@standardserver/core': 0.7.1
       '@standardserver/fastify': 0.7.1
@@ -3986,15 +4000,15 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/shared@2.0.0-beta.25':
+  '@orpc/shared@2.0.0-beta.27':
     dependencies:
       '@standardserver/shared': 0.7.1
       radash: 12.1.1
       type-fest: 5.8.0
 
-  '@orpc/zod@2.0.0-beta.25(zod@4.4.3)':
+  '@orpc/zod@2.0.0-beta.27(zod@4.4.3)':
     dependencies:
-      '@orpc/json-schema': 2.0.0-beta.25
+      '@orpc/json-schema': 2.0.0-beta.27
       json-schema-typed: 8.0.2
       zod: 4.4.3
     transitivePeerDependencies:
@@ -4122,7 +4136,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.11.2
       '@emnapi/runtime': 1.11.2
-      '@napi-rs/wasm-runtime': 1.2.2(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
+      '@napi-rs/wasm-runtime': 1.2.3(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
     optional: true
 
   '@oxc-resolver/binding-win32-arm64-msvc@11.24.2':
@@ -4688,7 +4702,7 @@ snapshots:
       '@vue/shared': 3.5.41
       estree-walker: 2.0.2
       magic-string: 0.30.21
-      postcss: 8.5.25
+      postcss: 8.5.26
       source-map-js: 1.2.1
 
   '@vue/compiler-ssr@3.5.41':
@@ -5554,7 +5568,7 @@ snapshots:
 
   pify@4.0.1: {}
 
-  postcss@8.5.25:
+  postcss@8.5.26:
     dependencies:
       nanoid: 3.3.18
       picocolors: 1.1.1
@@ -5920,7 +5934,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
       picomatch: 4.0.5
-      postcss: 8.5.25
+      postcss: 8.5.26
       rollup: 4.62.4
       tinyglobby: 0.2.17
     optionalDependencies:
@@ -5929,7 +5943,7 @@ snapshots:
       jiti: 2.7.0
       yaml: 2.9.0
 
-  vitepress@1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.25)(typescript@6.0.3)(yaml@2.9.0):
+  vitepress@1.6.4(@algolia/client-search@5.56.0)(@types/node@26.1.2)(jiti@2.7.0)(postcss@8.5.26)(typescript@6.0.3)(yaml@2.9.0):
     dependencies:
       '@docsearch/css': 3.8.2
       '@docsearch/js': 3.8.2(@algolia/client-search@5.56.0)
@@ -5950,7 +5964,7 @@ snapshots:
       vite: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0)
       vue: 3.5.41(typescript@6.0.3)
     optionalDependencies:
-      postcss: 8.5.25
+      postcss: 8.5.26
     transitivePeerDependencies:
       - '@algolia/client-search'
       - '@types/node'
