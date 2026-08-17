@@ -43,8 +43,8 @@ catalogs:
       specifier: 26.1.2
       version: 26.1.2
     '@unthrown/oxlint':
-      specifier: 5.1.0
-      version: 5.1.0
+      specifier: 5.5.0
+      version: 5.5.0
     '@unthrown/standard-schema':
       specifier: 5.1.0
       version: 5.1.0
@@ -126,7 +126,7 @@ importers:
         version: 21.2.1(@types/node@26.1.2)(conventional-commits-parser@7.1.2)(typescript@7.0.2)
       '@unthrown/oxlint':
         specifier: 'catalog:'
-        version: 5.1.0(oxlint@1.77.0)
+        version: 5.5.0(oxlint@1.77.0)
       knip:
         specifier: 'catalog:'
         version: 6.32.0
@@ -1851,8 +1851,8 @@ packages:
   '@ungap/structured-clone@1.3.3':
     resolution: {integrity: sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg==}
 
-  '@unthrown/oxlint@5.1.0':
-    resolution: {integrity: sha512-xTbO9Qoz5W0J7Ur+vFiKAw8buxd6gCaOt16dYkVuNHIyiROl/fL5S9hCQkxduLYReiVATMOis4cgh0KnQy4HIQ==}
+  '@unthrown/oxlint@5.5.0':
+    resolution: {integrity: sha512-xQ3oi1uaBmYvc5d72+YovL77gckyaOswH96LzLhQP45q/axfygbTtcOvoEwo28my4l4j9K+pti03j5Ir5k9qbA==}
     engines: {node: '>=20'}
     peerDependencies:
       oxlint: ^1.69.0
@@ -4591,7 +4591,7 @@ snapshots:
 
   '@ungap/structured-clone@1.3.3': {}
 
-  '@unthrown/oxlint@5.1.0(oxlint@1.77.0)':
+  '@unthrown/oxlint@5.5.0(oxlint@1.77.0)':
     dependencies:
       '@oxlint/plugins': 1.77.0
       oxlint: 1.77.0

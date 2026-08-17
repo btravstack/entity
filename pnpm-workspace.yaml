@@ -31,7 +31,7 @@ catalog:
   # naming `JsonSchema` is what keeps an exported schema portable (TS2883).
   "@orpc/json-schema": 2.0.0-beta.25
   "@types/node": 26.1.2
-  "@unthrown/oxlint": 5.1.0
+  "@unthrown/oxlint": 5.5.0
   "@unthrown/standard-schema": 5.1.0
   "@unthrown/vitest": 5.1.0
   knip: 6.32.0
