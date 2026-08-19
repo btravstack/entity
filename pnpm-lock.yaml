@@ -31,14 +31,14 @@ catalogs:
       specifier: 21.2.1
       version: 21.2.1
     '@orpc/contract':
-      specifier: 2.0.0-beta.27
-      version: 2.0.0-beta.27
+      specifier: 2.0.0-beta.28
+      version: 2.0.0-beta.28
     '@orpc/json-schema':
-      specifier: 2.0.0-beta.27
-      version: 2.0.0-beta.27
+      specifier: 2.0.0-beta.28
+      version: 2.0.0-beta.28
     '@orpc/zod':
-      specifier: 2.0.0-beta.27
-      version: 2.0.0-beta.27
+      specifier: 2.0.0-beta.28
+      version: 2.0.0-beta.28
     '@types/node':
       specifier: 26.2.0
       version: 26.2.0
@@ -174,13 +174,13 @@ importers:
         version: link:../billing-domain
       '@orpc/contract':
         specifier: 'catalog:'
-        version: 2.0.0-beta.27
+        version: 2.0.0-beta.28
       '@orpc/json-schema':
         specifier: 'catalog:'
-        version: 2.0.0-beta.27
+        version: 2.0.0-beta.28
       '@orpc/zod':
         specifier: 'catalog:'
-        version: 2.0.0-beta.27(zod@4.4.3)
+        version: 2.0.0-beta.28(zod@4.4.3)
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -273,7 +273,7 @@ importers:
         version: 0.2.0
       '@orpc/zod':
         specifier: 'catalog:'
-        version: 2.0.0-beta.27(zod@4.4.3)
+        version: 2.0.0-beta.28(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.2.0
@@ -830,17 +830,17 @@ packages:
       '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.4
       '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.4
 
-  '@orpc/client@2.0.0-beta.27':
-    resolution: {integrity: sha512-wQ9D0ghcmGvC6+pkC7ccWm3syNs8/hvh257jmz+j+bdEYwSgDhxa1BVi70T4/IoAhbf0d6ohRYp78zlm9wchhQ==}
+  '@orpc/client@2.0.0-beta.28':
+    resolution: {integrity: sha512-iCmSzOGPsdotCpCvFQ8b6LEjYr50CZhKgKnTbU3CVMm/+lRvZg8V4OJ5QRtjx5PGG909vsLxG5IQczb7fJ2yZw==}
 
-  '@orpc/contract@2.0.0-beta.27':
-    resolution: {integrity: sha512-8gER4DaJ1jFYyCTc2kS4+oCsaEvi1WUwSnXhhVsnfog5Mw0MmHI7nWXIrVN/zVILrLJNxoTbPWM/mdY6qJndsQ==}
+  '@orpc/contract@2.0.0-beta.28':
+    resolution: {integrity: sha512-akbw6nsQtYsyuejg4XTPzfaj7xcXbmUFSRLcXXBWmCp+eKOX8VtH/B1SiCr1aKSO0H62PrX6OXKIT69bzskfxQ==}
 
-  '@orpc/json-schema@2.0.0-beta.27':
-    resolution: {integrity: sha512-duyJOLKeSpnkeaOnBzj7AINncAaSbEKHEonGuIU3pHT/3cBpBJbVDn2QDUPsw7MmD7WFvDskfLUUZQ4vqcD1yw==}
+  '@orpc/json-schema@2.0.0-beta.28':
+    resolution: {integrity: sha512-GlBwcV5NyeifoyagEro0fT1o3Nbhyva+iBhYmeXu7S2owq4tzjMFlUSvDui9+nkbQ0slPXeHIEeyZG8fB4EyIA==}
 
-  '@orpc/server@2.0.0-beta.27':
-    resolution: {integrity: sha512-OisRMmqfCOrF7+zX2maGJSGtl/xukeNo5ooPOlyQBH5z/V8Og9VE81AcmOso9P+LXWyn8syNs+tSyS7EEJN8jQ==}
+  '@orpc/server@2.0.0-beta.28':
+    resolution: {integrity: sha512-SPjru8A5JdODtLxydXQP0peDpBNxYeQqMQQzoFUNvjyGBwqmMe6WhB6anvwJTpCDmjHTZdo4jOK1erVbxN3J6Q==}
     peerDependencies:
       crossws: '>=0.3.4'
       fastify: '>=5.6.1'
@@ -850,16 +850,16 @@ packages:
       fastify:
         optional: true
 
-  '@orpc/shared@2.0.0-beta.27':
-    resolution: {integrity: sha512-TrlZaNzzA6QMhTLma76S+58M9EUs1lUuqqJFFYMB47ZWLPyeotQ2AdckzUgL9PLcHlp48CbbREKaAB4OOwWkYQ==}
+  '@orpc/shared@2.0.0-beta.28':
+    resolution: {integrity: sha512-/XWptvamwvcvTp9Jfd4xBSha6JfqBNeA8VSduUYSjrKKlVPFcPyjNQc5v/dU8CrAiBf+8w3p4XLVRKF3e1Y4dA==}
     peerDependencies:
       '@opentelemetry/api': '>=1.9.0'
     peerDependenciesMeta:
       '@opentelemetry/api':
         optional: true
 
-  '@orpc/zod@2.0.0-beta.27':
-    resolution: {integrity: sha512-hFtC03B2+eY3xZDxpssClBgbF6QYg00MCCupIWH22tuLYm2Tij5jbEQFumj1LvYn5fd+9NVep+8cDp3pI+yMgA==}
+  '@orpc/zod@2.0.0-beta.28':
+    resolution: {integrity: sha512-sAu7oVOLzaqSzKbBFUUSDfPMfZA6qsT0DHx2e4/I4hSudevRiWrrqujkoGblHARoQ++2TF+ApqcAua/TSvhbZw==}
     peerDependencies:
       zod: '>=4.3.5'
 
@@ -1624,31 +1624,31 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@standardserver/aws-lambda@0.7.1':
-    resolution: {integrity: sha512-fuwAx2M2O5Bnjk2JdFrtEQALmBwVtnn4jKApzFVmlIivWA7EGMj5kOzCNaJizxCQXlhPmC+doDHqf/H7FKMaNA==}
+  '@standardserver/aws-lambda@0.8.0':
+    resolution: {integrity: sha512-5fa8KQ1mFNyu8qRfHSshe4ta4Qbv621qsDT/Sed/bWe0ZzrXMOCEtKE5wyEv/S3co7Vb0+u0pF1oIGtYf49iwA==}
 
-  '@standardserver/core@0.7.1':
-    resolution: {integrity: sha512-ZMoFDR92p9HnaI6vXK1iNFKXyLK8/6r3D4EJUM+SqeyReUH3OEJO4CZKU8BfXyzAV1A6Nsa7y2dGqDOYqH5LlQ==}
+  '@standardserver/core@0.8.0':
+    resolution: {integrity: sha512-2qpqMckZ2UMdeSoxUsvunPfkIeHSahW+LtIsMfHP7L8jEOAtWt1c1/RTKFB7AwNSHGPhQm5JEMpYNgM/N7j2lQ==}
 
-  '@standardserver/fastify@0.7.1':
-    resolution: {integrity: sha512-Oa+ttR0CyNkFjNczs2dO/WFFeZ4sAszVBKIOhKb1FFcDtD9VdqDgMBhbQ4sFR885fwpYckoYjFU6xXWWTueBlw==}
+  '@standardserver/fastify@0.8.0':
+    resolution: {integrity: sha512-nEnFDgb0UwY5PX+PEfP3hG3IKJQvk889Hief6EW3EtjWOPwMW5clBGhW59UJKqP4Z9kTTV040hmpFLZwfVlo4A==}
     peerDependencies:
       fastify: '>=5.6.1'
     peerDependenciesMeta:
       fastify:
         optional: true
 
-  '@standardserver/fetch@0.7.1':
-    resolution: {integrity: sha512-BeiAWESedv0woYpoBHCnq2Y3xLZZ3voFahdzpFd+HqLyenXIL4XX3z7/WgWNQnf+WsSQrK6HzBkDWCicCXVoKQ==}
+  '@standardserver/fetch@0.8.0':
+    resolution: {integrity: sha512-i8M8+d4+RXrGJ2MXUlEX2TPHMYozlxEQ9Ei7RJjza2nNjw1xYPn8tcfmDXa06/CvoiAB/Yh0aPfUJDel+i9frw==}
 
-  '@standardserver/node@0.7.1':
-    resolution: {integrity: sha512-Ikc07cGBTJ8tJgPd1OanNKVNpijcbixB1iKk0GdL/b1vkYbriGgNW3oHvbApM7+XqeCeNHj5XawHk6q90mwEEA==}
+  '@standardserver/node@0.8.0':
+    resolution: {integrity: sha512-+AwPjh7Kbjqftvvc0qx4f2uFifihbEHiwqIBC7tvEYsO39j7S6ofOvxInsxT6p3LxolovA/XBkLQ3qya7eHntA==}
 
-  '@standardserver/peer@0.7.1':
-    resolution: {integrity: sha512-ggqPbwz4X4GIziQgoyCTDHFw9nM9YuEvlSpO21pfoXLYF80ijtpN/iq4P0zKpb4kcXnBoSVDRUSnBJSZi0SJDg==}
+  '@standardserver/peer@0.8.0':
+    resolution: {integrity: sha512-BWUYJccfTVXPbo1rV4F5+AZwPrvQBCA3/R5MIOeobkJLp0vBkldx1LU5Bfj5wMcWN3NKY7E2XV4o0O53t5zT9w==}
 
-  '@standardserver/shared@0.7.1':
-    resolution: {integrity: sha512-tBDheI3Me1gQEKPU+XhcCZ6/njmkKgJhA5rhi1/m6GauGhHq87UuVslDNc8qB+T/xsxVch/qETFhssEWO9c6BA==}
+  '@standardserver/shared@0.8.0':
+    resolution: {integrity: sha512-z+w4hhiPeokm09Rwt172KlU4FHKVlCaw12nTQPYAD6xGrsProzH9Ex7/+qLtcSEwGWp8h0Fi6E8Z6dfyKXMNqw==}
 
   '@turbo/darwin-64@2.10.10':
     resolution: {integrity: sha512-gFDD+wRP5hWxBRghGyEbjpbLOY7aIU/wvsnKdMM7odQcp/wHMrnI83p0FyxxMRZnFH9ZD+S59MvcpOC5b+nrCA==}
@@ -3652,29 +3652,29 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
-  '@orpc/client@2.0.0-beta.27':
+  '@orpc/client@2.0.0-beta.28':
     dependencies:
-      '@orpc/shared': 2.0.0-beta.27
-      '@standardserver/core': 0.7.1
-      '@standardserver/fetch': 0.7.1
-      '@standardserver/peer': 0.7.1
+      '@orpc/shared': 2.0.0-beta.28
+      '@standardserver/core': 0.8.0
+      '@standardserver/fetch': 0.8.0
+      '@standardserver/peer': 0.8.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/contract@2.0.0-beta.27':
+  '@orpc/contract@2.0.0-beta.28':
     dependencies:
-      '@orpc/client': 2.0.0-beta.27
-      '@orpc/shared': 2.0.0-beta.27
+      '@orpc/client': 2.0.0-beta.28
+      '@orpc/shared': 2.0.0-beta.28
       '@standard-schema/spec': 1.1.0
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/json-schema@2.0.0-beta.27':
+  '@orpc/json-schema@2.0.0-beta.28':
     dependencies:
-      '@orpc/client': 2.0.0-beta.27
-      '@orpc/contract': 2.0.0-beta.27
-      '@orpc/server': 2.0.0-beta.27
-      '@orpc/shared': 2.0.0-beta.27
+      '@orpc/client': 2.0.0-beta.28
+      '@orpc/contract': 2.0.0-beta.28
+      '@orpc/server': 2.0.0-beta.28
+      '@orpc/shared': 2.0.0-beta.28
       '@standard-schema/spec': 1.1.0
       json-schema-typed: 8.0.2
     transitivePeerDependencies:
@@ -3682,30 +3682,30 @@ snapshots:
       - crossws
       - fastify
 
-  '@orpc/server@2.0.0-beta.27':
+  '@orpc/server@2.0.0-beta.28':
     dependencies:
-      '@orpc/client': 2.0.0-beta.27
-      '@orpc/contract': 2.0.0-beta.27
-      '@orpc/shared': 2.0.0-beta.27
-      '@standardserver/aws-lambda': 0.7.1
-      '@standardserver/core': 0.7.1
-      '@standardserver/fastify': 0.7.1
-      '@standardserver/fetch': 0.7.1
-      '@standardserver/node': 0.7.1
-      '@standardserver/peer': 0.7.1
+      '@orpc/client': 2.0.0-beta.28
+      '@orpc/contract': 2.0.0-beta.28
+      '@orpc/shared': 2.0.0-beta.28
+      '@standardserver/aws-lambda': 0.8.0
+      '@standardserver/core': 0.8.0
+      '@standardserver/fastify': 0.8.0
+      '@standardserver/fetch': 0.8.0
+      '@standardserver/node': 0.8.0
+      '@standardserver/peer': 0.8.0
       cookie: 2.0.1
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/shared@2.0.0-beta.27':
+  '@orpc/shared@2.0.0-beta.28':
     dependencies:
-      '@standardserver/shared': 0.7.1
+      '@standardserver/shared': 0.8.0
       radash: 12.1.1
       type-fest: 5.8.0
 
-  '@orpc/zod@2.0.0-beta.27(zod@4.4.3)':
+  '@orpc/zod@2.0.0-beta.28(zod@4.4.3)':
     dependencies:
-      '@orpc/json-schema': 2.0.0-beta.27
+      '@orpc/json-schema': 2.0.0-beta.28
       json-schema-typed: 8.0.2
       zod: 4.4.3
     transitivePeerDependencies:
@@ -4140,39 +4140,39 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@standardserver/aws-lambda@0.7.1':
+  '@standardserver/aws-lambda@0.8.0':
     dependencies:
-      '@standardserver/core': 0.7.1
-      '@standardserver/fetch': 0.7.1
-      '@standardserver/node': 0.7.1
-      '@standardserver/shared': 0.7.1
+      '@standardserver/core': 0.8.0
+      '@standardserver/fetch': 0.8.0
+      '@standardserver/node': 0.8.0
+      '@standardserver/shared': 0.8.0
 
-  '@standardserver/core@0.7.1':
+  '@standardserver/core@0.8.0':
     dependencies:
-      '@standardserver/shared': 0.7.1
+      '@standardserver/shared': 0.8.0
 
-  '@standardserver/fastify@0.7.1':
+  '@standardserver/fastify@0.8.0':
     dependencies:
-      '@standardserver/core': 0.7.1
-      '@standardserver/node': 0.7.1
+      '@standardserver/core': 0.8.0
+      '@standardserver/node': 0.8.0
 
-  '@standardserver/fetch@0.7.1':
+  '@standardserver/fetch@0.8.0':
     dependencies:
-      '@standardserver/core': 0.7.1
-      '@standardserver/shared': 0.7.1
+      '@standardserver/core': 0.8.0
+      '@standardserver/shared': 0.8.0
 
-  '@standardserver/node@0.7.1':
+  '@standardserver/node@0.8.0':
     dependencies:
-      '@standardserver/core': 0.7.1
-      '@standardserver/fetch': 0.7.1
-      '@standardserver/shared': 0.7.1
+      '@standardserver/core': 0.8.0
+      '@standardserver/fetch': 0.8.0
+      '@standardserver/shared': 0.8.0
 
-  '@standardserver/peer@0.7.1':
+  '@standardserver/peer@0.8.0':
     dependencies:
-      '@standardserver/core': 0.7.1
-      '@standardserver/shared': 0.7.1
+      '@standardserver/core': 0.8.0
+      '@standardserver/shared': 0.8.0
 
-  '@standardserver/shared@0.7.1': {}
+  '@standardserver/shared@0.8.0': {}
 
   '@turbo/darwin-64@2.10.10':
     optional: true

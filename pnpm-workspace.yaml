@@ -23,13 +23,13 @@ catalog:
   # generation, the `[jsonSchema, optional]` return shape with no "unsupported"
   # flag). `@orpc/zod`'s stable "latest" line (1.x) predates the v2 API this
   # package's contract tests exercise.
-  "@orpc/zod": 2.0.0-beta.27
+  "@orpc/zod": 2.0.0-beta.28
   # Same release train as `@orpc/zod` above — the billing-api example defines a
   # contract and converts it to JSON Schema in the same file, so they move together.
-  "@orpc/contract": 2.0.0-beta.27
+  "@orpc/contract": 2.0.0-beta.28
   # `ZodToJsonSchemaConverter.convert` returns `[JsonSchema, optional]`, and
   # naming `JsonSchema` is what keeps an exported schema portable (TS2883).
-  "@orpc/json-schema": 2.0.0-beta.27
+  "@orpc/json-schema": 2.0.0-beta.28
   "@types/node": 26.2.0
   "@unthrown/oxlint": 5.5.0
   "@unthrown/standard-schema": 5.5.0
