@@ -37,7 +37,7 @@ catalog:
   knip: 6.32.2
   lefthook: 2.1.10
   oxfmt: 0.63.0
-  oxlint: 1.77.0
+  oxlint: 1.78.0
   tsdown: 0.22.14
   turbo: 2.10.10
   typedoc: 0.28.20
