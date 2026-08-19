@@ -60,6 +60,9 @@ catalogs:
     lefthook:
       specifier: 2.1.10
       version: 2.1.10
+    oxfmt:
+      specifier: 0.63.0
+      version: 0.63.0
     oxlint:
       specifier: 1.77.0
       version: 1.77.0
@@ -131,7 +134,7 @@ importers:
         specifier: 'catalog:'
         version: 2.1.10
       oxfmt:
-        specifier: 0.63.0
+        specifier: 'catalog:'
         version: 0.63.0
       oxlint:
         specifier: 'catalog:'
