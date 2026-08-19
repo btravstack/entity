@@ -23,6 +23,10 @@ updates:
       orpc:
         patterns:
           - "@orpc/*"
+      unthrown:
+        patterns:
+          - "@unthrown/*"
+          - "unthrown"
     open-pull-requests-limit: 10
 
   - package-ecosystem: "github-actions"
