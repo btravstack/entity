@@ -46,8 +46,8 @@ catalogs:
       specifier: 5.5.0
       version: 5.5.0
     '@unthrown/standard-schema':
-      specifier: 5.1.0
-      version: 5.1.0
+      specifier: 5.5.0
+      version: 5.5.0
     '@unthrown/vitest':
       specifier: 5.1.0
       version: 5.1.0
@@ -221,7 +221,7 @@ importers:
         version: 26.2.0
       '@unthrown/standard-schema':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.5.0
       '@unthrown/vitest':
         specifier: 'catalog:'
         version: 5.1.0(unthrown@5.1.0)(vitest@4.1.10)
@@ -279,7 +279,7 @@ importers:
         version: 26.2.0
       '@unthrown/standard-schema':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.5.0
       '@unthrown/vitest':
         specifier: 'catalog:'
         version: 5.1.0(unthrown@5.1.0)(vitest@4.1.10)
@@ -1849,8 +1849,8 @@ packages:
     peerDependencies:
       oxlint: ^1.69.0
 
-  '@unthrown/standard-schema@5.1.0':
-    resolution: {integrity: sha512-6691LAAZR5uPeQ3btiMwuHmE5hTUezkv9VocZ18DD9laWd2vUljdxH5LWiGmDgUwE3MeVI7zkHkcsainUlGqWw==}
+  '@unthrown/standard-schema@5.5.0':
+    resolution: {integrity: sha512-BrPZH4y3PXi0n1Y4dUYVg+a+g5Vxqsxgeyss0Dy6SMUY8nT4ihaOGgNkTc4Mxz/enSfOyu1wbpA+TSxFrwbMnA==}
     engines: {node: '>=20'}
 
   '@unthrown/vitest@5.1.0':
@@ -3162,6 +3162,10 @@ packages:
 
   unthrown@5.1.0:
     resolution: {integrity: sha512-Zi/YA8ANmdJKuJMKuYFUI7N078naXCAH9DkaGmOnwqiD5EcLBKHxMEPTuuJ+vEcpFyvm8h5197FOa36MEhOwrw==}
+    engines: {node: '>=20'}
+
+  unthrown@5.5.0:
+    resolution: {integrity: sha512-d7YrMTcdquXpo0QQxRxUqB39iiU2KAtwezf/cuJf8HukEfSAUcfPOgzGk2G4lafx3INMlLhj5+lTwvu94eeLVw==}
     engines: {node: '>=20'}
 
   verkit@0.3.2:
@@ -4579,10 +4583,10 @@ snapshots:
       '@oxlint/plugins': 1.77.0
       oxlint: 1.77.0
 
-  '@unthrown/standard-schema@5.1.0':
+  '@unthrown/standard-schema@5.5.0':
     dependencies:
       '@standard-schema/spec': 1.1.0
-      unthrown: 5.1.0
+      unthrown: 5.5.0
 
   '@unthrown/vitest@5.1.0(unthrown@5.1.0)(vitest@4.1.10)':
     dependencies:
@@ -5884,6 +5888,8 @@ snapshots:
   universalify@0.1.2: {}
 
   unthrown@5.1.0: {}
+
+  unthrown@5.5.0: {}
 
   verkit@0.3.2: {}
 
