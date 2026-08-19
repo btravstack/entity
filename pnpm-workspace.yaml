@@ -32,8 +32,8 @@ catalog:
   "@orpc/json-schema": 2.0.0-beta.27
   "@types/node": 26.2.0
   "@unthrown/oxlint": 5.5.0
-  "@unthrown/standard-schema": 5.1.0
-  "@unthrown/vitest": 5.1.0
+  "@unthrown/standard-schema": 5.5.0
+  "@unthrown/vitest": 5.5.0
   knip: 6.32.2
   lefthook: 2.1.10
   oxfmt: 0.63.0
@@ -56,7 +56,7 @@ catalog:
   # That band of realistic domain widths is where issues #31 and #32 shipped.
   # Aliased because one `package.json` cannot name `typescript` twice.
   typescript-consumer: "npm:typescript@5.9.3"
-  unthrown: 5.1.0
+  unthrown: 5.5.0
   "@vitest/coverage-v8": 4.1.10
   vitepress: 1.6.4
   vitest: 4.1.10
