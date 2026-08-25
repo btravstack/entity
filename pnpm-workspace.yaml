@@ -39,7 +39,7 @@ catalog:
   oxfmt: 0.63.0
   oxlint: 1.78.0
   tsdown: 0.22.14
-  turbo: 2.10.10
+  turbo: 2.10.11
   typedoc: 0.28.20
   typedoc-plugin-markdown: 4.12.0
   # 7.0.2 is the exact release the package's design doc measured the
