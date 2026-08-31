@@ -27,6 +27,9 @@ catalogs:
     '@changesets/cli':
       specifier: 3.0.1
       version: 3.0.1
+    '@commitlint/cli':
+      specifier: 21.2.2
+      version: 21.2.2
     '@orpc/contract':
       specifier: 2.0.0-beta.30
       version: 2.0.0-beta.30
@@ -52,14 +55,17 @@ catalogs:
       specifier: 4.1.10
       version: 4.1.10
     knip:
-      specifier: 6.32.2
-      version: 6.32.2
+      specifier: 6.32.3
+      version: 6.32.3
     lefthook:
       specifier: 2.1.10
       version: 2.1.10
     oxfmt:
       specifier: 0.64.0
       version: 0.64.0
+    oxlint:
+      specifier: 1.79.0
+      version: 1.79.0
     tsdown:
       specifier: 0.22.14
       version: 0.22.14
@@ -123,7 +129,7 @@ importers:
         version: 5.5.0(oxlint@1.79.0)
       knip:
         specifier: 'catalog:'
-        version: 6.32.2
+        version: 6.32.3
       lefthook:
         specifier: 'catalog:'
         version: 2.1.10
@@ -2469,8 +2475,8 @@ packages:
   jsonc-parser@3.3.1:
     resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
 
-  knip@6.32.2:
-    resolution: {integrity: sha512-WXTXbmocrw7gqm1A1TQvFN0OgJ7hUSU6E1g6SPRIzzHFogUBhXByc7cYeOFVtJ2uODg7DP4VbESYBYnfbtBYsg==}
+  knip@6.32.3:
+    resolution: {integrity: sha512-wOJ1Av8PwKqFO0wU7F64vzIcUjxhrieA3Tc2lmeK9C9prpxq+TeG2ewNH5tCaBVZwXNPp6lJkrr+IhZ20iqkMA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
@@ -4869,7 +4875,7 @@ snapshots:
 
   jsonc-parser@3.3.1: {}
 
-  knip@6.32.2:
+  knip@6.32.3:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.5)
       formatly: 0.3.0
