@@ -43,8 +43,8 @@ catalogs:
       specifier: 26.4.0
       version: 26.4.0
     '@unthrown/oxlint':
-      specifier: 5.7.0
-      version: 5.7.0
+      specifier: 5.8.0
+      version: 5.8.0
     '@unthrown/standard-schema':
       specifier: 5.7.0
       version: 5.7.0
@@ -85,8 +85,8 @@ catalogs:
       specifier: npm:typescript@5.9.3
       version: 5.9.3
     unthrown:
-      specifier: 5.7.0
-      version: 5.7.0
+      specifier: 5.8.0
+      version: 5.8.0
     vitepress:
       specifier: 1.6.4
       version: 1.6.4
@@ -126,7 +126,7 @@ importers:
         version: 21.2.2(@types/node@26.4.0)(conventional-commits-parser@7.1.2)(typescript@7.0.2)
       '@unthrown/oxlint':
         specifier: 'catalog:'
-        version: 5.7.0(oxlint@1.80.0)
+        version: 5.8.0(oxlint@1.80.0)
       knip:
         specifier: 'catalog:'
         version: 6.32.3
@@ -193,7 +193,7 @@ importers:
         version: 26.4.0
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.7.0(unthrown@5.7.0)(vitest@4.1.10)
+        version: 5.7.0(unthrown@5.8.0)(vitest@4.1.10)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -208,7 +208,7 @@ importers:
         version: link:../../packages/entity
       unthrown:
         specifier: 'catalog:'
-        version: 5.7.0
+        version: 5.8.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -221,10 +221,10 @@ importers:
         version: 26.4.0
       '@unthrown/standard-schema':
         specifier: 'catalog:'
-        version: 5.7.0(unthrown@5.7.0)
+        version: 5.7.0(unthrown@5.8.0)
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.7.0(unthrown@5.7.0)(vitest@4.1.10)
+        version: 5.7.0(unthrown@5.8.0)(vitest@4.1.10)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -245,7 +245,7 @@ importers:
         version: link:../billing-domain
       unthrown:
         specifier: 'catalog:'
-        version: 5.7.0
+        version: 5.8.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -258,7 +258,7 @@ importers:
         version: 26.4.0
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.7.0(unthrown@5.7.0)(vitest@4.1.10)
+        version: 5.7.0(unthrown@5.8.0)(vitest@4.1.10)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -279,10 +279,10 @@ importers:
         version: 26.4.0
       '@unthrown/standard-schema':
         specifier: 'catalog:'
-        version: 5.7.0(unthrown@5.7.0)
+        version: 5.7.0(unthrown@5.8.0)
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.7.0(unthrown@5.7.0)(vitest@4.1.10)
+        version: 5.7.0(unthrown@5.8.0)(vitest@4.1.10)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.10(vitest@4.1.10)
@@ -294,7 +294,7 @@ importers:
         version: 7.0.2
       unthrown:
         specifier: 'catalog:'
-        version: 5.7.0
+        version: 5.8.0
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.4.0)(@vitest/coverage-v8@4.1.10)(jiti@2.7.0)(yaml@2.9.0)
@@ -1343,8 +1343,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@oxlint/plugins@1.80.0':
-    resolution: {integrity: sha512-QRgH1XqQEYNHa4f1vvPQ5fAdNdncHGIUG1ZWLlGIZHky3qwCEeAKYitZNbZMtaXtAQAAFFTOwqUfzESvimqZNA==}
+  '@oxlint/plugins@1.81.0':
+    resolution: {integrity: sha512-HhD8kd3r6XpelZkhxhRty/po8V6yK1VV63Eq4kSsOS2IoHUywG3DV2EX+z/ZHw46aLI74Y6aA604NRiAqLKW9w==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
   '@pnpm/deps.graph-sequencer@1100.0.1':
@@ -1854,8 +1854,8 @@ packages:
   '@ungap/structured-clone@1.3.3':
     resolution: {integrity: sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg==}
 
-  '@unthrown/oxlint@5.7.0':
-    resolution: {integrity: sha512-we1NJui9oo1O0ztndqOPk1QuTupYaIUrcsdI8KjWmAg35wH9t2vEE7wTkR+rVk8wn9T12v+VehmC2ovKTMRFMQ==}
+  '@unthrown/oxlint@5.8.0':
+    resolution: {integrity: sha512-bQWhRqwZpcqGH3ShglwRqBZOO79zbOg6v5CW4S9zSS3AbWX68woJPkmmnhC2nW3Edqau5Sy2Km0FlSdsQ4fTxg==}
     engines: {node: '>=20'}
     peerDependencies:
       oxlint: ^1.69.0
@@ -2958,8 +2958,8 @@ packages:
   unist-util-visit@5.1.0:
     resolution: {integrity: sha512-m+vIdyeCOpdr/QeQCu2EzxX/ohgS8KbnPDgFni4dQsfSCtpz8UqDyY5GjRru8PDKuYn7Fq19j1CQ+nJSsGKOzg==}
 
-  unthrown@5.7.0:
-    resolution: {integrity: sha512-/MmNlhpqncrfeE+iMbP0SusLR63AOIJNYcwDEAHBaQGL+zSNQpLQdyqBG+2/FQmozHXPrtlROvY6ie7xmCDuLw==}
+  unthrown@5.8.0:
+    resolution: {integrity: sha512-9P0e9paWeEH7CihzXBdtHQKPytxKAfDZGYfyYos2Jjlfk8aCyOEeiUaCckbUjVpZZ+7oG0kYq3RrbrXz3AmQuA==}
     engines: {node: '>=20'}
 
   verkit@0.3.2:
@@ -3979,7 +3979,7 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.80.0':
     optional: true
 
-  '@oxlint/plugins@1.80.0': {}
+  '@oxlint/plugins@1.81.0': {}
 
   '@pnpm/deps.graph-sequencer@1100.0.1': {}
 
@@ -4325,19 +4325,19 @@ snapshots:
 
   '@ungap/structured-clone@1.3.3': {}
 
-  '@unthrown/oxlint@5.7.0(oxlint@1.80.0)':
+  '@unthrown/oxlint@5.8.0(oxlint@1.80.0)':
     dependencies:
-      '@oxlint/plugins': 1.80.0
+      '@oxlint/plugins': 1.81.0
       oxlint: 1.80.0
 
-  '@unthrown/standard-schema@5.7.0(unthrown@5.7.0)':
+  '@unthrown/standard-schema@5.7.0(unthrown@5.8.0)':
     dependencies:
       '@standard-schema/spec': 1.1.0
-      unthrown: 5.7.0
+      unthrown: 5.8.0
 
-  '@unthrown/vitest@5.7.0(unthrown@5.7.0)(vitest@4.1.10)':
+  '@unthrown/vitest@5.7.0(unthrown@5.8.0)(vitest@4.1.10)':
     dependencies:
-      unthrown: 5.7.0
+      unthrown: 5.8.0
       vitest: 4.1.10(@types/node@26.4.0)(@vitest/coverage-v8@4.1.10)(jiti@2.7.0)(yaml@2.9.0)
 
   '@vitejs/plugin-vue@5.2.4(vite@6.4.3(@types/node@26.4.0)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))':
@@ -5452,7 +5452,7 @@ snapshots:
       unist-util-is: 6.0.1
       unist-util-visit-parents: 6.0.2
 
-  unthrown@5.7.0: {}
+  unthrown@5.8.0: {}
 
   verkit@0.3.2: {}
 
