@@ -38,7 +38,7 @@ catalog:
   lefthook: 2.1.12
   oxfmt: 0.65.0
   oxlint: 1.80.0
-  tsdown: 0.22.14
+  tsdown: 0.23.0
   turbo: 2.10.12
   typedoc: 0.28.20
   typedoc-plugin-markdown: 4.13.0
