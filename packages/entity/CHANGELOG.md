@@ -1,5 +1,32 @@
 # @btravstack/entity
 
+## 0.8.0
+
+### Minor Changes
+
+- c02be10: `equals` now delegates to `node:util`'s `isDeepStrictEqual` instead of a
+  hand-rolled traversal. Behaviour is unchanged for every case the suite pins —
+  `bigint`, `Set`/`Map` by contents, nested key order, typed arrays and
+  `ArrayBuffer` bytewise, `RegExp`, `Date`, and cyclic values — with one
+  difference: `+0` and `-0` now compare **unequal** (`Object.is` semantics) where
+  the previous implementation treated them as equal (SameValueZero).
+
+  This makes the package **Node-only**: it now imports a `node:` builtin, so a
+  browser or edge bundle without a `node:util` shim will fail to resolve it.
+
+### Patch Changes
+
+- 02c29e3: Document the self-referencing deriver idiom (#60): a `computed` deriver or an
+  `Entity.invariant` predicate may call the entity's own statics, given an
+  explicit return annotation — `(d): boolean => Doc.isActive(d.tags)`. The
+  unannotated form is `TS2506`, which is TypeScript resolving the deriver's
+  inferred return type inside the class's own base expression, not a rule of
+  the library. The annotation is still checked against both the body and the
+  schema. `computed.test-d.ts` pins the idiom, the wrong-annotation errors, and
+  the `this`-parameter dead end (`TS2502`).
+
+  Documentation only; no runtime or API change.
+
 ## 0.7.0
 
 ### Minor Changes
