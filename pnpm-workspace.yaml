@@ -57,9 +57,9 @@ catalog:
   # Aliased because one `package.json` cannot name `typescript` twice.
   typescript-consumer: "npm:typescript@5.9.3"
   unthrown: 5.8.0
-  "@vitest/coverage-v8": 4.1.10
+  "@vitest/coverage-v8": 4.1.11
   vitepress: 1.6.4
-  vitest: 4.1.10
+  vitest: 4.1.11
   zod: 4.5.4
 
 catalogs:
@@ -97,6 +97,14 @@ overrides:
   # Pinning vitest's vite apart would mean an inline `vite` devDependency on the
   # library package for a purely transitive concern; not worth it.
   "vite@<6.4.3": "6.4.3"
+  # GHSA-82fw-gwwq-j7x9 (Moderate): path traversal via Vitest mock redirect.
+  # Reaches us through the test toolchain, not the published package. 4.1.11 is
+  # the first patched release in the same line.
+  "vitest@<4.1.11": "4.1.11"
+  # GHSA-2883-xcg3-v3hh (High): js-yaml expands merge keys without bounding CPU
+  # on empty merge sources. It reaches us through commitlint's loader chain, not
+  # runtime code. 4.3.2 is the first patched release.
+  "js-yaml@<4.3.2": "4.3.2"
   # GHSA-2v37-7h3g-55p8 (High): nanoid custom generators can loop indefinitely
   # when size is zero. Reaches us only through the docs build —
   # docs > @btravstack/theme > vitepress > postcss > nanoid — never the shipped
