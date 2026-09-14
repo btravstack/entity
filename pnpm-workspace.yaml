@@ -60,7 +60,7 @@ catalog:
   "@vitest/coverage-v8": 4.1.11
   vitepress: 1.6.4
   vitest: 4.1.11
-  zod: 4.5.4
+  zod: 4.6.2
 
 catalogs:
   # TypeDoc's own toolchain, deliberately NOT the default catalog's TypeScript.
