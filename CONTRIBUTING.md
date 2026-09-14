@@ -9,7 +9,7 @@ grow it.
 ## Prerequisites
 
 - **Node** `>=22.19`
-- **pnpm** `11.7.0` (pinned via `packageManager`; run `corepack enable` to get it)
+- **pnpm** `12.4.1` (pinned via `packageManager`; run `corepack enable` to get it)
 
 ## Getting started
 
@@ -118,12 +118,10 @@ Three numbers, and they mean different things:
 CI runs the test job on `["", "22.19", "24", "26"]` — the pinned version, the
 repo's own development floor, and the two current release lines.
 
-**The published package's floor is not covered, and this matrix cannot cover
-it.** These jobs run the development toolchain, and pnpm 11 requires
-`node:sqlite`, so a Node 20 row dies at `setup-node` before installing
-anything: `ERR_UNKNOWN_BUILTIN_MODULE: No such built-in module: node:sqlite`.
-That would test the toolchain, not the package — and it contradicts the root
-`engines` above, which already says development needs `>=22.19`.
+**The published package's floor is not covered by this matrix.** These jobs
+run the development toolchain, so a Node 20 row would test the toolchain, not
+the package — and it contradicts the root `engines` above, which already says
+development needs `>=22.19`.
 
 `engines` on `packages/entity` is a claim about **consumers**, who install the
 published tarball with their own package manager and import it. Proving it
