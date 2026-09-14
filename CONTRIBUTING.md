@@ -9,7 +9,7 @@ grow it.
 ## Prerequisites
 
 - **Node** `>=22.19`
-- **pnpm** `11.7.0` (pinned via `packageManager`; run `corepack enable` to get it)
+- **pnpm** `12.4.1` (pinned via `packageManager`; run `corepack enable` to get it)
 
 ## Getting started
 
