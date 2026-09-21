@@ -35,7 +35,7 @@ catalog:
   "@unthrown/standard-schema": 5.7.0
   "@unthrown/vitest": 5.7.0
   knip: 6.37.0
-  lefthook: 2.1.12
+  lefthook: 2.1.14
   oxfmt: 0.67.0
   oxlint: 1.82.0
   tsdown: 0.23.0
