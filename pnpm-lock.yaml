@@ -243,8 +243,8 @@ catalogs:
       specifier: npm:typescript@5.9.3
       version: 5.9.3
     unthrown:
-      specifier: 5.9.0
-      version: 5.9.0
+      specifier: 5.10.0
+      version: 5.10.0
     vitepress:
       specifier: 1.6.4
       version: 1.6.4
@@ -353,7 +353,7 @@ importers:
         version: 26.6.2
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.9.0(unthrown@5.9.0)(vitest@4.1.11)
+        version: 5.9.0(unthrown@5.10.0)(vitest@4.1.11)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -368,7 +368,7 @@ importers:
         version: link:../../packages/entity
       unthrown:
         specifier: 'catalog:'
-        version: 5.9.0
+        version: 5.10.0
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -381,10 +381,10 @@ importers:
         version: 26.6.2
       '@unthrown/standard-schema':
         specifier: 'catalog:'
-        version: 5.9.0(unthrown@5.9.0)
+        version: 5.9.0(unthrown@5.10.0)
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.9.0(unthrown@5.9.0)(vitest@4.1.11)
+        version: 5.9.0(unthrown@5.10.0)(vitest@4.1.11)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -405,7 +405,7 @@ importers:
         version: link:../billing-domain
       unthrown:
         specifier: 'catalog:'
-        version: 5.9.0
+        version: 5.10.0
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -418,7 +418,7 @@ importers:
         version: 26.6.2
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.9.0(unthrown@5.9.0)(vitest@4.1.11)
+        version: 5.9.0(unthrown@5.10.0)(vitest@4.1.11)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -439,10 +439,10 @@ importers:
         version: 26.6.2
       '@unthrown/standard-schema':
         specifier: 'catalog:'
-        version: 5.9.0(unthrown@5.9.0)
+        version: 5.9.0(unthrown@5.10.0)
       '@unthrown/vitest':
         specifier: 'catalog:'
-        version: 5.9.0(unthrown@5.9.0)(vitest@4.1.11)
+        version: 5.9.0(unthrown@5.10.0)(vitest@4.1.11)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
@@ -454,7 +454,7 @@ importers:
         version: 7.0.2
       unthrown:
         specifier: 'catalog:'
-        version: 5.9.0
+        version: 5.10.0
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(jiti@2.7.0)(yaml@2.9.0)
@@ -3111,8 +3111,8 @@ packages:
   unist-util-visit@5.1.0:
     resolution: {integrity: sha512-m+vIdyeCOpdr/QeQCu2EzxX/ohgS8KbnPDgFni4dQsfSCtpz8UqDyY5GjRru8PDKuYn7Fq19j1CQ+nJSsGKOzg==}
 
-  unthrown@5.9.0:
-    resolution: {integrity: sha512-cjOHbnFXGT2TtzzC9uw1eaystitHu2/7ie3C3e8MXMStKiDLmX4nF07Sk9GlFlOOBZHBhbt1+dk5O7i1Flox9g==}
+  unthrown@5.10.0:
+    resolution: {integrity: sha512-BkVNwm9pzngMvc5CMNMVw6l02tocGcLlCWzJkQdsg7Bnu9jS/uUHN7EP+b+U5jeZvdle+BWJvLUzDC6jGsw+EA==}
     engines: {node: '>=20'}
 
   verkit@0.4.0:
@@ -4490,14 +4490,14 @@ snapshots:
       '@oxlint/plugins': 1.82.0
       oxlint: 1.85.0
 
-  '@unthrown/standard-schema@5.9.0(unthrown@5.9.0)':
+  '@unthrown/standard-schema@5.9.0(unthrown@5.10.0)':
     dependencies:
       '@standard-schema/spec': 1.1.0
-      unthrown: 5.9.0
+      unthrown: 5.10.0
 
-  '@unthrown/vitest@5.9.0(unthrown@5.9.0)(vitest@4.1.11)':
+  '@unthrown/vitest@5.9.0(unthrown@5.10.0)(vitest@4.1.11)':
     dependencies:
-      unthrown: 5.9.0
+      unthrown: 5.10.0
       vitest: 4.1.11(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(jiti@2.7.0)(yaml@2.9.0)
 
   '@vitejs/plugin-vue@5.2.4(vite@6.4.3(@types/node@26.6.2)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))':
@@ -5605,7 +5605,7 @@ snapshots:
       unist-util-is: 6.0.1
       unist-util-visit-parents: 6.0.2
 
-  unthrown@5.9.0: {}
+  unthrown@5.10.0: {}
 
   verkit@0.4.0: {}
 
