@@ -53,6 +53,7 @@ export class Organization extends Entity("Organization")(
     slug: Entity.field(Slug, { immutable: true }),
     name: DisplayName,
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+    riskTier: z.enum(["STANDARD", "WATCHLIST", "BLOCKED"]).optional(),
   },
   {
     computed: {
@@ -81,6 +82,11 @@ fields drop out of `createInput`; `immutable` marks what `update` refuses.
 `name` carries neither, so it stays a bare schema. `computed` is re-derived on
 **every** construction path, so it cannot drift from its sources — the spec
 checks that by renaming an organization and asserting the label followed.
+
+`riskTier` is internal: the credit team sets it and no customer may see it. It
+is still an ordinary mutable field, because the domain does not know who is
+asking. Keeping it private is the contract's job, and
+[the HTTP contract example](/examples/billing-api) does it with an allowlist.
 
 Behaviour lives in the class body. This is a real class, not a record with
 functions bolted beside it.

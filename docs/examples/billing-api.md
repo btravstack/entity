@@ -1,12 +1,13 @@
 ---
 title: HTTP contract example
-description: Composing an entity's four plain ZodObjects into an oRPC contract and JSON Schema, with no hand-written omit lists.
+description: Selecting an oRPC contract and JSON Schema from an entity's four plain ZodObjects by allowlist, with an internal field that never reaches the response.
 ---
 
 # HTTP contract
 
 [`examples/billing-api`](https://github.com/btravstack/entity/tree/main/examples/billing-api)
-— turning an entity into request and response schemas for routes.
+turns an entity into request and response schemas for routes, without exposing
+what the domain keeps to itself.
 
 ```sh
 pnpm --filter @btravstack/entity-example-billing-api test
@@ -17,41 +18,98 @@ pnpm --filter @btravstack/entity-example-billing-api test
 > **Contracts compose the four plain `ZodObject`s; domain code composes the
 > class.**
 
-```ts
-export const CreateOrganizationBody = Organization.createInput;
-export const UpdateOrganizationBody = Organization.updateInput;
-export const OrganizationResponse = Organization.output;
-```
+The four are building blocks, not the contract. `Organization` carries
+`riskTier`, which the credit team sets and no customer may see. It is in
+`Organization.output`, the stored shape, and in `Organization.updateInput`,
+because the domain lets it change. A public route therefore uses neither as
+is.
 
-There is nothing to maintain here. `createInput` is the field map minus every
-field flagged `generated`; `updateInput` is it minus the ones flagged
-`immutable` and minus the computed fields, every remaining key optional. Add a generated field to the
-entity and the create body follows on its own — that is the omit list nobody had
-to write, and the spec asserts it by checking the generated JSON Schema has
-exactly `name` and `slug`.
-
-They are ordinary `ZodObject`s, so the usual combinators work:
+## The response is an allowlist
 
 ```ts
-export const OrganizationSummary = Organization.output.pick({
+export const organizationPublicFields = {
   id: true,
   slug: true,
-});
-export const OrganizationListing = z.object({
-  items: z.array(Organization.output),
-  total: z.number().int(),
+  name: true,
+  displayLabel: true,
+  createdAt: true,
+} as const;
+
+export const OrganizationResponse = Organization.output
+  .pick(organizationPublicFields)
+  .extend({ selfTitled: z.boolean() });
+```
+
+`riskTier` is not in the mask, so it is not in the response. The spec proves it
+on an organization whose `riskTier` is set: the stored row carries it, the
+response and its JSON Schema do not.
+
+It also proves the property that makes this an allowlist rather than an omit
+list. It grows `Organization.output` by a second internal field: the omit-list
+version picks the new field up, the allowlist's keys do not change.
+
+## The stored and public shapes differ, so there is a mapping
+
+`selfTitled` is class behaviour, not stored state, so `.pick` alone cannot
+produce the response. A mapping does, field by field:
+
+```ts
+export const toOrganizationResponse = (
+  org: Organization,
+): OrganizationResponse => ({
+  id: org.id,
+  slug: org.slug,
+  name: org.name,
+  displayLabel: org.displayLabel,
+  createdAt: org.createdAt,
+  selfTitled: org.isSelfTitled,
 });
 ```
+
+Never `org.toJSON()`: that is the stored shape, and the right thing to hand
+[the persistence example](/examples/billing-persistence), a boundary coupled to
+the domain on purpose.
+
+## Each command accepts only its own keys
+
+```ts
+export const CreateOrganizationBody = Organization.createInput
+  .pick({ slug: true, name: true })
+  .strict();
+
+export const RenameOrganizationBody = Organization.output
+  .pick({ id: true, name: true })
+  .strict();
+
+export const renameOrganization = (
+  org: Organization,
+  command: z.output<typeof RenameOrganizationBody>,
+) => org.update({ name: command.name }).map(toOrganizationResponse);
+```
+
+The spec shows the difference between mutability and authorization:
+`Organization.createInput` and `Organization.updateInput` accept `riskTier`,
+while both commands reject it. `.strict()` turns a smuggled key into a
+validation error rather than a silent strip, and the JSON Schemas say so with
+`additionalProperties: false`. Whether a caller may rename _this_ organization
+is the handler's check, not the entity's.
 
 ## Both directions
 
 ```ts
 const converter = new ZodToJsonSchemaConverter();
-converter.convert(Organization.createInput, "input");
-converter.convert(Organization.output, "output");
+converter.convert(CreateOrganizationBody, "input");
+converter.convert(OrganizationResponse, "output");
 ```
 
 Or through zod directly, with `z.toJSONSchema(…, { io: "input" | "output" })`.
+
+The converted schemas are plain JSON, and the spec checks they survive a
+`JSON.stringify` round trip. That is how a browser gets this contract: the
+module itself imports the entity, and with it `node:util`, so a client takes
+the JSON Schema files, or a zod-only module, instead. The how-to's section on
+[sharing the contract with a browser](/how-to/http-contract#share-the-contract-with-a-browser)
+covers both.
 
 ## And the class, deliberately, does not
 
@@ -59,10 +117,10 @@ Or through zod directly, with `z.toJSONSchema(…, { io: "input" | "output" })`.
 z.toJSONSchema(Organization, { io: "output" }); // throws, by design
 ```
 
-The class carries a `.transform()` — it parses to an _instance_, not to plain
-data — and a transforming schema has no output representation. That is the whole
-reason the four plain `ZodObject`s exist separately, and the example's spec pins
-it in both directions: the four convert, the class throws.
+The class carries a `.transform()`: it parses to an _instance_, not to plain
+data, and a transforming schema has no output representation. That is the
+whole reason the four plain `ZodObject`s exist separately, and the example's
+spec pins it in both directions: the four convert, the class throws.
 
 ## One detail worth copying
 

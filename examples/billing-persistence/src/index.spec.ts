@@ -29,7 +29,14 @@ test("the stored row is exactly the shape, and never carries _tag", () => {
   const row = repo.rawRow(saved.id);
   expect(row).toBeDefined();
   expect("_tag" in row!).toBe(false);
-  expect(Object.keys(row!).sort()).toEqual(["createdAt", "displayLabel", "id", "name", "slug"]);
+  expect(Object.keys(row!).sort()).toEqual([
+    "createdAt",
+    "displayLabel",
+    "id",
+    "name",
+    "riskTier",
+    "slug",
+  ]);
 });
 
 test("a corrupt row comes back as an error, not an exception", async () => {
