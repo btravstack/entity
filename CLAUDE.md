@@ -169,7 +169,10 @@ what they own:
   map still being inferred and every fresh literal widened (measured: `NoInfer`,
   a constrained return parameter and an intersection-free signature all
   widened). `AggregateStatic` has no `_zod` in its type, so an aggregate cannot
-  be nested as a field.
+  be nested as a field. An aggregate **must** flag an `identity` field: a
+  compile error on the field map (an inline rejection literal, not a named
+  alias, for TypeDoc) plus a declaration-time defect, the redeclaration
+  precedent. `Entity` keeps identity optional on purpose.
 - **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
   and recurses into arrays and plain objects, freezes `Date` as a leaf, and
   deliberately leaves `Map`/`Set`/class instances alone. Which _fields_ to skip

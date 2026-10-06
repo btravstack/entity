@@ -445,6 +445,12 @@ Fields and options are separate calls so the fields are fixed before the
 handlers are checked: a handler's returned literals and fields are checked
 exactly, where with both in one call they widened.
 
+The fields must flag at least one `identity` field. An aggregate root is what
+other aggregates reference and what a repository loads, so a field map without
+one is a compile error, and a declaration that gets past the types throws
+while it runs. (An `Entity` keeps identity optional: it also models parts of an
+aggregate and value-like records that have none.)
+
 The class has `make`, `inspect`, `start` and `replay` as statics, and `toJSON`,
 `sameIdentityAs` and `emit` on its instances. It has no `update`, no factories,
 no `createInput` and no `updateInput`, and it cannot be nested as another

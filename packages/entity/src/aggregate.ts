@@ -4,6 +4,7 @@ import type { z } from "zod";
 
 import type { ComputedField } from "./computed.js";
 import { InvalidEntity } from "./errors.js";
+import { isFieldSpec } from "./field.js";
 import type { Invariant } from "./invariant.js";
 import { keysOf, renderIssue } from "./issues.js";
 import type { OnlyNominal } from "./shape.js";
@@ -12,6 +13,7 @@ import type {
   EventNamed,
   Events,
   Fields,
+  IdentityKeys,
   InputOf,
   RecordOf,
   Schemas,
@@ -47,7 +49,17 @@ type Maker = { make: (state: unknown) => Result<object, InvalidEntity> };
 export const createAggregate =
   (buildEntity: BuildEntityClass) =>
   <Tag extends string>(tag: Tag) =>
-  <S extends Fields>(fields: S & OnlyNominal<S>) =>
+  <S extends Fields>(
+    // An aggregate root has an identity: it is what other aggregates reference
+    // and what a repository loads by. Without one, the field map is rejected
+    // here — an inline literal, so TypeDoc has no internal name to report —
+    // and `sameIdentityAs` is always callable on an aggregate.
+    fields: S &
+      OnlyNominal<S> &
+      ([IdentityKeys<S>] extends [never]
+        ? { readonly __anAggregateRootNeedsAnIdentityField: never }
+        : unknown),
+  ) =>
   <
     Ev extends Events,
     O extends z.output<Ev>["type"],
@@ -67,6 +79,19 @@ export const createAggregate =
     readonly computed?: { [K in keyof A]: ComputedField<A[K], InputOf<S>> };
     readonly invariants?: readonly Invariant<InputOf<S>>[];
   }): AggregateStatic<Tag, S, A, Ev, O> => {
+    // The same rule at runtime, for a caller the types did not reach — the
+    // precedent is a root's redeclared field: a compile error, and a defect
+    // while the declaration is on the stack.
+    if (
+      !Object.values(fields as Fields).some(
+        (v) => isFieldSpec(v) && (v.flags as { identity?: true }).identity === true,
+      )
+    ) {
+      // oxlint-disable-next-line unthrown/no-throw
+      throw new Error(
+        `${tag}: an aggregate root needs an identity — flag at least one field \`identity: true\`.`,
+      );
+    }
     const { events, opens, evolve, ...entityOptions } = options;
     const Base = buildEntity(tag)(fields as Fields, entityOptions) as Record<string, unknown> & {
       readonly prototype: Record<string, unknown>;

@@ -204,3 +204,16 @@ test("a stream that breaks today's invariant is an InvalidEntity, like make", ()
   ]);
   expect(issues).toEqual([[[], "TOO_MANY_ITEMS"]]);
 });
+
+test("an aggregate without an identity field is refused while the declaration runs", () => {
+  const declare = Entity.aggregate("Anonymous") as unknown as (
+    fields: object,
+  ) => (options: object) => unknown;
+  expect(() =>
+    declare({ status: z.enum(["open"]) })({
+      events: CartEvent,
+      opens: { CartOpened: () => ({ status: "open" }) },
+      evolve: { ItemAdded: (r: object) => r, CartCheckedOut: (r: object) => r },
+    }),
+  ).toThrow(/Anonymous: an aggregate root needs an identity/u);
+});

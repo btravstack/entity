@@ -94,3 +94,10 @@ Entity.aggregate("Incomplete")({ id: Entity.field(Id, { identity: true }), statu
   opens: { Opened: (e) => ({ id: e.id }) },
   evolve: { Renamed: (r) => r, Closed: (r) => r },
 });
+
+// @ts-expect-error an aggregate root has an identity: it is how others reference it and how it is loaded
+Entity.aggregate("Anonymous")({ label: Label })({
+  events: Event,
+  opens: { Opened: () => ({ label: "x" }) },
+  evolve: { Renamed: (r) => r, Closed: (r) => r },
+});
