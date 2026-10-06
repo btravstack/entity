@@ -81,7 +81,7 @@ uses both.
 | a union payload's discriminant matches nobody     | `InvalidEntity`, one issue at `[discriminant]` |
 | `computed` output failing its own schema          | **defect**                                     |
 | a `computed` function throwing                    | **defect**                                     |
-| an async generator rejecting                      | **defect**                                     |
+| a generator throwing, or an async one rejecting   | **defect**                                     |
 | subclassing an entity                             | **defect**                                     |
 | two union members claiming one discriminant value | **defect**, thrown at declaration time         |
 

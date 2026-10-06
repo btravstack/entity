@@ -396,8 +396,14 @@ export function Entity<Tag extends string>(tag: Tag) {
         generators: Generators<S, GeneratedKeys<S>>,
       ): EntityFactory<T, S, GeneratedKeys<S>> {
         const Ctor = this as unknown as { make: (state: unknown) => Result<T, InvalidEntity> };
-        // generated spreads last, so a caller cannot override a domain-owned field
-        return (input) => Ctor.make({ ...(input as object), ...callAll(generators) });
+        // A generator that throws is a Defect, as a rejecting one is in
+        // `factoryAsync` — `fromThrowable` keeps it inside the Result channel.
+        // Generated spreads last, so a caller cannot override a domain-owned field.
+        return (input) =>
+          fromThrowable(
+            () => callAll(generators),
+            (cause, defect) => defect(cause),
+          )().flatMap((generated) => Ctor.make({ ...(input as object), ...generated }));
       }
 
       static factoryAsync<T>(

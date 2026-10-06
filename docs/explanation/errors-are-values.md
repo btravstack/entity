@@ -11,8 +11,9 @@ modelled; a bug in domain code is not.
 The line: a field failing its schema or a broken invariant is `InvalidEntity` —
 expected, caller-caused. A `computed` function throwing or producing data its
 own schema rejects is a **defect**: `computed` is pure, total and typed, so a
-violation is a bug rather than bad input. An async generator rejecting is a
-defect for the same reason — infrastructure failing is not bad domain input.
+violation is a bug rather than bad input. A generator throwing, or an async
+one rejecting, is a defect for the same reason — infrastructure failing is not
+bad domain input. Either way the factory returns it; nothing escapes as a throw.
 
 A defect is never folded into a validation issue, even when the entity is
 nested inside another schema. An unmodelled bug stays distinguishable from bad

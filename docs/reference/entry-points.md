@@ -53,6 +53,7 @@ named and type-checked, where `Note.make(data)` takes `unknown`.
 The same for promise-returning generators — an id from a database sequence,
 say. A generator that **rejects** surfaces as a `Defect`, not an
 `InvalidEntity`: infrastructure failing is not the same as bad domain input.
+A synchronous generator that **throws** under `factory` takes the same channel.
 
 ```ts
 const createOrgAsync = Organization.factoryAsync({
