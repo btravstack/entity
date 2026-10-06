@@ -97,6 +97,10 @@ catalogs:
 # runtime deps, which are the three peers). Each selector is version-scoped so
 # only the affected line moves and unrelated lines are untouched.
 overrides:
+  # GHSA-pqg4-j6r4-53mv (Critical): shell-quote command injection through a
+  # line terminator after a comment token. Reaches us via the Changesets CLI's
+  # editor launcher, never the published entity package.
+  "shell-quote@>=1.8.4 <1.11.0": "1.11.0"
   # GHSA-fx2h-pf6j-xcff (High, `server.fs.deny` bypass on Windows alternate data
   # streams) plus three moderates on the same line: GHSA path traversal in
   # optimized deps, launch-editor NTLMv2 disclosure, and the esbuild dev-server
