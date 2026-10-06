@@ -1,8 +1,8 @@
 import type { Entity } from "@btravstack/entity";
 import { DisplayName, Slug } from "@btravstack/entity-example-billing-domain";
 import type { Organization } from "@btravstack/entity-example-billing-domain";
-import { P, type AsyncResult } from "unthrown";
-import { expect, test } from "vitest";
+import { fromSafePromise, OkAsync, P, type AsyncResult } from "unthrown";
+import { expect, test, vi } from "vitest";
 
 import {
   InMemoryOrganizationStore,
@@ -32,16 +32,12 @@ const racing = (store: OrganizationStore) => {
   const bothLooked = new Promise<void>((r) => (resolve = r));
 
   const raced: OrganizationStore = {
-    slugIsTaken: async (slug) => {
-      const taken = await store.slugIsTaken(slug);
-      answers.push(taken);
-      if (answers.length === 2) resolve();
-      return taken;
-    },
-    insert: async (organization) => {
-      await bothLooked;
-      return store.insert(organization);
-    },
+    slugIsTaken: (slug) =>
+      store.slugIsTaken(slug).tap((taken) => {
+        answers.push(taken);
+        if (answers.length === 2) resolve();
+      }),
+    insert: (organization) => fromSafePromise(bothLooked).flatMap(() => store.insert(organization)),
   };
   return { raced, answers };
 };
@@ -70,18 +66,18 @@ test("two concurrent creates both pass the preflight; the unique constraint reje
 });
 
 test("an invariant failure never reaches the store", async () => {
-  const untouched: OrganizationStore = {
-    slugIsTaken: () => Promise.reject(new Error("must not be called")),
-    insert: () => Promise.reject(new Error("must not be called")),
-  };
+  const untouched = { slugIsTaken: vi.fn(), insert: vi.fn() };
 
   expect(await status(registerOrganization(untouched)(acme("A".repeat(81))))).toBe(422);
+  expect(untouched.slugIsTaken).not.toHaveBeenCalled();
+  expect(untouched.insert).not.toHaveBeenCalled();
 });
 
 test("an unavailable store is a defect, not a conflict", async () => {
+  // the adapter's boundary qualified "connection refused" as a Defect
   const down: OrganizationStore = {
-    slugIsTaken: () => Promise.resolve(false),
-    insert: () => Promise.reject(new Error("connection refused")),
+    slugIsTaken: () => OkAsync(false),
+    insert: () => fromSafePromise(Promise.reject(new Error("connection refused"))),
   };
 
   expect(await status(registerOrganization(down)(acme()))).toBe(503);

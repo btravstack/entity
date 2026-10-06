@@ -14,7 +14,14 @@ cannot express it, and you need to know where it goes instead.
 >
 > ```ts
 > import { Entity } from "@btravstack/entity";
-> import { fromPromise, fromSafePromise, P, TaggedError } from "unthrown";
+> import {
+>   ErrAsync,
+>   OkAsync,
+>   P,
+>   TaggedError,
+>   fromPromise,
+>   type AsyncResult,
+> } from "unthrown";
 > ```
 >
 > The runnable version is
@@ -81,22 +88,51 @@ alter table organization add constraint organization_slug_key unique (slug);
 ```
 
 A unique index checks and writes in one atomic step, so no second writer can
-slip in between. The example has no database, so its in-memory store plays the
-index's part the same way: the check and the write share one synchronous block,
-and a duplicate rejects the insert the way a driver would.
+slip in between.
+
+## Give the store a Result-returning port
+
+A driver reports a violation by rejecting. Triage that rejection once, at the
+adapter's boundary, so the use case never sees a raw promise. The violation is
+a modeled error carrying the constraint's name; everything else is a defect:
 
 ```ts
-insert(organization: Organization): Promise<void> {
+export class UniqueViolation extends TaggedError("UniqueViolation")<{
+  constraint: string;
+}> {
+  override message = `duplicate key value violates unique constraint "${this.constraint}"`;
+}
+
+export type OrganizationStore = {
+  slugIsTaken(slug: Organization["slug"]): AsyncResult<boolean, never>;
+  insert(organization: Organization): AsyncResult<void, UniqueViolation>;
+};
+```
+
+A Postgres adapter's `insert` qualifies SQLSTATE `23505` and nothing else:
+
+```ts
+insert: (organization) =>
+  fromPromise(db.insert(organizations).values(toRow(organization)), (cause, defect) =>
+    isUniqueViolation(cause) ? new UniqueViolation({ constraint: cause.constraint }) : defect(cause),
+  ).map(() => undefined),
+```
+
+The example has no database, so its in-memory store plays the index's part the
+same way: the check and the write share one synchronous block, and a duplicate
+returns the error a real adapter would have qualified.
+
+```ts
+insert(organization: Organization): AsyncResult<void, UniqueViolation> {
   if (this.#bySlug.has(organization.slug)) {
-    return Promise.reject(new UniqueViolation("organization_slug_key"));
+    return ErrAsync(new UniqueViolation({ constraint: "organization_slug_key" }));
   }
   this.#bySlug.set(organization.slug, organization.toJSON());
-  return Promise.resolve();
+  return OkAsync();
 }
 ```
 
-In production a real database unique index replaces that method, and nothing
-above the store changes.
+Swap in the real adapter and nothing above the port changes.
 
 ## Model the conflict as its own error
 
@@ -104,7 +140,9 @@ A taken slug is an expected outcome with a stable meaning, so give it a stable
 type:
 
 ```ts
-export class SlugTaken extends TaggedError("SlugTaken")<{ slug: Slug }> {
+export class SlugTaken extends TaggedError("SlugTaken")<{
+  slug: Organization["slug"];
+}> {
   override message = `slug "${this.slug}" is already taken`;
 }
 ```
@@ -125,7 +163,8 @@ export const registerOrganization =
     createOrganization(input) // 1. state invariants, synchronous
       .toAsync()
       .flatMap((organization) =>
-        fromSafePromise(store.slugIsTaken(organization.slug)) // 2. preflight
+        store
+          .slugIsTaken(organization.slug) // 2. preflight
           .ensure(
             (taken) => !taken,
             () => new SlugTaken({ slug: organization.slug }),
@@ -133,12 +172,16 @@ export const registerOrganization =
           .map(() => organization),
       )
       .flatMap((organization) =>
-        fromPromise(store.insert(organization), (cause, defect) =>
-          cause instanceof UniqueViolation &&
-          cause.constraint === "organization_slug_key" // 3. the authority
-            ? new SlugTaken({ slug: organization.slug })
-            : defect(cause),
-        ).map(() => organization),
+        store
+          .insert(organization) // 3. the authority
+          .mapErrCases((m, defect) =>
+            m.with(P.tag("UniqueViolation"), (violation) =>
+              violation.constraint === "organization_slug_key"
+                ? new SlugTaken({ slug: organization.slug })
+                : defect(violation),
+            ),
+          )
+          .map(() => organization),
       );
 ```
 
@@ -149,18 +192,20 @@ any write, and it is the place to put a friendlier message or a suggested
 alternative. It cannot establish uniqueness, so never let it be the only check.
 Dropping it is a valid choice; dropping the constraint is not.
 
-`fromSafePromise` says every rejection from the lookup is a defect: a store
-that cannot answer the question is not a conflict.
+The lookup's error channel is `never`: its adapter already turned a store that
+cannot answer into a defect, because that is not a conflict.
 
 ## Qualify the violation, and only that
 
-The insert's `qualify` callback is the triage. It turns exactly one failure
-into `SlugTaken`: a unique violation **on this index**. Postgres reports
-SQLSTATE `23505` with the constraint's name; match on the name too, or a
-violation of some other unique index on the same table becomes a misleading
-"slug taken".
+Triage happens twice, each time at the layer that knows enough. The adapter's
+`qualify` knows the driver: it turns SQLSTATE `23505` into `UniqueViolation`
+and every other rejection into a defect. The use case's `mapErrCases` knows the
+domain: it turns exactly one violation into `SlugTaken`, the one **on this
+index**. Match on the constraint's name, or a violation of some other unique
+index on the same table becomes a misleading "slug taken"; that one goes to
+`defect`.
 
-Every other rejection goes to `defect`. A refused connection, a timeout, or a
+Every other failure is a defect too. A refused connection, a timeout, or a
 violation you did not anticipate is infrastructure failing, and it should page
 someone rather than render as a 409. If you use Prisma,
 [`@unthrown/prisma`](https://btravstack.github.io/unthrown/) already separates
@@ -175,7 +220,7 @@ Two requests for the same slug, arriving together:
 2. Both look up the slug, and both see it free.
 3. Both insert. The store accepts the first and rejects the second with a
    unique violation.
-4. The second request's `qualify` maps that violation to `SlugTaken`.
+4. The second request's `mapErrCases` maps that violation to `SlugTaken`.
 
 The loser gets the same error the preflight would have given it, so the caller
 never needs to know which layer caught the conflict. The example's spec

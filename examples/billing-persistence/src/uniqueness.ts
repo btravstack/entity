@@ -17,15 +17,16 @@
  *   three that holds under concurrency, because the store checks and writes in
  *   one atomic step.
  *
- * The constraint's violation is a *known* failure, so it is qualified at the
- * boundary into the same `SlugTaken` the precondition returns. Every other
- * rejection from the store is infrastructure failing and stays a Defect.
+ * The store's port speaks unthrown: a driver rejection is triaged once, at the
+ * adapter's `fromPromise` boundary, into a modeled `UniqueViolation` or a
+ * Defect. The use case then maps a violation of *this* index into the same
+ * `SlugTaken` the precondition returns; anything else stays a Defect.
  *
  * See also the how-to: <https://btravstack.github.io/entity/how-to/enforce-uniqueness>.
  */
 import type { Entity } from "@btravstack/entity";
 import { createOrganization, type Organization } from "@btravstack/entity-example-billing-domain";
-import { fromPromise, fromSafePromise, TaggedError, type AsyncResult } from "unthrown";
+import { ErrAsync, OkAsync, P, TaggedError, type AsyncResult } from "unthrown";
 
 type SlugValue = Organization["slug"];
 
@@ -42,25 +43,22 @@ export class SlugTaken extends TaggedError("SlugTaken")<{ slug: SlugValue }> {
 export const SLUG_UNIQUE = "organization_slug_key";
 
 /**
- * What a driver rejects with when a write hits a unique index — Postgres
- * reports SQLSTATE `23505` plus the constraint's name. Matching on the name,
- * not just the code, keeps a violation of some *other* index out of
- * `SlugTaken`.
+ * A write hit a unique index — what a Postgres adapter qualifies SQLSTATE
+ * `23505` into, carrying the constraint's name. Keeping the name lets the use
+ * case keep a violation of some *other* index out of `SlugTaken`.
  */
-export class UniqueViolation extends Error {
-  readonly constraint: string;
-
-  constructor(constraint: string) {
-    super(`duplicate key value violates unique constraint "${constraint}"`);
-    this.constraint = constraint;
-  }
+export class UniqueViolation extends TaggedError("UniqueViolation")<{ constraint: string }> {
+  override message = `duplicate key value violates unique constraint "${this.constraint}"`;
 }
 
-/** The port. Both methods are plain promises, the way a driver hands them over. */
+/**
+ * The port. A real adapter wraps its driver calls in `fromPromise`, qualifying
+ * a unique violation into `UniqueViolation` and everything else into a Defect,
+ * so no rejection crosses into the use case.
+ */
 export type OrganizationStore = {
-  slugIsTaken(slug: SlugValue): Promise<boolean>;
-  /** Rejects with `UniqueViolation` when the slug is already stored. */
-  insert(organization: Organization): Promise<void>;
+  slugIsTaken(slug: SlugValue): AsyncResult<boolean, never>;
+  insert(organization: Organization): AsyncResult<void, UniqueViolation>;
 };
 
 /**
@@ -72,16 +70,16 @@ export type OrganizationStore = {
 export class InMemoryOrganizationStore implements OrganizationStore {
   readonly #bySlug = new Map<string, unknown>();
 
-  slugIsTaken(slug: SlugValue): Promise<boolean> {
-    return Promise.resolve(this.#bySlug.has(slug));
+  slugIsTaken(slug: SlugValue): AsyncResult<boolean, never> {
+    return OkAsync(this.#bySlug.has(slug));
   }
 
-  insert(organization: Organization): Promise<void> {
+  insert(organization: Organization): AsyncResult<void, UniqueViolation> {
     if (this.#bySlug.has(organization.slug)) {
-      return Promise.reject(new UniqueViolation(SLUG_UNIQUE));
+      return ErrAsync(new UniqueViolation({ constraint: SLUG_UNIQUE }));
     }
     this.#bySlug.set(organization.slug, organization.toJSON());
-    return Promise.resolve();
+    return OkAsync();
   }
 }
 
@@ -90,7 +88,7 @@ export class InMemoryOrganizationStore implements OrganizationStore {
  *
  * 1. Construction runs the state invariants. Synchronous, no store involved.
  * 2. The preflight lookup turns the common case into a clear error before any
- *    write. A store that cannot answer is a Defect.
+ *    write. A store that cannot answer has already become a Defect.
  * 3. The insert is the authority. A violation of *this* index is `SlugTaken`;
  *    anything else the store rejects with is a Defect.
  */
@@ -102,7 +100,8 @@ export const registerOrganization =
     createOrganization(input)
       .toAsync()
       .flatMap((organization) =>
-        fromSafePromise(store.slugIsTaken(organization.slug))
+        store
+          .slugIsTaken(organization.slug)
           .ensure(
             (taken) => !taken,
             () => new SlugTaken({ slug: organization.slug }),
@@ -110,9 +109,14 @@ export const registerOrganization =
           .map(() => organization),
       )
       .flatMap((organization) =>
-        fromPromise(store.insert(organization), (cause, defect) =>
-          cause instanceof UniqueViolation && cause.constraint === SLUG_UNIQUE
-            ? new SlugTaken({ slug: organization.slug })
-            : defect(cause),
-        ).map(() => organization),
+        store
+          .insert(organization)
+          .mapErrCases((m, defect) =>
+            m.with(P.tag("UniqueViolation"), (violation) =>
+              violation.constraint === SLUG_UNIQUE
+                ? new SlugTaken({ slug: organization.slug })
+                : defect(violation),
+            ),
+          )
+          .map(() => organization),
       );
