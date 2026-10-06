@@ -171,6 +171,23 @@ test("a generator runs once per create, not once per factory", () => {
   expect(n).toBe(2);
 });
 
+test("a throwing generator is a defect carrying its cause, not a throw", () => {
+  const cause = new Error("id source unreachable");
+  const createBroken = Organization.factory({
+    id: () => {
+      // oxlint-disable-next-line unthrown/no-throw -- the generator bug under test
+      throw cause;
+    },
+    createdAt: () => "2026-08-06T09:00:00Z" as never,
+  });
+  const outcome = createBroken(input).match({
+    ok: () => "WRONGLY ACCEPTED",
+    errCases: (m) => m.with(P.tag("InvalidEntity"), () => "invalid"),
+    defect: (reason) => reason,
+  });
+  expect(outcome).toBe(cause);
+});
+
 test("an async factory awaits its generators", async () => {
   const createOrgAsync = Organization.factoryAsync({
     id: () => Promise.resolve("0199b1f4-1b1e-7000-8000-000000000000" as never),
