@@ -69,9 +69,9 @@ itself a zod schema:
 
 ```ts
 Organization.input; // ZodObject — everything make() accepts
-Organization.output; // ZodObject — the stored shape / response body
-Organization.createInput; // ZodObject — the create request
-Organization.updateInput; // ZodObject — the update request, partial
+Organization.output; // ZodObject — the stored shape
+Organization.createInput; // ZodObject — what a create may set
+Organization.updateInput; // ZodObject — what an update may change, partial
 ```
 
 Right now `createInput` has the same shape as `input`, and `updateInput` is

@@ -16,7 +16,7 @@ Every entity carries four plain `ZodObject`s as statics, plus the class itself.
 
 ```ts
 Organization.input; // ZodObject — everything make() accepts
-Organization.output; // ZodObject — stored state and response body
+Organization.output; // ZodObject — stored state, internal fields included
 Organization.createInput; // ZodObject — input minus the generated fields
 Organization.updateInput; // ZodObject — output minus the immutable and computed fields, partial
 Organization.entityName; // the tag, as a literal type
@@ -25,6 +25,19 @@ Organization; // …is itself a zod schema, parsing to an instance
 
 `output` is `input` plus the computed fields. All four `ZodObject`s generate
 JSON Schema in **both** `"input"` and `"output"` directions.
+
+Each describes what the **domain** accepts or holds, whoever is asking:
+
+| Member        | Describes                              | Is not                                                     |
+| ------------- | -------------------------------------- | ---------------------------------------------------------- |
+| `input`       | every field `make()` reads             | a request body: it includes the `generated` fields         |
+| `output`      | the stored state, every field included | a response body: an internal field is in it too            |
+| `createInput` | every field a create may set           | a public command: internal fields are in it too            |
+| `updateInput` | every field the domain lets change     | authorization: mutable does not mean any caller may set it |
+
+They are building blocks for a contract. A public route selects from them
+with `.pick`, an allowlist, so a field the entity gains later is not exposed
+by default. [Expose an HTTP contract](/how-to/http-contract) has the recipe.
 
 The class carries zod's internal slots (`_zod`, `~standard`) but **not** its
 methods, so it composes anywhere zod takes a schema while `.parse()` — which

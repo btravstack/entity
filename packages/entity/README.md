@@ -2,8 +2,8 @@
 
 **A domain-entity builder for [TypeScript](https://www.typescriptlang.org/), on [zod](https://zod.dev) v4 — branded fields, immutable data, sealed construction, and `Result` instead of throws.**
 
-One declaration gives you a type, four request/response schemas, behaviour, and
-a class that is itself a zod schema — so entities nest inside each other
+One declaration gives you a type, four derived schemas to build contracts from,
+behaviour, and a class that is itself a zod schema — so entities nest inside each other
 without losing what makes them entities. Nothing throws: every fallible
 operation returns an [`unthrown`](https://github.com/btravstack/unthrown)
 `Result`.
@@ -58,13 +58,18 @@ const loaded = Organization.make(row).getOrThrow(); // rows, imports, event fold
 const renamed = loaded.update({ name: next }).getOrThrow(); // a NEW entity
 ```
 
-| Schema member | For                                                                          |
-| ------------- | ---------------------------------------------------------------------------- |
-| `input`       | everything `make()` accepts                                                  |
-| `output`      | stored state and response body                                               |
-| `createInput` | create request — `input` minus the `generated` fields                        |
-| `updateInput` | update request — `output` minus the `immutable` and computed fields, partial |
-| _the class_   | parses to an instance; valid as a field                                      |
+| Schema member | For                                                                            |
+| ------------- | ------------------------------------------------------------------------------ |
+| `input`       | everything `make()` accepts                                                    |
+| `output`      | stored state, internal fields included: pick a response from it, by allowlist  |
+| `createInput` | what the domain lets a create set — `input` minus the `generated` fields       |
+| `updateInput` | what the domain lets change — `output` minus `immutable` and computed, partial |
+| _the class_   | parses to an instance; valid as a field                                        |
+
+The four are building blocks, not a public API. A route picks from them by
+allowlist, so an internal field stays internal and a new one stays out until
+someone adds it: see [Expose an HTTP
+contract](https://btravstack.github.io/entity/how-to/http-contract).
 
 `generated` and `immutable` are **flags on the field**, written with
 `Entity.field(schema, flags)`; a field carrying neither is a bare schema.

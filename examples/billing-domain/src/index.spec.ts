@@ -63,7 +63,14 @@ test("an invariant returns an error rather than throwing", () => {
 test("toJSON is the stored shape, and never carries _tag", () => {
   const stored = org().toJSON();
 
-  expect(Object.keys(stored).sort()).toEqual(["createdAt", "displayLabel", "id", "name", "slug"]);
+  expect(Object.keys(stored).sort()).toEqual([
+    "createdAt",
+    "displayLabel",
+    "id",
+    "name",
+    "riskTier",
+    "slug",
+  ]);
   expect("_tag" in stored).toBe(false);
 });
 

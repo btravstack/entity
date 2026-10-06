@@ -1,12 +1,12 @@
 ---
 layout: home
 title: entity — a domain-entity builder for TypeScript, on zod v4
-description: One declaration gives you a type, four request/response schemas, behaviour, and a class that is itself a zod schema. Nothing throws.
+description: One declaration gives you a type, four derived schemas, behaviour, and a class that is itself a zod schema. Nothing throws.
 
 hero:
   name: "entity"
   text: "Domain entities, declared once"
-  tagline: One declaration yields a type, four request/response schemas, behaviour, and a class that is itself a zod schema — with branded fields, immutable data, sealed construction, and Result instead of throws.
+  tagline: One declaration yields a type, four derived schemas, behaviour, and a class that is itself a zod schema — with branded fields, immutable data, sealed construction, and Result instead of throws.
   image:
     light: /logo-light.svg
     dark: /logo-dark.svg

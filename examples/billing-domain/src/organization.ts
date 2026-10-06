@@ -1,4 +1,5 @@
 import { Entity } from "@btravstack/entity";
+import { z } from "zod";
 
 import { DisplayLabel, DisplayName, Instant, OrganizationId, Slug } from "./vocabulary.js";
 
@@ -7,6 +8,13 @@ import { DisplayLabel, DisplayName, Instant, OrganizationId, Slug } from "./voca
  * domain produces rather than the caller (`generated`, dropped from
  * `createInput`) and the ones `update` refuses (`immutable`). `computed` is
  * re-derived on every construction path, so it cannot drift from its sources.
+ *
+ * `riskTier` is **internal-only**: the credit team sets it, and no customer
+ * should ever see it. It is an ordinary, mutable domain field, because the
+ * domain does not know who is asking. Keeping it out of the public API is the
+ * HTTP contract's job: `examples/billing-api` allowlists its response instead
+ * of sending `output`. It stays absent until the credit team assesses the
+ * organization.
  *
  * A plain, rootless entity: nothing else shares its fields, so there is nothing
  * for a root to hold.
@@ -17,6 +25,7 @@ export class Organization extends Entity("Organization")(
     slug: Entity.field(Slug, { immutable: true }),
     name: DisplayName,
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),
+    riskTier: z.enum(["STANDARD", "WATCHLIST", "BLOCKED"]).optional(),
   },
   {
     computed: {
