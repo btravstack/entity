@@ -10,7 +10,7 @@ hero:
   image:
     light: /logo-light.svg
     dark: /logo-dark.svg
-    alt: entity
+    alt: entity logo
   actions:
     - theme: brand
       text: Get Started

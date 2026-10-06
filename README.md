@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-dark.svg">
-  <img src="docs/public/logo-light.svg" alt="entity" width="170" height="114" />
+  <img src="docs/public/logo-light.svg" alt="entity logo" width="128" height="128" />
 </picture>
 
 # entity
