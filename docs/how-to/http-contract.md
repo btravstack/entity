@@ -240,8 +240,8 @@ path prefix included).
 
 An issue with an empty `path` came from `invariants`, a rule spanning the whole
 entity rather than one field. That distinction is what lets you decide whether
-to attach the message to a form field or to the form. A rule declared with
-`{ code }` also tells the client _which_ rule failed, so it can render its own
+to attach the message to a form field or to the form. Its declared code also
+tells the client _which_ rule failed, so it can render its own
 copy or offer a recovery without matching on message text; see
 [`Entity.codeOf`](/reference/errors#entity-codeof-issue).
 

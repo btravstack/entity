@@ -259,10 +259,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       // no `path` — an invariant spans the entity, not one field
       const broken = (invariants ?? [])
         .filter((rule) => !rule.ensure(d))
-        .map((rule) => ({
-          message: rule.describe(d),
-          ...(rule.code === undefined ? {} : { params: { code: rule.code } }),
-        }));
+        .map((rule) => ({ message: rule.describe(d), params: { code: rule.code } }));
       if (broken.length > 0) {
         return Err(new InvalidEntity({ entity: tag, issues: broken }));
       }

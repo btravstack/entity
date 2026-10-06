@@ -213,10 +213,11 @@ class Organization extends Entity("Organization")(
   },
   {
     invariants: [
-      Entity.invariant(
-        (d) => d.name.length <= 80,
-        "name must be at most 80 characters",
-      ),
+      Entity.invariant({
+        code: "NAME_TOO_LONG",
+        ensure: (d) => d.name.length <= 80,
+        message: "name must be at most 80 characters",
+      }),
     ],
   },
 ) {}

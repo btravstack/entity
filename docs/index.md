@@ -62,10 +62,11 @@ class Organization extends Entity("Organization")(
       shout: Entity.computed(Upper, (d) => d.name.toUpperCase()),
     },
     invariants: [
-      Entity.invariant(
-        (d) => d.name.length <= 80,
-        "name must be at most 80 characters",
-      ),
+      Entity.invariant({
+        code: "NAME_TOO_LONG",
+        ensure: (d) => d.name.length <= 80,
+        message: "name must be at most 80 characters",
+      }),
     ],
   },
 ) {

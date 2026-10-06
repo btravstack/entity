@@ -99,22 +99,29 @@ class Order extends Entity("Order")(
       })),
     },
     invariants: [
-      Entity.invariant(
-        (d) => new Set(d.lines.map((line) => line.id)).size === d.lines.length,
-        "line ids must be unique within an order",
-      ),
-      Entity.invariant(
-        (d) => d.lines.every((line) => line.unitPrice.currency === d.currency),
-        "every line must be priced in the order's currency",
-      ),
-      Entity.invariant(
-        (d) => sum(d.lines) <= 10_000_00,
-        "order total exceeds the ceiling",
-      ),
-      Entity.invariant(
-        (d) => (d.status === "PLACED") === (d.billTo !== undefined),
-        "a placed order, and only a placed order, carries a billing snapshot",
-      ),
+      Entity.invariant({
+        code: "DUPLICATE_LINE_ID",
+        ensure: (d) =>
+          new Set(d.lines.map((line) => line.id)).size === d.lines.length,
+        message: "line ids must be unique within an order",
+      }),
+      Entity.invariant({
+        code: "LINE_CURRENCY_MISMATCH",
+        ensure: (d) =>
+          d.lines.every((line) => line.unitPrice.currency === d.currency),
+        message: "every line must be priced in the order's currency",
+      }),
+      Entity.invariant({
+        code: "ORDER_OVER_CEILING",
+        ensure: (d) => sum(d.lines) <= 10_000_00,
+        message: "order total exceeds the ceiling",
+      }),
+      Entity.invariant({
+        code: "BILLING_SNAPSHOT_MISMATCH",
+        ensure: (d) => (d.status === "PLACED") === (d.billTo !== undefined),
+        message:
+          "a placed order, and only a placed order, carries a billing snapshot",
+      }),
     ],
   },
 ) {}

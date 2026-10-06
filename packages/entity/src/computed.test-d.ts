@@ -22,7 +22,13 @@ class Doc extends Entity("Doc")(
     computed: {
       active: Entity.computed(z.boolean(), (d): boolean => Doc.isActive(d.tags)),
     },
-    invariants: [Entity.invariant((d): boolean => Doc.isActive(d.tags), "must be active")],
+    invariants: [
+      Entity.invariant({
+        code: "NOT_ACTIVE",
+        ensure: (d): boolean => Doc.isActive(d.tags),
+        message: "must be active",
+      }),
+    ],
   },
 ) {
   static isActive(tags: Tags): boolean {
@@ -189,8 +195,12 @@ class BadRule extends Entity("BadRule")(
   { id: Entity.field(Id, { immutable: true }), tags: z.array(Tag) },
   {
     invariants: [
-      // @ts-expect-error TS7024 — the predicate's return type cannot be inferred
-      Entity.invariant((d) => BadRule.isActive(d.tags), "must be active"),
+      Entity.invariant({
+        code: "NOT_ACTIVE",
+        // @ts-expect-error TS7023 — the predicate's return type cannot be inferred
+        ensure: (d) => BadRule.isActive(d.tags),
+        message: "must be active",
+      }),
     ],
   },
 ) {

@@ -44,7 +44,13 @@ abstract class InvoiceBase extends Entity.abstract("Invoice")(
     total: Money,
   },
   {
-    invariants: [Entity.invariant((d) => d.total.amount >= 0, "total must not be negative")],
+    invariants: [
+      Entity.invariant({
+        code: "NEGATIVE_TOTAL",
+        ensure: (d) => d.total.amount >= 0,
+        message: "total must not be negative",
+      }),
+    ],
   },
 ) {
   get reference(): string {
@@ -71,7 +77,11 @@ export class IssuedInvoice extends InvoiceBase.extend("IssuedInvoice")(
   },
   {
     invariants: [
-      Entity.invariant((d) => d.total.amount > 0, "an issued invoice must bill something"),
+      Entity.invariant({
+        code: "ISSUED_WITHOUT_LINES",
+        ensure: (d) => d.total.amount > 0,
+        message: "an issued invoice must bill something",
+      }),
     ],
   },
 ) {}

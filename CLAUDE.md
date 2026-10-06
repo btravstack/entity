@@ -185,16 +185,21 @@ what they own:
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
   fields, and `shape()`, which builds the validated field map. Both are
   internal; neither is exported from `index.ts`.
-- **`issues.ts`** — `keysOf` and `renderIssue`. Standard Schema permits a path
-  segment to be a bare `PropertyKey` or a `{ key }` wrapper; zod emits the
-  bare form, and `keysOf` normalises it wherever a path meets an API wanting
-  plain keys.
+- **`issues.ts`** — `keysOf`, `codeOf` and `renderIssue`, plus `toZodIssue`,
+  the one place a nested entity or union member re-raises its issues to zod
+  (both `schema.ts` and `union.ts` use it, so a code is never dropped a level
+  down). Standard Schema permits a path segment to be a bare `PropertyKey` or a
+  `{ key }` wrapper; zod emits the bare form, and `keysOf` normalises it
+  wherever a path meets an API wanting plain keys.
 - **`computed.ts`** / **`errors.ts`** — the `computed(schema, from)` helper
   (public as `Entity.computed`) and the `InvalidEntity` tagged error. Computed
   fields are re-derived on every construction path, so they cannot drift from
   their sources.
-- **`invariant.ts`** — `invariant(ensure, message)`, public as
-  `Entity.invariant`. A rule's `d` is `InputOf<S>`, **not** `OutputOf<S, A>`,
+- **`invariant.ts`** — `invariant({ code, ensure, message })`, public as
+  `Entity.invariant`. `code` is required and rides on the issue as
+  `params.code` (zod's custom-issue slot, so it survives nesting), read back
+  by `Entity.codeOf`; never a top-level `code`, which on a zod issue is zod's
+  own kind. A rule's `d` is `InputOf<S>`, **not** `OutputOf<S, A>`,
   and that is not a simplification: `OutputOf` carries the deferred
   `ComputedOf<A>` conditional, `A` is unresolved while the invariants array is
   checked, and typing `d` as the output degrades it to a bag of `unknown`

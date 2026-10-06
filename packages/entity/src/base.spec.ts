@@ -14,7 +14,13 @@ abstract class AccountBase extends Entity.abstract("Account")(
     computed: {
       shout: Entity.computed(Upper, (d) => d.label.toUpperCase()),
     },
-    invariants: [Entity.invariant((d) => d.label.length <= 20, "label must be at most 20 chars")],
+    invariants: [
+      Entity.invariant({
+        code: "LABEL_TOO_LONG",
+        ensure: (d) => d.label.length <= 20,
+        message: "label must be at most 20 chars",
+      }),
+    ],
   },
 ) {
   abstract describe(): string;
@@ -203,7 +209,15 @@ test("a variant adds to the root's invariants, never replaces", () => {
   const Score = z.number().int().brand("Score");
   class Stricter extends AccountBase.extend("Stricter")(
     { score: Score },
-    { invariants: [Entity.invariant((d) => d.score >= 18, "score must be at least 18")] },
+    {
+      invariants: [
+        Entity.invariant({
+          code: "SCORE_TOO_LOW",
+          ensure: (d) => d.score >= 18,
+          message: "score must be at least 18",
+        }),
+      ],
+    },
   ) {
     override describe(): string {
       return "stricter";

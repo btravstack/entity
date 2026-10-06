@@ -12,15 +12,21 @@ class Mission extends Entity("Mission")(
   { kind: z.literal("mission"), step: Step, reason: Reason.optional(), label: Label },
   {
     invariants: [
-      Entity.invariant(
-        (d) => d.step !== "ERROR" || d.reason !== undefined,
-        (d) => `a mission in step ${d.step} must carry the reason it failed`,
-        { code: "MISSING_FAILURE_REASON" },
-      ),
-      Entity.invariant((d) => d.label !== "forbidden", "label is forbidden", {
-        code: "FORBIDDEN_LABEL",
+      Entity.invariant({
+        code: "MISSING_FAILURE_REASON",
+        ensure: (d) => d.step !== "ERROR" || d.reason !== undefined,
+        message: (d) => `a mission in step ${d.step} must carry the reason it failed`,
       }),
-      Entity.invariant((d) => d.label.length <= 20, "label must be at most 20 chars"),
+      Entity.invariant({
+        code: "FORBIDDEN_LABEL",
+        ensure: (d) => d.label !== "forbidden",
+        message: "label is forbidden",
+      }),
+      Entity.invariant({
+        code: "LABEL_TOO_LONG",
+        ensure: (d) => d.label.length <= 20,
+        message: "label must be at most 20 chars",
+      }),
     ],
   },
 ) {}
@@ -57,15 +63,16 @@ test("the message varies with the data; the code does not", () => {
   expect(issuesOf(Mission.make(broken))[0]?.[1]).toBe("MISSING_FAILURE_REASON");
 });
 
-test("a message-only rule keeps its exact issue shape and has no code", () => {
+test("an invariant issue is its message plus its code, and nothing else", () => {
   const result = Mission.make({ kind: "mission", step: "RUNNING", label: "x".repeat(21) });
   const issues = result.match({
     ok: () => [],
     errCases: (m) => m.with(P.tag("InvalidEntity"), (e) => e.issues),
     defect: () => [],
   });
-  expect(issues).toEqual([{ message: "label must be at most 20 chars" }]);
-  expect(Entity.codeOf(issues[0]!)).toBeUndefined();
+  expect(issues).toEqual([
+    { message: "label must be at most 20 chars", params: { code: "LABEL_TOO_LONG" } },
+  ]);
 });
 
 test("a schema-validation issue carries no domain code", () => {

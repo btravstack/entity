@@ -73,7 +73,8 @@ uses both.
 
 ## `Entity.codeOf(issue)`
 
-The code an `Entity.invariant` declared with `{ code }`, or `undefined`:
+The code a failing `Entity.invariant` declared, or `undefined` for an issue
+that came from a field's schema:
 
 ```ts
 e.issues.map(Entity.codeOf); // ["MISSING_FAILURE_REASON", undefined, …]
