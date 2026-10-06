@@ -53,8 +53,9 @@ import type { z } from "zod";
 
 // `Organization` is imported as a value: the sealed-construction assertion
 // below needs the runtime binding to write `new Organization(...)` at all.
-import { Organization } from "./index.js";
-import type { BillingDocument, CreditNote, DisplayLabel, Invoice, Money, Slug } from "./index.js";
+// `Invoice` and `BillingDocument` are values for the `inspect` guards at the end.
+import { BillingDocument, Invoice, Organization } from "./index.js";
+import type { CreditNote, DisplayLabel, Money, Slug } from "./index.js";
 
 /* ── Construction stays sealed from outside the package ───────────────── */
 
@@ -109,3 +110,14 @@ export type MergedFieldMap = Entity.MergedFields<{ total: typeof Money }, Record
 /** The error is reachable as both a value and a type. */
 export const isInvalid = (error: unknown): error is Entity.InvalidEntity =>
   error instanceof Entity.InvalidEntity;
+
+/* ── `inspect`'s result, emitted without an annotation ────────────────── */
+
+// Left unannotated on purpose, so the emitter has to print the return type.
+// Measured on this fixture: with `Inspection` exported from the package these
+// two lines emit `import("@btravstack/entity").Inspection<…>` and cost 10,375
+// bytes; unexported, the alias expanded structurally and they cost 18,697. The
+// widest entity and a union are the two shapes worth printing.
+export const inspectInvoice = (row: unknown) => Invoice.inspect(row);
+export const inspectDocument = (row: unknown) => BillingDocument.inspect(row);
+export type Inspected = Entity.Inspection<Row>;

@@ -1,3 +1,4 @@
+import type { SchemaIssues } from "@unthrown/standard-schema";
 import type { AsyncResult, Result } from "unthrown";
 import type { z } from "zod";
 
@@ -168,6 +169,26 @@ export type DeepReadonly<T> = T extends Immutable
   : T extends z.core.$brand<infer B>
     ? DeepReadonly<Omit<T, typeof z.core.$brand>> & z.core.$brand<B>
     : { readonly [K in keyof T]: DeepReadonly<T[K]> };
+
+/**
+ * What `inspect` returns: a stored row's data, and the rules it breaks.
+ *
+ * Deliberately not an entity. `data` is plain frozen data — no `_tag`, no
+ * `update`, no `sameIdentityAs`, no class body — so it cannot be handed to a
+ * command that expects the entity, and ignoring `violations` cannot smuggle a
+ * row that breaks today's rules into the command model. The way back is a
+ * migration followed by `make`, which is strict. `violations` are the issues
+ * `make` would have failed with, `params.code` and all, so `Entity.codeOf`
+ * reads them.
+ *
+ * Named, and exported from `index.ts`, so a consumer's emitted declarations
+ * print `Inspection<…>` rather than spelling the object out at every
+ * `inspect` call they return from.
+ */
+export type Inspection<D> = {
+  readonly data: DeepReadonly<D>;
+  readonly violations: SchemaIssues;
+};
 
 /**
  * What `update` accepts: a partial of the stored data, minus the immutable
@@ -475,6 +496,8 @@ export type EntityStatic<
   /** the instance type, read by `Entity.Instance` */
   readonly __instance: ConstructedInstance<Tag, S, A> & B;
   make<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
+  /** stored data → its data plus the invariants it breaks, never an entity */
+  inspect(state: unknown): Result<Inspection<OutputOf<S, A>>, InvalidEntity>;
   // No `extend`. An entity is final — extension lives on `AbstractEntity`,
   // which is tagless and can therefore carry behaviour. See `BehaviourOf`.
   factory<T>(

@@ -27,6 +27,7 @@ import type {
   Fields,
   GeneratedKeys,
   ImmutableKeys,
+  Inspection,
   MergedComputed,
   MergedFields,
   PatchOf,
@@ -247,20 +248,49 @@ export function Entity<Tag extends string>(tag: Tag) {
       ) as Result<OutputShape, InvalidEntity>;
     };
 
-    const invariants = options?.invariants;
+    const invariants = options?.invariants ?? [];
+
+    /**
+     * Every rule `d` breaks, as the issues `make` fails with: each failing rule
+     * reports, not just the first, and none carries a `path` — an invariant
+     * spans the entity, not one field. Shared by `construct`, which refuses on
+     * any, and `inspect`, which only reports them. A predicate that throws is
+     * caught by the surrounding combinator and becomes a defect on both paths,
+     * which is what a bug in a rule should be.
+     */
+    const violationsOf = (d: OutputShape): SchemaIssues =>
+      invariants
+        .filter((rule) => !rule.ensure(d))
+        .map((rule) => ({ message: rule.describe(d), params: { code: rule.code } }));
+
+    /**
+     * Each data field deep-frozen, keyed exactly as `output` declares them.
+     *
+     * One `WeakSet` for the whole record, not one per field: fields can share
+     * a subtree, and a per-field set would re-walk it once per field that
+     * reaches it. See `deepFreeze`.
+     */
+    const frozenFields = (d: OutputShape): Record<PropertyKey, unknown> => {
+      const source = d as unknown as Record<PropertyKey, unknown>;
+      const seen = new WeakSet<object>();
+      return Object.fromEntries(
+        dataKeys.map((k) => [
+          k,
+          deepFreeze(
+            source[k as PropertyKey],
+            seen,
+            (output.shape as Record<string, unknown>)[k as string],
+          ),
+        ]),
+      );
+    };
 
     /** The tail every entry point shares: check the invariants, then seal and construct. */
     const construct = <T>(
       Ctor: new (d: Sealed<OutputShape>) => T,
       d: OutputShape,
     ): Result<T, InvalidEntity> => {
-      // Every failing rule reports, not just the first. A predicate that throws
-      // escapes to the defect channel via the `fromThrowable` around `make`,
-      // which is what a bug in a rule should be.
-      // no `path` — an invariant spans the entity, not one field
-      const broken = (invariants ?? [])
-        .filter((rule) => !rule.ensure(d))
-        .map((rule) => ({ message: rule.describe(d), params: { code: rule.code } }));
+      const broken = violationsOf(d);
       if (broken.length > 0) {
         return Err(new InvalidEntity({ entity: tag, issues: broken }));
       }
@@ -294,11 +324,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       static readonly updateInput = updateInput;
 
       constructor(d: Sealed<OutputShape>) {
-        const source = d as unknown as Record<PropertyKey, unknown>;
-        // One set for the whole instance, not one per field: fields can share
-        // a subtree, and a per-field set would re-walk it once per field that
-        // reaches it. See `deepFreeze`.
-        const seen = new WeakSet<object>();
+        const data = frozenFields(d);
         for (const k of dataKeys) {
           Object.defineProperty(this, k, {
             // `writable: false` locks the binding; `deepFreeze` locks the
@@ -308,11 +334,7 @@ export function Entity<Tag extends string>(tag: Tag) {
             // initialisers run after `super()` returns, so the instance
             // itself must stay extensible (pinned by a test in
             // `entity.spec.ts`).
-            value: deepFreeze(
-              source[k as PropertyKey],
-              seen,
-              (output.shape as Record<string, unknown>)[k as string],
-            ),
+            value: data[k as PropertyKey],
             writable: false,
             enumerable: true,
           });
@@ -396,6 +418,36 @@ export function Entity<Tag extends string>(tag: Tag) {
           )
           .flatMap(recompute)
           .flatMap((d) => construct(this, d));
+      }
+
+      /**
+       * stored data → its data, plus the invariants it breaks. Never an entity.
+       *
+       * The read-side door for a row written before a rule existed. The field
+       * schemas still fail hard — a wrong-shaped field is corruption or a shape
+       * migration, not history — and `computed` is re-derived exactly as in
+       * `make`; only the invariants are reported instead of refused. What comes
+       * back is plain frozen data, never an instance, so a caller who ignores
+       * the violations still cannot hand the row to a command: the way into the
+       * command model is a migration, then `make`. See `Inspection`.
+       *
+       * A nested entity field is parsed the way `make` parses it, strictly: a
+       * nested row breaking its own rule fails here, as an `InvalidEntity`.
+       */
+      static inspect(state: unknown): Result<Inspection<OutputShape>, InvalidEntity> {
+        return parseInput(state)
+          .mapErrCases((m) =>
+            // SchemaIssues is `readonly Issue[]` — a single non-union type, nothing to enumerate
+            // oxlint-disable-next-line unthrown/no-catch-all-pattern
+            m.with(P._, toInvalidEntity),
+          )
+          .flatMap(recompute)
+          .flatMap((d) =>
+            Ok({
+              data: Object.freeze(frozenFields(d)) as unknown as DeepReadonly<OutputShape>,
+              violations: violationsOf(d),
+            }),
+          );
       }
 
       /** caller fields + domain-generated fields → entity */
@@ -495,6 +547,7 @@ Entity.renderIssue = renderIssue;
 type ComputedFieldSrc<T extends z.core.$ZodType, D> = ComputedField<T, D>;
 type FieldSpecSrc<T extends z.core.$ZodType, F extends Flags> = FieldSpec<T, F>;
 type InvariantSrc<D> = Invariant<D>;
+type InspectionSrc<D> = Inspection<D>;
 type EntityUnionSrc<K extends string, M extends readonly UnionMember[]> = EntityUnion<K, M>;
 type ConstructionKeySrc = ConstructionKey;
 type SealedSrc<D> = Sealed<D>;
@@ -534,6 +587,9 @@ export declare namespace Entity {
 
   /** One whole-entity rule: the predicate, and what to say when it fails. */
   export type Invariant<D> = InvariantSrc<D>;
+
+  /** What `inspect` returns: a stored row's plain data, and the invariants it breaks. */
+  export type Inspection<D> = InspectionSrc<D>;
 
   // `InvalidEntity` is a class, so it needs both meanings under `Entity`: the
   // value for `instanceof`, the type for annotations. A re-export carries both,

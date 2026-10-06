@@ -1,6 +1,6 @@
 ---
 title: Entry points
-description: factory, factoryAsync, make, update, toJSON and sameIdentityAs — every way in and out of an entity.
+description: factory, factoryAsync, make, inspect, update, toJSON and sameIdentityAs — every way in and out of an entity.
 ---
 
 # Entry points
@@ -98,6 +98,50 @@ too — which is why the helpers above are part of the pattern rather than
 decoration. Written with bare literals (`slug: "acme"`), the same object fails
 on every branded field. That failure is the brand doing its job: an unbranded
 string is not a `Slug`, and this is the one form that says so at the call site.
+
+## `SomeEntity.inspect(data)` → `Result<Inspection<Output>, InvalidEntity>` {#someentity-inspect}
+
+Reads a stored row **without** enforcing the invariants, and never yields an
+entity. Use it for a row that may predate a rule:
+
+```ts
+const { data, violations } = Mission.inspect(row).getOrThrow();
+violations.map(Entity.codeOf); // ["MISSING_FAILURE_REASON"]
+```
+
+It does what `make` does, up to the last step:
+
+| Step                     | `make`              | `inspect`                      |
+| ------------------------ | ------------------- | ------------------------------ |
+| validate against `input` | `InvalidEntity`     | `InvalidEntity`, the same      |
+| re-derive `computed`     | yes                 | yes                            |
+| check the invariants     | `InvalidEntity`     | reported in `violations`       |
+| a predicate that throws  | defect              | defect                         |
+| result                   | the entity instance | plain frozen data, no instance |
+
+`Inspection<D>` is `{ readonly data: DeepReadonly<D>; readonly violations: SchemaIssues }`,
+named `Entity.Inspection` for annotations. `violations` holds every broken
+rule, each as the issue `make` would have failed with,
+`{ message, params: { code } }`, so
+[`Entity.codeOf`](/reference/errors#entity-codeof-issue) reads it. It is empty
+for a row that satisfies every rule, and then `data` equals
+`make(row).toJSON()`.
+
+`data` is not an entity. It has no `_tag`, no `update`, no `sameIdentityAs`
+and no class-body members, and its type is not assignable to the entity type.
+It cannot reach a command by accident. The way back into the command model is
+a migration, then `make`.
+
+A nested entity field is inspected **strictly**: it is parsed as `make` parses
+it, so a nested row that breaks its own invariant fails the parent's `inspect`
+with an `InvalidEntity`, the nested issue's code and path intact.
+
+An `Entity.union` has `inspect` too. It dispatches on the discriminant like
+its `make`, and an unknown discriminant is the same `InvalidEntity`. An
+abstract root has no `make`, so it has no `inspect` either.
+
+[Add a stricter rule without an outage](/how-to/add-a-stricter-rule) puts it to
+work: a data-quality job, a read model, and the rollout order.
 
 ## `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>`
 

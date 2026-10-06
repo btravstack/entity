@@ -21,6 +21,7 @@ const GUIDE_SIDEBAR = [
       { text: "Expose an HTTP contract", link: "/how-to/http-contract" },
       { text: "Persist and rehydrate", link: "/how-to/persist-and-rehydrate" },
       { text: "Evolve an entity", link: "/how-to/evolve-an-entity" },
+      { text: "Add a stricter rule", link: "/how-to/add-a-stricter-rule" },
       { text: "Model an aggregate", link: "/how-to/model-an-aggregate" },
       { text: "Persist an aggregate relationally", link: "/how-to/persist-relationally" },
       { text: "Number without gaps", link: "/how-to/number-without-gaps" },
