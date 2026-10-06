@@ -7,11 +7,12 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./order": "./src/order.ts"
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.emit.json && node ./node_modules/typescript-consumer/bin/tsc -p tsconfig.emit.json && node ./node_modules/typescript-consumer/bin/tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 node_modules/.emit-check/index.d.ts node_modules/.emit-check/emit-guards.d.ts node_modules/.emit-check/index.spec.d.ts"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.emit.json && node ./node_modules/typescript-consumer/bin/tsc -p tsconfig.emit.json && node ./node_modules/typescript-consumer/bin/tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 node_modules/.emit-check/index.d.ts node_modules/.emit-check/emit-guards.d.ts node_modules/.emit-check/index.spec.d.ts node_modules/.emit-check/order.d.ts"
   },
   "dependencies": {
     "@btravstack/entity": "workspace:*",
