@@ -213,6 +213,13 @@ is already a Defect rather than something to re-check here.
 A predicate that throws is a Defect, not an `InvalidEntity`, on the same
 reasoning as `computed`.
 
+A rule added to `invariants` applies to rows already stored, so `make` rejects
+any row written before it that breaks it.
+[`inspect`](/reference/entry-points#someentity-inspect)
+reads such a row and reports the rule instead;
+[Add a stricter rule without an outage](/how-to/add-a-stricter-rule) covers the
+rollout.
+
 A predicate calling the entity's **own** statics needs the same explicit
 return annotation as a
 [computed deriver](/explanation/computed-fields#self-referencing-derivers).
@@ -428,6 +435,7 @@ export const Account = Entity.union("kind", [Personal, Business]);
 export type Account = Entity.Instance<typeof Account>;
 
 Account.make(row); // Result<Personal | Business, InvalidEntity>
+Account.inspect(row); // the matched member's data and violations, never an instance
 Account.input; // discriminated union, one branch per member
 Account.output; // ditto — JSON Schema both directions
 Account.members; // the tuple, for registries and exhaustiveness

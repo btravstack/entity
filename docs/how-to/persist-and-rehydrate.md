@@ -156,3 +156,9 @@ const loaded = Organization.make(row).match({
   },
 });
 ```
+
+A failure is not always corruption. A row that breaks only an invariant added
+after it was written can still be read, as plain data, through
+[`inspect`](/reference/entry-points#someentity-inspect).
+[Add a stricter rule without an outage](/how-to/add-a-stricter-rule) covers
+that case, and why such a failure should never be retried.

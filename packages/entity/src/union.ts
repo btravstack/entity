@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { InvalidEntity } from "./errors.js";
 import { toZodIssue } from "./issues.js";
+import type { Inspection } from "./types.js";
 
 /**
  * The part of an entity a union needs. Typed loosely — `EntityStatic` is
@@ -13,6 +14,7 @@ export type UnionMember = {
   readonly input: z.ZodObject<z.core.$ZodLooseShape>;
   readonly output: z.ZodObject<z.core.$ZodLooseShape>;
   make(state: unknown): Result<unknown, InvalidEntity>;
+  inspect(state: unknown): Result<Inspection<unknown>, InvalidEntity>;
 } & z.core.$ZodType;
 
 /**
@@ -42,6 +44,8 @@ export type EntityUnion<K extends string, M extends readonly UnionMember[]> = {
   /** the exact member union, read by `Entity.Instance` */
   readonly __instance: InstanceOf<M[number]>;
   make(state: unknown): Result<InstanceOf<M[number]>, InvalidEntity>;
+  /** dispatches on the discriminant like `make`, then reports — see an entity's `inspect` */
+  inspect(state: unknown): Result<Inspection<z.infer<M[number]["output"]>>, InvalidEntity>;
 } & Pick<z.ZodType<InstanceOf<M[number]>>, "_zod" | "~standard">;
 
 /**
@@ -175,6 +179,15 @@ export function union<
       : (member.make(state) as Result<InstanceOf<M[number]>, InvalidEntity>);
   };
 
+  const inspect = (
+    state: unknown,
+  ): Result<Inspection<z.infer<M[number]["output"]>>, InvalidEntity> => {
+    const member = lookup(state);
+    return member === undefined
+      ? Err(new InvalidEntity({ entity, issues: [unknownDiscriminant(state)] }))
+      : (member.inspect(state) as Result<Inspection<z.infer<M[number]["output"]>>, InvalidEntity>);
+  };
+
   const instance = z.unknown().transform((raw, ctx) => {
     const member = lookup(raw);
     if (member === undefined) {
@@ -211,9 +224,10 @@ export function union<
     input,
     output,
     make,
+    inspect,
   } satisfies Omit<EntityUnion<K, M>, "__instance" | "_zod" | "~standard">;
   // non-enumerable, like `entity.ts` installs `_tag` — so `Object.keys` and
-  // spread over the union value list only the five public members; `input`
+  // spread over the union value list only the six public members; `input`
   // and `output` are themselves enumerable ZodTypes, so this does not keep
   // `JSON.stringify` from walking the whole schema graph (measured)
   return Object.defineProperties(core, {

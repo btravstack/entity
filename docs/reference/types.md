@@ -45,6 +45,7 @@ declared discriminant, like any other union of entities.
 Also `Entity.ComputedField` and `Entity.Invariant`, the shapes `Entity.computed`
 and `Entity.invariant` return; `Entity.FieldSpec`, what `Entity.field` returns;
 `Entity.Union`, what `Entity.union` returns;
+`Entity.Inspection<D>`, what `inspect` returns, for a read model's signature;
 `Entity.Abstract`, what `Entity.abstract(name)(fields, options)` returns; and
 `Entity.Static`, the full static surface `Entity(tag)(fields, options)` returns
 — the type of the anonymous class the declaration form extends. You rarely name
@@ -75,14 +76,14 @@ instead leaves ~90 bytes per flagged-field appearance, +8.0% total, and no
 
 ## The declaration-emit names
 
-Ten types are exported at the top level: `AbstractEntity`, `BaseInstance`,
-`ConstructionKey`, `EntityStatic`, `EntityUnion`, `FieldSpec`,
+Eleven types are exported at the top level: `AbstractEntity`, `BaseInstance`,
+`ConstructionKey`, `EntityStatic`, `EntityUnion`, `FieldSpec`, `Inspection`,
 `MergedComputed`, `MergedFields`, `Sealed`, `UnionMember`. They are the one
 exception to the single-import rule, and none of them is part of the API you
-write against. Nine
+write against. Ten
 also have namespace aliases for anyone annotating by hand — `Entity.Abstract`,
 `Entity.BaseInstance`, `Entity.ConstructionKey`, `Entity.FieldSpec`,
-`Entity.MergedComputed`,
+`Entity.Inspection`, `Entity.MergedComputed`,
 `Entity.MergedFields`, `Entity.Sealed`, `Entity.Static`, `Entity.Union` — but a
 consumer's _emitted declarations_ use the top-level names.
 
@@ -94,6 +95,7 @@ import type {
   EntityStatic,
   EntityUnion,
   FieldSpec,
+  Inspection,
   MergedComputed,
   MergedFields,
   Sealed,
@@ -140,6 +142,11 @@ top-level name. What each one buys was measured, not assumed:
   brands at once. Named and exported from the start rather than measured into
   existence a second time — inline, it carries `MergedComputed`'s hazard with
   `S2` in place of `A2`.
+- **`Inspection`** — what `inspect` returns. A consumer exporting an
+  unannotated function that returns an `inspect` result emits its type. Measured
+  on the billing fixture: named and exported, two such exports cost 10,375
+  bytes and print `Inspection<…>`; unexported, the alias expanded structurally
+  and they cost 18,697.
 - **`EntityUnion`, `UnionMember`** — the same story for
   `Entity.union(...)` assigned to an exported `const`: without a top-level
   name the members expand structurally and reach `$brand`, failing with

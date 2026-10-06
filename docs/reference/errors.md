@@ -101,6 +101,7 @@ Do not reach for `issue.code`: on a zod issue that is zod's own kind
 | ------------------------------------------------- | ---------------------------------------------- |
 | a field fails its own schema                      | `InvalidEntity`, issue has a `path`            |
 | a broken `invariants` rule                        | `InvalidEntity`, issue has no `path`           |
+| a broken `invariants` rule, read with `inspect`   | no error: the issue is in `violations`         |
 | a patch key `updateInput` does not accept         | `InvalidEntity`, one issue per key at `[key]`  |
 | a union payload's discriminant matches nobody     | `InvalidEntity`, one issue at `[discriminant]` |
 | `computed` output failing its own schema          | **defect**                                     |
@@ -126,6 +127,9 @@ win the dispatch table.
 
 The line between the two columns is argued in
 [Errors are values, and defects are separate](/explanation/errors-are-values).
+
+`inspect` changes only the second row. A field failing its schema, and every
+defect, take the same channel under `inspect` as under `make`.
 
 ## Handling both at the edge
 

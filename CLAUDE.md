@@ -94,7 +94,14 @@ what they own:
   plus `computed`,
   then returns a `Base` class carrying them as statics. `create` delegates to
   `make`; `update` delegates to `make`; every path funnels through
-  `construct`, which runs `invariants` and seals the constructor call. Data
+  `construct`, which runs `invariants` and seals the constructor call.
+  **`inspect` is the one door that does not construct**: same parse, same
+  `recompute`, then the invariants are _reported_ (`violationsOf`, shared with
+  `construct`) beside plain frozen data (`frozenFields`, shared with the
+  constructor) — never an instance, so a row breaking a rule added after it
+  was written is readable yet cannot reach a command (#71). Field failures stay
+  `InvalidEntity`, a throwing predicate stays a defect, and a nested entity
+  field is parsed strictly, as `make` parses it. Data
   fields are installed with `Object.defineProperty(..., { writable: false })`
   and `_tag` non-enumerably, which is why `_tag` never reaches `toJSON()`,
   `JSON.stringify`, or spread. `toJSON()` is the **only** public projection —
@@ -160,7 +167,8 @@ what they own:
   makes a schema built from a subclass yield that subclass.
 - **`union.ts`** — `Entity.union(discriminant, members)`. Dispatches on the
   declared discriminant rather than trying each branch, so a failing member
-  reports its own issues. It returns a **value** with no construct signature, so
+  reports its own issues; `inspect` dispatches the same way, so `UnionMember`
+  requires it. It returns a **value** with no construct signature, so
   the idiom is the pair —
   `export const Account = Entity.union("kind", [Personal, Business])` plus
   `export type Account = Entity.Instance<typeof Account>`, and an entry point is
@@ -259,10 +267,10 @@ design — `contract.spec.ts` pins that both ways.
   library can be "done". Resist convenience aliases.
 - **`index.ts` exports `Entity`, and nothing else you write against.** A bare
   `computed` or `union` is too generic to take from a consumer's import scope,
-  so everything hangs off the builder. The sole exception is the ten
+  so everything hangs off the builder. The sole exception is the eleven
   declaration-emit names — `AbstractEntity`, `BaseInstance`, `ConstructionKey`,
-  `EntityStatic`, `EntityUnion`, `FieldSpec`, `MergedComputed`, `MergedFields`,
-  `Sealed`, `UnionMember` — exported at the top
+  `EntityStatic`, `EntityUnion`, `FieldSpec`, `Inspection`, `MergedComputed`,
+  `MergedFields`, `Sealed`, `UnionMember` — exported at the top
   level as well: a downstream
   library compiling with `declaration: true` emits the _underlying_ name, not
   the namespace path aliasing it, so hiding them fails the consumer pass with

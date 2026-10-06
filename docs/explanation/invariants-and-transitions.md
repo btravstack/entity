@@ -47,6 +47,13 @@ Getting the category right decides where the rule is enforced. An invariant
 written as a command check is skipped by every other construction path. A
 transition rule written as an invariant cannot be written at all.
 
+The category also decides what adding a rule later costs. A new command rule
+governs only calls made after it ships. A new invariant governs every stored
+row too, including rows written before it existed, so `make` starts refusing
+them the moment it ships.
+[Add a stricter rule without an outage](/how-to/add-a-stricter-rule) works
+through both.
+
 ## What update() enforces
 
 `update(patch)` builds a new instance from the old one and the patch, then runs

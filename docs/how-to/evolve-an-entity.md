@@ -151,6 +151,13 @@ inherited field at all, flagged or not, which is a compile error and a
 declaration-time defect both.
 ([How each part merges](/reference/declaration#root-extend-tag-fields-options).)
 
+## Add an invariant
+
+A new invariant applies to every row already stored, not only to new ones.
+[Add a stricter rule without an outage](/how-to/add-a-stricter-rule) covers
+deciding whether it should be an invariant at all, finding the rows that break
+it, and migrating them before it ships.
+
 ## Computed fields heal themselves
 
 A computed field needs no migration story at all: `make` validates the
