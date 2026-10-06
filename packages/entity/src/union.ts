@@ -39,8 +39,11 @@ type InstanceOf<M extends UnionMember> = z.infer<M>;
 export type EntityUnion<K extends string, M extends readonly UnionMember[]> = {
   readonly discriminant: K;
   readonly members: M;
-  readonly input: z.ZodType<unknown>;
-  readonly output: z.ZodType<unknown>;
+  // Typed off the members' own plain schemas rather than `unknown`, so an
+  // entity holding this union as a field types it as the members' plain data
+  // in its four derived members (#72).
+  readonly input: z.ZodType<z.output<M[number]["input"]>, z.input<M[number]["input"]>>;
+  readonly output: z.ZodType<z.output<M[number]["output"]>, z.input<M[number]["output"]>>;
   /** the exact member union, read by `Entity.Instance` */
   readonly __instance: InstanceOf<M[number]>;
   make(state: unknown): Result<InstanceOf<M[number]>, InvalidEntity>;
@@ -130,11 +133,11 @@ export function union<
   const input = z.discriminatedUnion(
     discriminant,
     members.map((m) => m.input) as unknown as Branches,
-  );
+  ) as unknown as EntityUnion<K, M>["input"];
   const output = z.discriminatedUnion(
     discriminant,
     members.map((m) => m.output) as unknown as Branches,
-  );
+  ) as unknown as EntityUnion<K, M>["output"];
 
   const byValue = new Map<unknown, UnionMember>();
   for (const member of members) {

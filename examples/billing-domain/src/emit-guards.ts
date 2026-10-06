@@ -56,6 +56,7 @@ import type { z } from "zod";
 // `Invoice` and `BillingDocument` are values for the `inspect` guards at the end.
 import { BillingDocument, Invoice, Organization } from "./index.js";
 import type { CreditNote, DisplayLabel, Money, Slug } from "./index.js";
+import { Order } from "./order.js";
 
 /* ── Construction stays sealed from outside the package ───────────────── */
 
@@ -74,6 +75,17 @@ export const mutateTotal = (invoice: Invoice): void => {
   // @ts-expect-error a branded object's members are readonly all the way down
   invoice.total.amount = 1;
 };
+
+/* ── A contract derived from a nested aggregate (issue #72) ───────────── */
+
+// The four derived members embed a nested entity's own plain schema, not its
+// class, so a library exporting a contract over `Order` emits that schema
+// structurally: the nested `OrderLine` output, computed `subtotal` included.
+// Measured: this one export adds 1,466 bytes (43,986 → 45,452) to the emitted set, compiles on
+// 7.0.2 and 5.9.3, and checks clean afterwards. Before #72 it emitted
+// `z.ZodArray<typeof OrderLine>`, and the schema it named could not reach
+// JSON Schema at all.
+export const OrderSummary = Order.output.pick({ id: true, lines: true, total: true });
 
 /* ── Every namespace member, named so declaration emit walks it ───────── */
 

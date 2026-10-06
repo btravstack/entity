@@ -32,6 +32,46 @@ export type SchemaOf<E> = E extends FieldSpec<infer T, Flags> ? T : E;
 export type SchemasOf<S extends Fields> = { [K in keyof S]: SchemaOf<S[K]> };
 
 /**
+ * The plain stand-in for one field schema — the type-level mirror of `plain` in
+ * `shape.ts`. An entity class or an `Entity.union(...)` value is replaced by its
+ * own `input` or `output` member, through `z.array`, `z.optional` and
+ * `z.nullable`; anything else is itself.
+ *
+ * A nested entity is matched on the members it carries (`make`, `input`,
+ * `output`), which no zod schema has, and replaced by an **indexed access** on
+ * its own type — `(typeof Line)["output"]` — never by a structural rebuild, so
+ * the nested shape is named once, by the entity that owns it. A wrapper is
+ * rebuilt only when its content changed: re-wrapping unconditionally would drop
+ * a brand on the wrapper itself (`z.array(Tag).brand("Tags")`).
+ */
+export type PlainSchema<T, W extends "input" | "output"> = T extends {
+  readonly make: unknown;
+  readonly input: infer I;
+  readonly output: infer O;
+}
+  ? W extends "input"
+    ? I
+    : O
+  : T extends z.ZodArray<infer E>
+    ? [PlainSchema<E, W>] extends [E]
+      ? T
+      : z.ZodArray<Extract<PlainSchema<E, W>, z.core.SomeType>>
+    : T extends z.ZodOptional<infer E>
+      ? [PlainSchema<E, W>] extends [E]
+        ? T
+        : z.ZodOptional<Extract<PlainSchema<E, W>, z.core.SomeType>>
+      : T extends z.ZodNullable<infer E>
+        ? [PlainSchema<E, W>] extends [E]
+          ? T
+          : z.ZodNullable<Extract<PlainSchema<E, W>, z.core.SomeType>>
+        : T;
+
+/** A field map's schemas, each swapped for its plain stand-in — what the four members are built from. */
+export type PlainOf<S extends Fields, W extends "input" | "output"> = {
+  [K in keyof S]: PlainSchema<SchemaOf<S[K]>, W>;
+};
+
+/**
  * The keys whose entries carry each flag. Matched on the `flags` property
  * rather than on `FieldSpec<…, {…}>` — the `Flags` constraint rejects a
  * partial literal in extends position (measured, TS2344-class).
@@ -211,7 +251,9 @@ export type PatchOf<S extends Fields, A extends Schemas, I extends PropertyKey> 
  * access, not one this repo's `noPropertyAccessFromIndexSignature` rejects.
  */
 export type UpdateInputShapeOf<S extends Fields, A extends Schemas, I extends PropertyKey> = {
-  [Key in Exclude<keyof (S & A), I | keyof A>]: z.ZodOptional<SchemaOf<(S & A)[Key]>>;
+  [Key in Exclude<keyof (S & A), I | keyof A>]: z.ZodOptional<
+    Extract<PlainSchema<SchemaOf<(S & A)[Key]>, "input">, z.core.SomeType>
+  >;
 };
 
 /**
@@ -467,9 +509,12 @@ export type EntityStatic<
 > = {
   new (d: Sealed<OutputOf<S, A>>): ConstructedInstance<Tag, S, A> & B;
   readonly entityName: Tag;
-  readonly input: z.ZodObject<SchemasOf<S>>;
-  readonly output: z.ZodObject<SchemasOf<S> & A>;
-  readonly createInput: z.ZodObject<Omit<SchemasOf<S>, GeneratedKeys<S>>>;
+  // Plain all the way down: a nested entity is its own `input`/`output` here,
+  // never its class — see `PlainSchema`. `make` parses through a module-private
+  // schema that keeps the classes, so construction still nests instances.
+  readonly input: z.ZodObject<PlainOf<S, "input">>;
+  readonly output: z.ZodObject<PlainOf<S, "output"> & A>;
+  readonly createInput: z.ZodObject<Omit<PlainOf<S, "input">, GeneratedKeys<S>>>;
   readonly updateInput: z.ZodObject<UpdateInputShapeOf<S, A, ImmutableKeys<S>>>;
   /**
    * The zod slots that make the class itself a schema, so it composes
