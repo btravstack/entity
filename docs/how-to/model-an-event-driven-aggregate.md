@@ -52,7 +52,8 @@ export type SubscriptionEvent = z.output<typeof SubscriptionEvent>;
 
 ## Declare the aggregate: fields, then handlers
 
-The fields come first, in their own call. The handlers come second:
+After the tag, the fields come in their own call, and the handlers in the next
+one:
 
 ```ts
 export class Subscription extends Entity.aggregate("Subscription")({
@@ -99,7 +100,7 @@ export class Subscription extends Entity.aggregate("Subscription")({
   it yet. One `make` at the end of a fold is what turns the record into a
   `Subscription`.
 
-The two calls are what keep that record exact. With the fields fixed first, a
+Keeping fields and handlers in separate calls is what keeps that record exact. With the fields fixed first, a
 handler returning `status: "ACTIVE"` is checked against the enum, and a
 missing field is a compile error rather than a surprise at runtime.
 

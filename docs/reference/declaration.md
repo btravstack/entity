@@ -427,9 +427,9 @@ matters.
 
 ## `Entity.aggregate(tag)(fields)(options)`
 
-An aggregate root whose state changes only through events. The fields are the
-first call and take everything `Entity(tag)(fields)` takes; the options are the
-second:
+An aggregate root whose state changes only through events. After the tag, the
+fields are the second call and take everything `Entity(tag)(fields)` takes; the
+options are the third:
 
 | Option       | Required | What it is                                                                                    |
 | ------------ | -------- | --------------------------------------------------------------------------------------------- |
@@ -440,9 +440,10 @@ second:
 | `computed`   | no       | as on `Entity`                                                                                |
 
 A handler's record is the fields' plain, unbranded input shape: unvalidated
-data, which a single `make` turns into the aggregate at the end of a fold. The
-two calls fix the fields before the handlers are checked, so a handler's
-returned literals and fields are checked exactly; in one call they widened.
+data, which a single `make` turns into the aggregate at the end of a fold.
+Fields and options are separate calls so the fields are fixed before the
+handlers are checked: a handler's returned literals and fields are checked
+exactly, where with both in one call they widened.
 
 The class has `make`, `inspect`, `start` and `replay` as statics, and `toJSON`,
 `sameIdentityAs` and `emit` on its instances. It has no `update`, no factories,
