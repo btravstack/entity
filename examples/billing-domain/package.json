@@ -24,6 +24,7 @@
     "@types/node": "catalog:",
     "@unthrown/standard-schema": "catalog:",
     "@unthrown/vitest": "catalog:",
+    "effect": "catalog:",
     "typescript": "catalog:",
     "typescript-consumer": "catalog:",
     "vitest": "catalog:"
