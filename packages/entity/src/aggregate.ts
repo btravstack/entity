@@ -25,8 +25,19 @@ export type BuildEntityClass = (
 ) => (fields: Fields, options?: Record<string, unknown>) => object;
 
 type Event = { readonly type: string };
+
+/**
+ * What an aggregate instance has not saved yet: the version its state was
+ * loaded at, and every event decided since. Kept beside the instance rather
+ * than on it, so no field name is reserved and nothing reaches `toJSON()`.
+ * Every instance an aggregate hands out has an entry: `make` and `replay` set
+ * one with nothing pending, `start` and `emit` carry one forward.
+ */
+const unsaved = new WeakMap<
+  object,
+  { readonly version: number; readonly pending: readonly Event[] }
+>();
 type Handlers = Record<string, (...args: never[]) => unknown>;
-type Maker = { make: (state: unknown) => Result<object, InvalidEntity> };
 
 /**
  * `class X extends Entity.aggregate("X")(fields)({ events, opens, evolve })`
@@ -98,6 +109,10 @@ export const createAggregate =
       readonly input: z.ZodObject;
     };
 
+    // The entity's own `make`, kept before the aggregate's replaces it: the
+    // verification step of every fold, which records no version.
+    const verify = Base["make"] as (this: object, state: unknown) => Result<object, InvalidEntity>;
+
     // State changes only through events, and `start` is creation.
     Reflect.deleteProperty(Base.prototype, "update");
     Reflect.deleteProperty(Base, "factory");
@@ -123,15 +138,29 @@ export const createAggregate =
 
     const bug = (detail: string) => new Error(`${tag}: ${detail}`);
 
-    /** The decision: the verified state, and the parsed events that produced it. */
-    const decide = (Ctor: Maker, record: unknown, decided: readonly Event[]) =>
-      Ctor.make(record)
+    /**
+     * The decision: the verified state, every event since the load, and the
+     * version the store must still be at. The new state inherits both, so a
+     * chained command's decision still saves the earlier events.
+     */
+    const decide = (
+      Ctor: object,
+      record: unknown,
+      decided: readonly Event[],
+      from: { readonly version: number; readonly pending: readonly Event[] },
+    ) =>
+      verify
+        .call(Ctor, record)
         .mapErrCases((m, defect) =>
           m.with(P.tag("InvalidEntity"), (invalid) =>
             defect(bug(`the decision breaks the aggregate: ${invalid.message}`)),
           ),
         )
-        .map((state) => Object.freeze({ state, events: Object.freeze([...decided]) }));
+        .map((state) => {
+          const pending = Object.freeze([...from.pending, ...decided]);
+          unsaved.set(state, { version: from.version, pending });
+          return Object.freeze({ state, events: pending, expectedVersion: from.version });
+        });
 
     /** Events from domain code: a schema failure is a bug in the command, so a defect. */
     const parseDecided = (raw: readonly unknown[]) =>
@@ -159,16 +188,22 @@ export const createAggregate =
       }, record);
 
     function emit(this: object, ...raw: unknown[]) {
-      const Ctor = this.constructor as unknown as Maker;
+      const from = unsaved.get(this);
       return parseDecided(raw).flatMap((decided) =>
         fromThrowable(
-          () => fold(recordOf(this), decided),
+          () => {
+            if (from === undefined) {
+              // oxlint-disable-next-line unthrown/no-throw
+              throw bug("an aggregate built outside make, replay, start and emit cannot decide");
+            }
+            return fold(recordOf(this), decided);
+          },
           (cause, defect) => defect(cause),
-        )().flatMap((record) => decide(Ctor, record, decided)),
+        )().flatMap((record) => decide(this.constructor, record, decided, from!)),
       );
     }
 
-    function start(this: Maker, raw: unknown) {
+    function start(this: object, raw: unknown) {
       return parseDecided([raw]).flatMap((decided) => {
         const [event] = decided as [Event];
         return fromThrowable(
@@ -181,7 +216,24 @@ export const createAggregate =
             return (opener as (e: Event) => unknown)(event);
           },
           (cause, defect) => defect(cause),
-        )().flatMap((record) => decide(this, record, decided));
+        )().flatMap((record) => decide(this, record, decided, { version: 0, pending: [] }));
+      });
+    }
+
+    /**
+     * A snapshot or a state row → the aggregate, with the version it was loaded
+     * at. A missing or malformed version is a defect: an aggregate that does
+     * not know its version would hand a repository a decision it cannot check.
+     */
+    function make(this: object, state: unknown, loaded?: { readonly version?: unknown }) {
+      return verify.call(this, state).map((instance) => {
+        const version = loaded?.version;
+        if (typeof version !== "number" || !Number.isInteger(version) || version < 0) {
+          // oxlint-disable-next-line unthrown/no-throw
+          throw bug("make needs the version the row was loaded at: make(row, { version })");
+        }
+        unsaved.set(instance, { version, pending: [] });
+        return instance;
       });
     }
 
@@ -194,7 +246,7 @@ export const createAggregate =
      * adapter's job, before this. The final `make` is strict: a stream that
      * breaks a rule added since is refused like a row would be (#71).
      */
-    function replay(this: Maker, raw: unknown): Result<object, InvalidEntity> {
+    function replay(this: object, raw: unknown): Result<object, InvalidEntity> {
       if (!Array.isArray(raw) || raw.length === 0) {
         return invalid([{ message: "a stream is a non-empty array of events" }]);
       }
@@ -231,14 +283,20 @@ export const createAggregate =
         return fromThrowable(
           () => fold((openers[opening.type] as (e: Event) => unknown)(opening), rest),
           (cause, defect) => defect(cause),
-        )().flatMap((record) => this.make(record));
+        )()
+          .flatMap((record) => verify.call(this, record))
+          .map((state) => {
+            // a stream's version is its length
+            unsaved.set(state, { version: raw.length, pending: [] });
+            return state;
+          });
       }) as Result<object, InvalidEntity>;
     }
 
     for (const [key, value] of Object.entries({ emit })) {
       Object.defineProperty(Base.prototype, key, { value, writable: true, configurable: true });
     }
-    for (const [key, value] of Object.entries({ start, replay, events })) {
+    for (const [key, value] of Object.entries({ make, start, replay, events })) {
       Object.defineProperty(Base, key, { value, writable: true, configurable: true });
     }
 

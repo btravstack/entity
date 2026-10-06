@@ -172,7 +172,14 @@ what they own:
   be nested as a field. An aggregate **must** flag an `identity` field: a
   compile error on the field map (an inline rejection literal, not a named
   alias, for TypeDoc) plus a declaration-time defect, the redeclaration
-  precedent. `Entity` keeps identity optional on purpose.
+  precedent. `Entity` keeps identity optional on purpose. **A decision is
+  self-sufficient for a save**: each instance's unsaved version and pending
+  events live in a module `WeakMap` (`unsaved`) — never on the instance, so no
+  field name is reserved and nothing reaches `toJSON()`. `make(row, { version
+})` requires the version, `replay` uses the stream length, `start` is `0`,
+  and `emit` returns _all_ pending events plus `expectedVersion`. Chained
+  commands therefore save as one decision; reusing an already-saved state is
+  a conflict, never an overwrite.
 - **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
   and recurses into arrays and plain objects, freezes `Date` as a leaf, and
   deliberately leaves `Map`/`Set`/class instances alone. Which _fields_ to skip

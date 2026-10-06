@@ -7,9 +7,14 @@
  *
  * - **state-based**: the state's `toJSON()` and a version, with the events
  *   written to an outbox in the same atomic step (#37 does this against a
- *   real database). Loading is `make`.
+ *   real database). Loading is `make(row, { version })`.
  * - **event-sourced**: the events, appended to the subscription's stream if it
- *   is still at the version the command read. Loading is `replay`.
+ *   is still at the version the command read. Loading is `replay`, which
+ *   takes the stream's length as the version.
+ *
+ * The decision carries the version its aggregate was loaded at, so `save`
+ * takes the decision and nothing else: there is no version to forget or mix
+ * up between the load and the save.
  *
  * Both implement one port, and `changeSeats` below runs against either: the
  * switch is infrastructure, not a domain rewrite. Both stores are in memory
@@ -38,13 +43,10 @@ export class ConcurrentModification extends TaggedError("ConcurrentModification"
   override message = `subscription ${this.id} changed since version ${this.expected}`;
 }
 
-/** A loaded aggregate and the version a save must still find. */
-export type Loaded = { readonly subscription: Subscription; readonly version: number };
-
 export type SubscriptionRepository = {
-  load(id: string): Result<Loaded, SubscriptionNotFound | Entity.InvalidEntity>;
-  /** `expected` is the version the command read; `0` for a new subscription. Returns the new version. */
-  save(decision: Decision, expected: number): Result<number, ConcurrentModification>;
+  load(id: string): Result<Subscription, SubscriptionNotFound | Entity.InvalidEntity>;
+  /** Saves everything the decision holds, if the store is still at `decision.expectedVersion`. */
+  save(decision: Decision): Result<number, ConcurrentModification>;
 };
 
 const stored = <T>(value: T): unknown => JSON.parse(JSON.stringify(value));
@@ -54,17 +56,15 @@ export class StateBasedSubscriptions implements SubscriptionRepository {
   readonly #rows = new Map<string, { state: unknown; version: number }>();
   readonly outbox: unknown[] = [];
 
-  load(id: string): Result<Loaded, SubscriptionNotFound | Entity.InvalidEntity> {
+  load(id: string): Result<Subscription, SubscriptionNotFound | Entity.InvalidEntity> {
     const row = this.#rows.get(id);
     if (row === undefined) return Err(new SubscriptionNotFound({ id }));
-    return Subscription.make(row.state).map((subscription) => ({
-      subscription,
-      version: row.version,
-    }));
+    return Subscription.make(row.state, { version: row.version });
   }
 
-  save(decision: Decision, expected: number): Result<number, ConcurrentModification> {
-    const { id } = decision.state;
+  save(decision: Decision): Result<number, ConcurrentModification> {
+    const { state, expectedVersion: expected } = decision;
+    const { id } = state;
     const current = this.#rows.get(id)?.version ?? 0;
     if (current !== expected) return Err(new ConcurrentModification({ id, expected }));
     // One synchronous block stands in for one transaction: the row and the
@@ -80,17 +80,15 @@ export class StateBasedSubscriptions implements SubscriptionRepository {
 export class EventSourcedSubscriptions implements SubscriptionRepository {
   readonly #streams = new Map<string, unknown[]>();
 
-  load(id: string): Result<Loaded, SubscriptionNotFound | Entity.InvalidEntity> {
+  load(id: string): Result<Subscription, SubscriptionNotFound | Entity.InvalidEntity> {
     const stream = this.#streams.get(id);
     if (stream === undefined) return Err(new SubscriptionNotFound({ id }));
-    return Subscription.replay(stream).map((subscription) => ({
-      subscription,
-      version: stream.length,
-    }));
+    return Subscription.replay(stream);
   }
 
-  save(decision: Decision, expected: number): Result<number, ConcurrentModification> {
-    const { id } = decision.state;
+  save(decision: Decision): Result<number, ConcurrentModification> {
+    const { state, expectedVersion: expected } = decision;
+    const { id } = state;
     const stream = this.#streams.get(id) ?? [];
     if (stream.length !== expected) return Err(new ConcurrentModification({ id, expected }));
     const next = [...stream, ...decision.events.map(stored)];
@@ -115,6 +113,5 @@ export const changeSeats =
   > =>
     repository
       .load(id)
-      .flatMap(({ subscription, version }) =>
-        subscription.changeSeats(seats).flatMap((decision) => repository.save(decision, version)),
-      );
+      .flatMap((subscription) => subscription.changeSeats(seats))
+      .flatMap((decision) => repository.save(decision));

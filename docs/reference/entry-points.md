@@ -156,14 +156,22 @@ that breaks the aggregate is a bug in it.
 What an aggregate's command returns after its business checks. Parses each
 event against the declared union, folds the events onto the current state with
 the `evolve` handlers, and verifies the result with `make`. The `Decision`
-holds the parsed events and the verified state; the source aggregate is
-unchanged. A creation event does not compile here: an aggregate that exists
+holds the verified state, **every** event decided since the aggregate was
+loaded (so a chain of commands saves as one decision), and `expectedVersion`,
+the version the store must still be at. The source aggregate is unchanged. A creation event does not compile here: an aggregate that exists
 cannot be created again, which mirrors `start` accepting nothing else.
 
 An event that breaks an invariant, fails its schema, or reaches a handler that
 throws is a **defect**, never an `Err`: a decision that cannot hold is a bug in
 the command, and nothing about it should be persisted. Only `emit` and `start`
 build a `Decision`; a hand-written `{ state, events }` does not compile.
+
+## `SomeAggregate.make(row, { version })` → `Result<SomeAggregate, InvalidEntity>` {#someaggregate-make}
+
+An aggregate's `make` takes the version the row or snapshot was loaded at, and
+requires it: the aggregate's next decision tells the repository to expect that
+version. Otherwise it is the entity's `make`. A missing version does not
+compile, and is a defect if forced past the types.
 
 ## `SomeAggregate.replay(events)` → `Result<SomeAggregate, InvalidEntity>` {#someaggregate-replay}
 
@@ -172,8 +180,8 @@ every event is parsed; a bad one is an `InvalidEntity` whose issue path starts
 with its index (`[3, "seats"]`). The first event must be a creation event, and a
 creation event later in the stream is refused at its index. The fold ends in
 `make`, which is strict: a stream breaking a rule added since is an
-`InvalidEntity`, as a row would be. Upcast old event versions before calling
-it.
+`InvalidEntity`, as a row would be. The stream's length becomes the
+aggregate's version. Upcast old event versions before calling it.
 
 ## `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>` {#entity-update-patch-result-someentity-invalidentity}
 

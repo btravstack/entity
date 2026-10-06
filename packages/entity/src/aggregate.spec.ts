@@ -57,6 +57,8 @@ class Cart extends Entity.aggregate("Cart")({
 
 const id = "0199b1f4-1b1e-7000-8000-000000000000";
 const opened = (): Cart => Cart.start({ type: "CartOpened", cartId: id }).get().state;
+/** An open cart as a repository hands it over: stored at version 1, nothing pending. */
+const loaded = (): Cart => Cart.make(opened().toJSON(), { version: 1 }).getOrThrow();
 
 /** The outcome of a decision as one comparable value. */
 const channel = <T, E>(r: Result<T, E>) =>
@@ -73,10 +75,12 @@ test("start opens an aggregate from a creation event and returns a sealed decisi
   expect(decision.state).toBeInstanceOf(Cart);
   expect(decision.state.toJSON()).toEqual({ id, status: "open", items: [] });
   expect(decision.events).toEqual([{ type: "CartOpened", cartId: id }]);
+  // nothing is stored yet
+  expect(decision.expectedVersion).toBe(0);
 });
 
 test("a method folds its events onto the current state and verifies the result once", () => {
-  const cart = opened();
+  const cart = loaded();
   const decision = cart.addItem("apple", 2).getOrThrow();
   expect(decision.events).toEqual([{ type: "ItemAdded", productId: "apple", quantity: 2 }]);
   expect(decision.state.items).toEqual([{ productId: "apple", quantity: 2 }]);
@@ -144,7 +148,9 @@ test("start refuses a non-opening event as a defect", () => {
 test("replay folds a stored stream into the same state, and emits nothing", () => {
   const first = Cart.start({ type: "CartOpened", cartId: id }).get();
   const second = first.state.addItem("apple", 2).getOrThrow();
-  const stream = [...first.events, ...second.events];
+  // the last decision already holds every event since creation
+  const stream = second.events;
+  expect(stream.map((e) => e.type)).toEqual(["CartOpened", "ItemAdded"]);
 
   const replayed = Cart.replay(stream).getOrThrow();
   expect(replayed).toBeInstanceOf(Cart);
@@ -154,7 +160,7 @@ test("replay folds a stored stream into the same state, and emits nothing", () =
 
 test("make rehydrates a snapshot, and an aggregate has no update and no factory", () => {
   const snapshot = opened().addItem("apple", 1).getOrThrow().state.toJSON();
-  const cart = Cart.make(snapshot).getOrThrow();
+  const cart = Cart.make(snapshot, { version: 2 }).getOrThrow();
   expect(cart.items).toHaveLength(1);
   expect("update" in cart).toBe(false);
   expect("factory" in Cart).toBe(false);
@@ -216,4 +222,37 @@ test("an aggregate without an identity field is refused while the declaration ru
       evolve: { ItemAdded: (r: object) => r, CartCheckedOut: (r: object) => r },
     }),
   ).toThrow(/Anonymous: an aggregate root needs an identity/u);
+});
+
+/* ── The version a decision must still find ────────────────────────── */
+
+test("a decision carries the version its state was loaded at", () => {
+  const row = opened().toJSON();
+  expect(
+    Cart.make(row, { version: 7 }).getOrThrow().addItem("a", 1).getOrThrow().expectedVersion,
+  ).toBe(7);
+
+  const stream = Cart.start({ type: "CartOpened", cartId: id }).get().events;
+  const replayed = Cart.replay([...stream, { type: "ItemAdded", productId: "a", quantity: 1 }]);
+  // a stream's version is its length
+  expect(replayed.getOrThrow().checkOut().get().expectedVersion).toBe(2);
+});
+
+test("chained commands accumulate every event since the load, so saving one decision loses none", () => {
+  const first = loaded().addItem("a", 1).getOrThrow();
+  const second = first.state.addItem("b", 1).getOrThrow();
+  expect(second.events.map((e) => e.type)).toEqual(["ItemAdded", "ItemAdded"]);
+  expect(second.expectedVersion).toBe(1);
+
+  // a brand-new aggregate's decisions start from its opening event
+  const fresh = opened().addItem("a", 1).getOrThrow();
+  expect(fresh.events.map((e) => e.type)).toEqual(["CartOpened", "ItemAdded"]);
+  expect(fresh.expectedVersion).toBe(0);
+});
+
+test("make without a version is a defect: a loaded aggregate must say what it was loaded at", () => {
+  const row = opened().toJSON();
+  expect(channel((Cart.make as (s: unknown) => Result<Cart, Entity.InvalidEntity>)(row))).toBe(
+    "defect",
+  );
 });
