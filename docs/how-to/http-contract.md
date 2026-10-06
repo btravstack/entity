@@ -222,6 +222,7 @@ return renameOrganization(org, command.data).match({
       json(422, {
         errors: e.issues.map((i) => ({
           field: Entity.keysOf(i).join("."), // "" for a whole-entity rule
+          code: Entity.codeOf(i), // the rule's declared code, if it has one
           message: i.message,
         })),
       }),
@@ -239,7 +240,10 @@ path prefix included).
 
 An issue with an empty `path` came from `invariants`, a rule spanning the whole
 entity rather than one field. That distinction is what lets you decide whether
-to attach the message to a form field or to the form.
+to attach the message to a form field or to the form. Its declared code also
+tells the client _which_ rule failed, so it can render its own
+copy or offer a recovery without matching on message text; see
+[`Entity.codeOf`](/reference/errors#entity-codeof-issue).
 
 ## A union as a request body
 

@@ -64,10 +64,11 @@ export class Organization extends Entity("Organization")(
       ),
     },
     invariants: [
-      Entity.invariant(
-        (d) => d.name.length <= 80,
-        "name must be at most 80 characters",
-      ),
+      Entity.invariant({
+        code: "NAME_TOO_LONG",
+        ensure: (d) => d.name.length <= 80,
+        message: "name must be at most 80 characters",
+      }),
     ],
   },
 ) {
@@ -114,10 +115,11 @@ export abstract class BillingDocumentBase extends Entity.abstract(
       period: Entity.computed(AccountingPeriod, (d) => d.issuedAt.slice(0, 7)),
     },
     invariants: [
-      Entity.invariant(
-        (d) => d.total.amount >= 0,
-        "total must not be negative",
-      ),
+      Entity.invariant({
+        code: "NEGATIVE_TOTAL",
+        ensure: (d) => d.total.amount >= 0,
+        message: "total must not be negative",
+      }),
     ],
   },
 ) {
@@ -143,14 +145,16 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
   },
   {
     invariants: [
-      Entity.invariant(
-        (d) => d.lines.length > 0,
-        "an issued invoice bills at least one line",
-      ),
-      Entity.invariant(
-        (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
-        "a void invoice cannot be in dunning",
-      ),
+      Entity.invariant({
+        code: "ISSUED_WITHOUT_LINES",
+        ensure: (d) => d.lines.length > 0,
+        message: "an issued invoice bills at least one line",
+      }),
+      Entity.invariant({
+        code: "VOID_IN_DUNNING",
+        ensure: (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
+        message: "a void invoice cannot be in dunning",
+      }),
     ],
   },
 ) {

@@ -149,21 +149,23 @@ Computed fields are re-derived on every construction path rather than stored —
 see [Why `computed` re-derives](/explanation/computed-fields), which also covers
 when to reach for a plain getter instead.
 
-## `Entity.invariant(ensure, message)`
+## `Entity.invariant({ code, ensure, message })`
 
-One rule spanning the whole entity: the predicate, and what to say when it
-fails.
+One rule spanning the whole entity: its stable code, the predicate, and what to
+say when it fails.
 
 ```ts
 invariants: [
-  Entity.invariant(
-    (d) => d.name.length <= 80,
-    "name must be at most 80 characters",
-  ),
-  Entity.invariant(
-    (d) => d.endsAt > d.startsAt,
-    (d) => `endsAt must be after ${d.startsAt}`,
-  ),
+  Entity.invariant({
+    code: "NAME_TOO_LONG",
+    ensure: (d) => d.name.length <= 80,
+    message: "name must be at most 80 characters",
+  }),
+  Entity.invariant({
+    code: "ENDS_BEFORE_START",
+    ensure: (d) => d.endsAt > d.startsAt,
+    message: (d) => `endsAt must be after ${d.startsAt}`,
+  }),
 ];
 ```
 
@@ -174,6 +176,17 @@ data when the text depends on it.
 Every failing rule in the list reports, not just the first, and none of them
 carries a `path`: an invariant spans the entity, which is what separates it from
 a field complaint.
+
+`code` is required. It is the rule's stable identity, for a caller that keys
+behaviour off **which** rule failed: an error code in a response, a field to
+highlight, a localised string. The message may vary with the data; the code
+must not. A failing rule's issue is `{ message, params: { code } }`, and
+[`Entity.codeOf(issue)`](/reference/errors#entity-codeof-issue) reads the code
+back, from a top-level issue and from one reported through a nested entity, an
+array or a union alike.
+
+The parts are named in one object, so a misspelled key is an excess-property
+error rather than a silently dropped part.
 
 `d` is the **declared** fields, not the output — a rule cannot read a computed
 field. Every computed value is a function of declared data, so any rule about

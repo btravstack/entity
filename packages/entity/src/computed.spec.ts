@@ -103,10 +103,11 @@ test("an invariant constrains a computed value through its sources", () => {
         fullName: Entity.computed(FullName, (d) => `${d.first} ${d.last}`),
       },
       invariants: [
-        Entity.invariant(
-          (d) => d.first.length + 1 + d.last.length <= 20,
-          "fullName must be at most 20 chars",
-        ),
+        Entity.invariant({
+          code: "FULL_NAME_TOO_LONG",
+          ensure: (d) => d.first.length + 1 + d.last.length <= 20,
+          message: "fullName must be at most 20 chars",
+        }),
       ],
     },
   ) {}

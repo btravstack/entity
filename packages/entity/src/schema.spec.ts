@@ -9,7 +9,15 @@ const Slug = z.string().min(1).brand("Slug");
 
 class Organization extends Entity("Organization")(
   { id: OrgId, slug: Slug },
-  { invariants: [Entity.invariant((d) => d.slug !== "reserved", "slug must not be reserved")] },
+  {
+    invariants: [
+      Entity.invariant({
+        code: "RESERVED_SLUG",
+        ensure: (d) => d.slug !== "reserved",
+        message: "slug must not be reserved",
+      }),
+    ],
+  },
 ) {}
 
 const raw = { id: "0199b1f4-1b1e-7000-8000-000000000000", slug: "acme" };
@@ -53,12 +61,16 @@ test("a defect during make propagates instead of becoming a validation issue", (
     { id: OrgId },
     {
       invariants: [
-        Entity.invariant(() => {
-          // deliberately simulate an unmodeled defect, to pin that the schema
-          // lets it propagate rather than folding it into a zod issue
-          // oxlint-disable-next-line unthrown/no-throw
-          throw new Error("boom");
-        }, "unreachable — the predicate always throws"),
+        Entity.invariant({
+          code: "UNREACHABLE",
+          ensure: () => {
+            // deliberately simulate an unmodeled defect, to pin that the schema
+            // lets it propagate rather than folding it into a zod issue
+            // oxlint-disable-next-line unthrown/no-throw
+            throw new Error("boom");
+          },
+          message: "unreachable — the predicate always throws",
+        }),
       ],
     },
   ) {}

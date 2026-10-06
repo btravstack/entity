@@ -19,7 +19,11 @@ class Organization extends Entity("Organization")(
   },
   {
     invariants: [
-      Entity.invariant((d) => d.trialEndsAt > d.createdAt, "trialEndsAt must be after createdAt"),
+      Entity.invariant({
+        code: "TRIAL_ENDS_BEFORE_CREATION",
+        ensure: (d) => d.trialEndsAt > d.createdAt,
+        message: "trialEndsAt must be after createdAt",
+      }),
     ],
   },
 ) {}

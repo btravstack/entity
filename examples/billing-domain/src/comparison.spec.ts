@@ -78,7 +78,15 @@ class Customer extends Entity("Customer")(
     plan: Plan,
     seats: Seats,
   },
-  { invariants: [Entity.invariant(withinFreeCap, FREE_SEAT_CAP)] },
+  {
+    invariants: [
+      Entity.invariant({
+        code: "OVER_FREE_SEAT_CAP",
+        ensure: withinFreeCap,
+        message: FREE_SEAT_CAP,
+      }),
+    ],
+  },
 ) {}
 
 const createCustomer = Customer.factory({ id: () => CustomerId.parse(nextId()) });

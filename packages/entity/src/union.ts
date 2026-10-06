@@ -2,7 +2,7 @@ import { Err, P, type Result } from "unthrown";
 import { z } from "zod";
 
 import { InvalidEntity } from "./errors.js";
-import { keysOf } from "./issues.js";
+import { toZodIssue } from "./issues.js";
 
 /**
  * The part of an entity a union needs. Typed loosely — `EntityStatic` is
@@ -190,7 +190,7 @@ export function union<
       .recoverErrCases((m) =>
         m.with(P.tag("InvalidEntity"), (invalid) => {
           for (const issue of invalid.issues) {
-            ctx.addIssue({ code: "custom", message: issue.message, path: keysOf(issue) });
+            ctx.addIssue(toZodIssue(issue));
           }
           return z.NEVER;
         }),

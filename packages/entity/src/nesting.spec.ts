@@ -97,10 +97,11 @@ test("an invariant can span the outer entity and a nested one", () => {
     { id: OrderId, customer: Customer, note: Line },
     {
       invariants: [
-        Entity.invariant(
-          (d) => d.note.length >= d.customer.name.length,
-          "note must be at least as long as the name",
-        ),
+        Entity.invariant({
+          code: "NOTE_SHORTER_THAN_NAME",
+          ensure: (d) => d.note.length >= d.customer.name.length,
+          message: "note must be at least as long as the name",
+        }),
       ],
     },
   ) {}

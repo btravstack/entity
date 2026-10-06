@@ -46,7 +46,13 @@ export abstract class BillingDocumentBase extends Entity.abstract("BillingDocume
     computed: {
       period: Entity.computed(AccountingPeriod, (d) => d.issuedAt.slice(0, 7)),
     },
-    invariants: [Entity.invariant((d) => d.total.amount >= 0, "total must not be negative")],
+    invariants: [
+      Entity.invariant({
+        code: "NEGATIVE_TOTAL",
+        ensure: (d) => d.total.amount >= 0,
+        message: "total must not be negative",
+      }),
+    ],
   },
 ) {
   /** What the document contributes to the ledger — declared once, signed per variant. */

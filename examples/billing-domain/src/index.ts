@@ -147,11 +147,16 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
   {
     // State invariants: true of every valid invoice, whatever path built it.
     invariants: [
-      Entity.invariant((d) => d.lines.length > 0, "an issued invoice bills at least one line"),
-      Entity.invariant(
-        (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
-        "a void invoice cannot be in dunning",
-      ),
+      Entity.invariant({
+        code: "ISSUED_WITHOUT_LINES",
+        ensure: (d) => d.lines.length > 0,
+        message: "an issued invoice bills at least one line",
+      }),
+      Entity.invariant({
+        code: "VOID_IN_DUNNING",
+        ensure: (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
+        message: "a void invoice cannot be in dunning",
+      }),
     ],
   },
 ) {

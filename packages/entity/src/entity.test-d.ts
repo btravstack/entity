@@ -100,22 +100,27 @@ test("the invariants parameter is contextually typed and branded", () => {
     { id: OrgId, slug: Slug },
     {
       invariants: [
-        Entity.invariant((d) => {
-          // @ts-expect-error `nope` is not a field, so `d` is not `any`
-          void d.nope;
-          const slug: z.infer<typeof Slug> = d.slug;
-          void slug;
-          return true;
-        }, "probe"),
+        Entity.invariant({
+          code: "PROBE",
+          ensure: (d) => {
+            // @ts-expect-error `nope` is not a field, so `d` is not `any`
+            void d.nope;
+            const slug: z.infer<typeof Slug> = d.slug;
+            void slug;
+            return true;
+          },
+          message: "probe",
+        }),
         // the message function is contextually typed the same way
-        Entity.invariant(
-          () => true,
-          (d) => {
+        Entity.invariant({
+          code: "PROBE",
+          ensure: () => true,
+          message: (d) => {
             // @ts-expect-error `nope` is not a field, so `d` is not `any`
             void d.nope;
             return d.slug;
           },
-        ),
+        }),
       ],
     },
   );
@@ -130,14 +135,18 @@ test("an invariant sees the declared fields, never a computed one", () => {
         shout: Entity.computed(Upper, (d) => d.slug.toUpperCase()),
       },
       invariants: [
-        Entity.invariant((d) => {
-          // the declared fields are there, fully branded
-          const slug: z.infer<typeof Slug> = d.slug;
-          void slug;
-          // @ts-expect-error a computed field is not visible to an invariant
-          void d.shout;
-          return true;
-        }, "probe"),
+        Entity.invariant({
+          code: "PROBE",
+          ensure: (d) => {
+            // the declared fields are there, fully branded
+            const slug: z.infer<typeof Slug> = d.slug;
+            void slug;
+            // @ts-expect-error a computed field is not visible to an invariant
+            void d.shout;
+            return true;
+          },
+          message: "probe",
+        }),
       ],
     },
   );

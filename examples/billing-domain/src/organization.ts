@@ -32,7 +32,11 @@ export class Organization extends Entity("Organization")(
       displayLabel: Entity.computed(DisplayLabel, (d) => `${d.name} (${d.slug})`),
     },
     invariants: [
-      Entity.invariant((d) => d.name.length <= 80, "name must be at most 80 characters"),
+      Entity.invariant({
+        code: "NAME_TOO_LONG",
+        ensure: (d) => d.name.length <= 80,
+        message: "name must be at most 80 characters",
+      }),
     ],
   },
 ) {
