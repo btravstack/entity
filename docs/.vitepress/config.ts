@@ -126,7 +126,10 @@ export default defineConfig({
       pageData.frontmatter.editLink = false;
     }
 
-    pageData.frontmatter.head.push(["meta", { "http-equiv": "refresh", content: `0;url=${canonicalUrl}` }]);
+    pageData.frontmatter.head.push([
+      "meta",
+      { "http-equiv": "refresh", content: `0;url=${canonicalUrl}` },
+    ]);
     pageData.frontmatter.head.push(["link", { rel: "canonical", href: canonicalUrl }]);
 
     const pageTitle = pageData.title || pageData.frontmatter.title || "entity";
