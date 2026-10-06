@@ -103,4 +103,61 @@ export function shape<T extends Fields>(fields: T & OnlyNominal<T>): z.ZodObject
   return z.object(unwrapped as SchemasOf<T>);
 }
 
+/**
+ * An entity class or an `Entity.union(...)` value: a schema that carries its
+ * own plain `input` and `output`. Tested before anything reads `_zod`, which on
+ * a class builds its transform schema.
+ */
+const isEntityLike = (s: unknown): s is Record<"input" | "output", z.core.$ZodType> =>
+  (typeof s === "function" || (typeof s === "object" && s !== null)) &&
+  typeof (s as { readonly make?: unknown }).make === "function" &&
+  "input" in s &&
+  "output" in s;
+
+/**
+ * The plain stand-in for one field schema (#72): a nested entity or union is
+ * replaced by its own `input` or `output`, through `z.array`, `z.optional` and
+ * `z.nullable`. The class is a zod schema with a `.transform()`, so a member
+ * embedding it could not reach JSON Schema in either direction — `io: "input"`
+ * threw `Cannot set properties of undefined (setting 'ref')` and
+ * `io: "output"` threw `Transforms cannot be represented in JSON Schema`,
+ * measured on zod 4.6.5. A nested entity's members are already plain, so one
+ * substitution per level reaches any depth.
+ *
+ * A wrapper is cloned only when something under it changed, so a field with no
+ * entity in it stays the very same object. The clone is made **without** zod's
+ * `parent` link: JSON Schema generation follows `parent` and would walk back
+ * into the class. That also leaves behind any `.meta()`/`.describe()` on the
+ * wrapper itself.
+ * ponytail: other containers (`z.record`, `z.tuple`, `.default()`, `.readonly()`
+ * and an inline object) are not walked; an entity inside one still blocks
+ * conversion. Walk them when a declaration needs it.
+ */
+export const plain = (schema: z.core.$ZodType, side: "input" | "output"): z.core.$ZodType => {
+  if (isEntityLike(schema)) return schema[side];
+  const def = schema._zod.def;
+  if (def.type === "array") {
+    const { element } = def as z.core.$ZodArrayDef;
+    const next = plain(element, side);
+    return next === element
+      ? schema
+      : z.core.util.clone(schema, { ...def, element: next } as typeof def);
+  }
+  if (def.type === "optional" || def.type === "nullable") {
+    const { innerType } = def as z.core.$ZodOptionalDef;
+    const next = plain(innerType, side);
+    return next === innerType
+      ? schema
+      : z.core.util.clone(schema, { ...def, innerType: next } as typeof def);
+  }
+  return schema;
+};
+
+/** Every field of `object` swapped for its plain stand-in. */
+export const plainShape = (
+  object: z.ZodObject,
+  side: "input" | "output",
+): Record<string, z.core.$ZodType> =>
+  Object.fromEntries(Object.entries(object.shape).map(([k, s]) => [k, plain(s, side)]));
+
 export type { OnlyNominal };

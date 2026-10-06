@@ -111,6 +111,24 @@ module, instead. The how-to's section on
 [sharing the contract with a browser](/how-to/http-contract#share-the-contract-with-a-browser)
 covers both.
 
+## A nested aggregate converts the same way
+
+`Order` owns `lines: z.array(OrderLine)`. Its members embed each line's own
+plain schema, so its contract is selected exactly like `Organization`'s:
+
+```ts
+export const OrderResponse = Order.output.pick(orderPublicFields);
+export const OpenOrderBody = Order.createInput
+  .pick({ customerId: true, currency: true, lines: true })
+  .strict();
+```
+
+The spec checks that the request's lines carry a line's input and the
+response's lines its output, computed `subtotal` included; that a placed
+order's serialised form parses as the response with its internal `billTo`
+snapshot dropped; and that a parsed request body goes through `Order.make` to
+real `OrderLine` instances.
+
 ## And the class, deliberately, does not
 
 ```ts

@@ -1,4 +1,19 @@
-import { Organization, Slug, createOrganization } from "@btravstack/entity-example-billing-domain";
+import {
+  LineLabel,
+  Money,
+  Organization,
+  Slug,
+  createOrganization,
+} from "@btravstack/entity-example-billing-domain";
+import {
+  BillingParty,
+  Order,
+  OrderLine,
+  Quantity,
+  createCustomer,
+  createOrderLine,
+  openOrder,
+} from "@btravstack/entity-example-billing-domain/order";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
@@ -6,7 +21,12 @@ import {
   CreateOrganizationBody,
   OrganizationResponse,
   RenameOrganizationBody,
+  OpenOrderBody,
+  OrderResponse,
   createOrganizationSchema,
+  openOrderSchema,
+  orderContract,
+  orderResponseSchema,
   organizationContract,
   organizationPublicFields,
   organizationResponseSchema,
@@ -143,4 +163,78 @@ test("a consumer builds a response with a plain name, parsing only the real iden
   const response: OrganizationResponse = { ...identity, name: "Acme SA", selfTitled: true };
 
   expect(OrganizationResponse.parse(response)).toEqual(response);
+});
+
+/* ── A nested aggregate converts too (#72) ────────────────────────────── */
+
+type Json = { properties: Record<string, Json & { items: Json }> };
+
+const placedOrder = () => {
+  const buyer = createCustomer({
+    billing: BillingParty.parse({ name: "Acme SA", address: "1 rue de la Paix, Paris" }),
+  }).getOrThrow();
+  return createOrderLine({
+    label: LineLabel.parse("Widget"),
+    unitPrice: Money.parse({ amount: 10_00, currency: "EUR" }),
+    quantity: Quantity.parse(2),
+  })
+    .flatMap((line) => openOrder(buyer.id, "EUR").flatMap((draft) => draft.addLine(line)))
+    .flatMap((draft) => draft.place(buyer))
+    .getOrThrow();
+};
+
+test("every member of a nested aggregate converts in both directions", () => {
+  for (const schema of [Order.input, Order.output, Order.createInput, Order.updateInput]) {
+    for (const io of ["input", "output"] as const) {
+      expect(() => z.toJSONSchema(schema, { io })).not.toThrow();
+    }
+  }
+});
+
+test("a request carries a line's input, a response its output", () => {
+  const request = openOrderSchema as unknown as Json;
+  const response = orderResponseSchema as unknown as Json;
+  expect(propertiesOf(request.properties["lines"]?.items)).toEqual([
+    "id",
+    "label",
+    "quantity",
+    "unitPrice",
+  ]);
+  expect(propertiesOf(response.properties["lines"]?.items)).toEqual([
+    "id",
+    "label",
+    "quantity",
+    "subtotal",
+    "unitPrice",
+  ]);
+  expect(propertiesOf(response)).toEqual(["currency", "id", "lines", "status", "total"]);
+});
+
+test("the serialised order parses as the response, minus what was not picked", () => {
+  const placed = placedOrder();
+  // the snapshot is internal: stored on the order, absent from the response
+  expect(placed.billTo).toBeDefined();
+
+  const response = OrderResponse.parse(JSON.parse(JSON.stringify(placed)));
+  expect(response).not.toHaveProperty("billTo");
+  expect(response.lines[0]).not.toBeInstanceOf(OrderLine);
+  expect(response.lines[0]?.subtotal).toEqual({ amount: 20_00, currency: "EUR" });
+});
+
+test("a request body opens an order through make, nesting real lines", () => {
+  const body = OpenOrderBody.parse({
+    customerId: "0199b1f4-1b1e-7000-8000-000000000001",
+    currency: "EUR",
+    lines: [
+      {
+        id: "0199b1f4-1b1e-7000-8000-000000000002",
+        label: "Widget",
+        unitPrice: { amount: 10_00, currency: "EUR" },
+        quantity: 1,
+      },
+    ],
+  });
+  const order = Order.make({ ...body, id: crypto.randomUUID(), status: "DRAFT" }).getOrThrow();
+  expect(order.lines[0]).toBeInstanceOf(OrderLine);
+  expect(Object.keys(orderContract)).toEqual(["open"]);
 });

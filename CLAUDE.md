@@ -92,7 +92,13 @@ what they own:
   four `ZodObject`s (`input`, `output`, `createInput`, `updateInput`) from
   one field map — the `generated` / `immutable` flags its entries carry —
   plus `computed`,
-  then returns a `Base` class carrying them as statics. `create` delegates to
+  then returns a `Base` class carrying them as statics. The four are **plain
+  all the way down** (#72): a nested entity or `Entity.union` field is replaced
+  by its own `input` (in `input`/`createInput`/`updateInput`) or `output` (in
+  `output`) through `plain` in `shape.ts`, and `PlainSchema` in `types.ts` is
+  the type-level mirror. `make` parses through a separate module-private
+  `construction` schema that keeps the classes, so construction still nests
+  instances; only the public members changed. `create` delegates to
   `make`; `update` delegates to `make`; every path funnels through
   `construct`, which runs `invariants` and seals the constructor call.
   **`inspect` is the one door that does not construct**: same parse, same
@@ -193,8 +199,9 @@ what they own:
   over the billing fixture's emitted `.d.ts`). The nominal check lives at the
   field map, which already unwraps `FieldSpec` through `SchemaOf`.
 - **`shape.ts`** — `OnlyNominal`, the type-level check rejecting unbranded
-  fields, and `shape()`, which builds the validated field map. Both are
-  internal; neither is exported from `index.ts`.
+  fields, `shape()`, which builds the validated field map, and `plain()`,
+  which swaps a nested entity for its plain schema. All internal; none is
+  exported from `index.ts`.
 - **`issues.ts`** — `keysOf`, `codeOf` and `renderIssue`, plus `toZodIssue`,
   the one place a nested entity or union member re-raises its issues to zod
   (both `schema.ts` and `union.ts` use it, so a code is never dropped a level
@@ -218,7 +225,11 @@ what they own:
 The design rule the whole package turns on: **contracts compose the four plain
 `ZodObject`s; domain code composes the class itself.** The class carries a
 `.transform()`, so `z.toJSONSchema(SomeEntity, { io: "output" })` throws by
-design — `contract.spec.ts` pins that both ways.
+design — `contract.spec.ts` pins that both ways. A member that embedded a
+nested class would throw the same way, which is why the four substitute the
+nested entity's plain schemas; `nested-contract.spec.ts` pins conversion in
+both directions at depth two, and the Date/bigint/custom/transform outcomes
+`docs/reference/schemas.md` documents.
 
 ## Binding conventions
 

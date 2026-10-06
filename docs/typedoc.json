@@ -39,10 +39,10 @@
     "OnlyNominal",
     "OutputOf",
     "PatchOf",
+    "PlainOf",
     "RootInstance",
     "SchemaOf",
     "Schemas",
-    "SchemasOf",
     "SealedSrc",
     "UnknownFlagIsRejected",
     "UpdateInputShapeOf"

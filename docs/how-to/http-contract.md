@@ -109,6 +109,112 @@ Authorization stays in your application boundary. Whether this caller may
 rename this organization is a check the handler makes before calling
 `update`; the entity has no notion of who is asking, and does not need one.
 
+## Contract a nested aggregate
+
+An aggregate's members embed each child entity's own plain schema, so its
+contract is selected the same way. Here `Order` owns `lines: z.array(OrderLine)`
+and keeps `billTo`, a snapshot of the customer's name and address, for
+billing's own use:
+
+```ts
+const OrderResponse = Order.output.pick({
+  id: true,
+  status: true,
+  currency: true,
+  lines: true, // each line's output, its computed `subtotal` included
+  total: true,
+});
+
+const OpenOrderBody = Order.createInput
+  .pick({ customerId: true, currency: true, lines: true }) // each line's input
+  .strict();
+```
+
+The allowlist applies at the level you write it. `billTo` stays out because it
+is not picked, but picking `lines` takes every field a line has. To narrow a
+child too, replace the field with a pick of the child's own member:
+
+```ts
+const OrderSummary = Order.output.pick({ id: true, total: true }).extend({
+  lines: z.array(OrderLine.output.pick({ label: true, subtotal: true })),
+});
+```
+
+`.strict()` closes the top-level object only. A nested line in a request body
+keeps zod's default and strips unknown keys; extend the field with a
+`.strict()` child schema when it should reject them instead.
+
+A response built this way parses the serialised entity directly, since
+`JSON.stringify` walks nested entities down to the same plain data:
+
+```ts
+OrderResponse.parse(JSON.parse(JSON.stringify(order))); // billTo dropped
+```
+
+Prefer a mapping function, as for `Organization`, once the response stops
+being a plain selection of stored fields.
+
+## Accept null where the domain has undefined
+
+An entity models an absent value as `undefined`, through `.optional()`. Many
+wires carry `null` instead, and `.optional()` rejects `null`. Nothing in the
+package converts between the two, because the right policy depends on the
+boundary, so state it in the contract with zod. Here `Customer` declares
+`phone: Phone.optional()`:
+
+```ts
+// out: absent becomes null
+const CustomerResponse = Customer.output
+  .pick({ id: true, name: true })
+  .extend({ phone: Phone.nullable() });
+
+const toCustomerResponse = (
+  customer: Customer,
+): z.input<typeof CustomerResponse> => ({
+  id: customer.id,
+  name: customer.name,
+  phone: customer.phone ?? null,
+});
+
+// in: null becomes absent, before the domain sees it
+const CreateCustomerBody = Customer.createInput
+  .pick({ name: true })
+  .extend({ phone: Phone.nullish() })
+  .strict();
+
+const createFromBody = (body: z.output<typeof CreateCustomerBody>) =>
+  createCustomer({ name: body.name, phone: body.phone ?? undefined });
+```
+
+A PATCH has two kinds of absence, and they must stay apart. An omitted key
+leaves the field unchanged. `null`, if the API chooses to support clearing,
+removes the value, which the domain spells `undefined`:
+
+```ts
+const EditCustomerBody = Customer.updateInput
+  .pick({ name: true })
+  .extend({ phone: Phone.nullish() })
+  .strict();
+
+const editCustomer = (
+  customer: Customer,
+  body: z.output<typeof EditCustomerBody>,
+) =>
+  customer.update({
+    ...(body.name === undefined ? {} : { name: body.name }),
+    // omitted: unchanged; null: cleared
+    ...(body.phone === undefined ? {} : { phone: body.phone ?? undefined }),
+  });
+```
+
+`body.phone === undefined` is true only when the key was omitted: `.nullish()`
+keeps an explicit `null` as `null`. An API that does not let callers clear a
+field declares it `.optional()` in the body and never maps `null` at all.
+
+The same pattern serves a database whose columns are nullable: map
+`undefined` to `null` on the way to the row, and `null` to `undefined` before
+`make`. See [Persist and rehydrate](/how-to/persist-and-rehydrate).
+
 ## Share the full shape only across a coupled boundary
 
 The full derived shape is the right contract when both sides deliberately
@@ -129,7 +235,10 @@ an allowlisted contract, because its evolution is not yours to decide.
 ## Convert to JSON Schema
 
 The four `ZodObject`s, and anything picked or extended from them, convert in
-**both** directions:
+**both** directions, nested entities included. A field typed as a `Date`, a
+`bigint` or a `z.custom` value does not convert; [Schema
+members](/reference/schemas#what-json-schema-can-express) lists what each kind
+of field does.
 
 ```ts
 import { ZodToJsonSchemaConverter } from "@orpc/zod";

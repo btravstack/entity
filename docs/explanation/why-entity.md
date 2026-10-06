@@ -44,5 +44,10 @@ instance — has no output representation. The class does exactly that, so
 four plain `ZodObject`s convert in both directions with no hand-written omit
 lists.
 
+The rule holds one level down too. A nested entity is a class, so a member
+that embedded it would inherit the same transform and stop converting. Each
+member therefore embeds the nested entity's own plain schema instead, and only
+construction, which is domain code, sees the class.
+
 [Expose an HTTP contract](/how-to/http-contract) is that rule applied end to
 end; [Schema members](/reference/schemas) is what each of the four is for.

@@ -73,14 +73,14 @@ data rather than the entity:
 
 ## Schema composition
 
-| Use                                                                            | Supported | Why                                                                                  |
-| ------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------ |
-| the class as a field of another entity                                         | yes       | the class is a zod schema through its `_zod` and `~standard` slots                   |
-| `z.object({ owner: SomeEntity })`, `z.array(SomeEntity)`, `z.optional(...)`    | yes       | the same slots; a nested failure keeps its full path                                 |
-| the class wherever a Standard Schema is accepted                               | yes       | `~standard` is delegated                                                             |
-| `input`, `output`, `createInput`, `updateInput` anywhere zod is accepted       | yes       | they are plain `ZodObject`s, including `.pick`, `.extend` and JSON Schema conversion |
-| `z.toJSONSchema(SomeEntity, { io: "output" })`                                 | **no**    | throws: the class carries a `.transform()`, which has no output representation       |
-| `SomeEntity.parse(...)`, `SomeEntity.optional()` or any other `ZodType` method | **no**    | only the two slots are delegated, so no throwing `.parse()` sits beside `make`       |
+| Use                                                                            | Supported | Why                                                                                          |
+| ------------------------------------------------------------------------------ | --------- | -------------------------------------------------------------------------------------------- |
+| the class as a field of another entity                                         | yes       | the class is a zod schema through its `_zod` and `~standard` slots                           |
+| `z.object({ owner: SomeEntity })`, `z.array(SomeEntity)`, `z.optional(...)`    | yes       | the same slots; a nested failure keeps its full path                                         |
+| the class wherever a Standard Schema is accepted                               | yes       | `~standard` is delegated                                                                     |
+| `input`, `output`, `createInput`, `updateInput` anywhere zod is accepted       | yes       | plain `ZodObject`s at every depth, a nested entity included; `.pick`, `.extend`, JSON Schema |
+| `z.toJSONSchema(SomeEntity, { io: "output" })`                                 | **no**    | throws: the class carries a `.transform()`, which has no output representation               |
+| `SomeEntity.parse(...)`, `SomeEntity.optional()` or any other `ZodType` method | **no**    | only the two slots are delegated, so no throwing `.parse()` sits beside `make`               |
 
 The rule behind the table: **contracts compose the four plain `ZodObject`s;
 domain code composes the class.** See [Schema members](/reference/schemas).

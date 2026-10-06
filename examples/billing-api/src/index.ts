@@ -10,6 +10,7 @@
  * omit list. An omit list goes stale the day the entity grows a field.
  */
 import { Organization } from "@btravstack/entity-example-billing-domain";
+import { Order } from "@btravstack/entity-example-billing-domain/order";
 import { oc } from "@orpc/contract";
 import type { JsonSchema } from "@orpc/json-schema";
 import { ZodToJsonSchemaConverter } from "@orpc/zod";
@@ -96,6 +97,36 @@ export const createOrganizationSchema: JsonSchema = jsonSchemaOf(CreateOrganizat
 export const renameOrganizationSchema: JsonSchema = jsonSchemaOf(RenameOrganizationBody, "input");
 export const organizationResponseSchema: JsonSchema = jsonSchemaOf(OrganizationResponse, "output");
 
+/* ── A nested aggregate: the same rule, one level down ─────────────────
+   `Order` owns its `OrderLine`s. Its four members embed each line's own
+   plain schema rather than the class, so they convert like a flat entity's:
+   a request carries a line's input, a response its output, computed
+   `subtotal` included.
+
+   The allowlist still applies, and only at the level it is written: `billTo`
+   is a snapshot of the customer's name and address, internal to billing, and
+   stays out because it is not picked. Picking `lines` takes each line whole;
+   narrowing a line too is `.extend({ lines: z.array(OrderLine.output.pick(…)) })`. */
+
+export const orderPublicFields = {
+  id: true,
+  status: true,
+  currency: true,
+  lines: true,
+  total: true,
+} as const;
+
+export const OrderResponse = Order.output.pick(orderPublicFields);
+export type OrderResponse = z.output<typeof OrderResponse>;
+
+/** Open a draft with its first lines in one request: nested input, line by line. */
+export const OpenOrderBody = Order.createInput
+  .pick({ customerId: true, currency: true, lines: true })
+  .strict();
+
+export const orderResponseSchema: JsonSchema = jsonSchemaOf(OrderResponse, "output");
+export const openOrderSchema: JsonSchema = jsonSchemaOf(OpenOrderBody, "input");
+
 /* ── The contract ──────────────────────────────────────────────────────
    An oRPC procedure per route, each taking the selected schemas above.
    Nothing here restates a field's type: every one comes from the entity. */
@@ -104,4 +135,8 @@ export const organizationContract = {
   create: oc.input(CreateOrganizationBody).output(OrganizationResponse),
   rename: oc.input(RenameOrganizationBody).output(OrganizationResponse),
   list: oc.output(OrganizationListing),
+};
+
+export const orderContract = {
+  open: oc.input(OpenOrderBody).output(OrderResponse),
 };

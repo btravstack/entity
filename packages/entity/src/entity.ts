@@ -1,6 +1,6 @@
 import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
 import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthrown";
-import type { z } from "zod";
+import { z } from "zod";
 
 import type { BuildEntity } from "./base.js";
 import { createBase, identityScopeOf, record } from "./base.js";
@@ -11,7 +11,7 @@ import { deepFreeze } from "./freeze.js";
 import { invariant, type Invariant } from "./invariant.js";
 import { codeOf, keysOf, renderIssue } from "./issues.js";
 import { attachSchema } from "./schema.js";
-import { shape, type OnlyNominal } from "./shape.js";
+import { plainShape, shape, type OnlyNominal } from "./shape.js";
 import type {
   AbstractEntity,
   AsyncEntityFactory,
@@ -31,8 +31,8 @@ import type {
   MergedComputed,
   MergedFields,
   PatchOf,
+  PlainOf,
   Schemas,
-  SchemasOf,
   Sealed,
   UpdateInputShapeOf,
 } from "./types.js";
@@ -71,7 +71,15 @@ export function Entity<Tag extends string>(tag: Tag) {
       readonly invariants?: readonly Invariant<InputOf<S>>[];
     },
   ): EntityStatic<Tag, S, A> {
-    const input = shape<S>(fields);
+    // Two schemas per entity, split by audience (#72). `construction` embeds
+    // each nested entity's *class*, so `make` builds nested instances through
+    // it. The four public members embed the nested entity's own plain schemas
+    // instead — see `plain` in `shape.ts` — because the class carries a
+    // `.transform()` and a member holding it could not reach JSON Schema.
+    const construction = shape<S>(fields);
+    const input = z.object(plainShape(construction, "input")) as unknown as z.ZodObject<
+      PlainOf<S, "input">
+    >;
 
     // `.omit()`'s mask can't be satisfied by a mask built from a key list the
     // flags derive at runtime — the shape is still generic here, so TS cannot
@@ -95,12 +103,15 @@ export function Entity<Tag extends string>(tag: Tag) {
       (options?.computed ?? {}) as Record<string, ComputedField<z.ZodTypeAny, InputShape>>,
     );
 
-    // `.extend({})` on the empty branch for the same reason as `omitBy`: the
-    // four schema members must be four distinct objects, or a consumer keying a
-    // registry by identity silently loses three of them.
-    const output = (input as unknown as z.ZodObject<Schemas>).extend(
-      Object.fromEntries(computedFields.map(([k, f]) => [k, f.schema])),
-    ) as unknown as z.ZodObject<SchemasOf<S> & A>;
+    // Its own `z.object` rather than `input.extend(...)`: a nested entity is its
+    // *output* here, computed fields included, where `input` embeds its input.
+    // That also keeps the four members four distinct objects even when nothing
+    // is computed — see `omitBy` for why a registry needs that.
+    const output = z
+      .object(plainShape(construction, "output"))
+      .extend(
+        Object.fromEntries(computedFields.map(([k, f]) => [k, f.schema])),
+      ) as unknown as z.ZodObject<PlainOf<S, "output"> & A>;
 
     const generatedKeys = Object.entries(fields)
       .filter(([, v]) => isFieldSpec(v) && v.flags.generated)
@@ -112,27 +123,21 @@ export function Entity<Tag extends string>(tag: Tag) {
       .filter(([, v]) => isFieldSpec(v) && (v.flags as { identity?: true }).identity === true)
       .map(([k]) => k);
 
-    /**
-     * Every key `updateInput` omits: the declared immutable ones, plus the
-     * computed ones. A computed field is not patchable because it is derived —
-     * `update` re-runs `from` like every other construction path, so patching
-     * it would only be overwritten. Typed at the widened runtime element type
-     * so the `.omit()` mask takes it without a cast.
-     */
-    const frozenKeys: readonly PropertyKey[] = [
-      ...immutableKeys,
-      ...computedFields.map(([k]) => k),
-    ];
-
     /** what a caller may send to create */
     const createInput = omitBy(
       input as unknown as z.ZodObject<Schemas>,
       generatedKeys,
-    ) as unknown as z.ZodObject<Omit<SchemasOf<S>, GeneratedKeys<S>>>;
-    /** what a caller may send to update */
+    ) as unknown as z.ZodObject<Omit<PlainOf<S, "input">, GeneratedKeys<S>>>;
+    /**
+     * What a caller may send to update: `input` minus the immutable keys, so a
+     * nested entity is its *input* here, as in every input-like member. A
+     * computed field is not patchable either, because it is derived — `update`
+     * re-runs `from` like every other construction path, so patching it would
+     * only be overwritten — and `input` never carried one.
+     */
     const updateInput = omitBy(
-      output as unknown as z.ZodObject<Schemas>,
-      frozenKeys,
+      input as unknown as z.ZodObject<Schemas>,
+      immutableKeys,
     ).partial() as unknown as z.ZodObject<UpdateInputShapeOf<S, A, ImmutableKeys<S>>>;
 
     type OutputShape = OutputOf<S, A>;
@@ -190,7 +195,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       return Object.fromEntries(dataKeys.map((k) => [k, source[k]])) as OutputShape;
     };
 
-    const parseInput = fromSchema(input);
+    const parseInput = fromSchema(construction);
 
     const toInvalidEntity = (issues: SchemaIssues) => new InvalidEntity({ entity: tag, issues });
 
@@ -501,7 +506,7 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
     }
 
-    attachSchema<Base & DeepReadonly<OutputShape>>(Base, input);
+    attachSchema<Base & DeepReadonly<OutputShape>>(Base, construction);
     record(Base, fields, options as Record<string, unknown> | undefined);
 
     return Base as unknown as EntityStatic<Tag, S, A>;
