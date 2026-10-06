@@ -642,7 +642,12 @@ export type Decision<A, E> = {
  * polymorphic `this` (TS2526 — see `BaseInstance`).
  */
 // oxlint-disable-next-line typescript/consistent-type-definitions
-export interface AggregateInstance<S extends Fields, A extends Schemas, Ev extends Events> {
+export interface AggregateInstance<
+  S extends Fields,
+  A extends Schemas,
+  Ev extends Events,
+  O extends string,
+> {
   toJSON(): DeepReadonly<OutputOf<S, A>>;
   readonly sameIdentityAs: [IdentityKeys<S>] extends [never]
     ? { readonly __declareAnIdentityFieldToCompareIdentity: never }
@@ -652,8 +657,15 @@ export interface AggregateInstance<S extends Fields, A extends Schemas, Ev exten
    * returns the decision. Events breaking an invariant, failing their own
    * schema, or a throwing handler are defects: a decision that does not hold
    * is a bug in the command, never something to persist.
+   *
+   * A creation event (`O`, the keys of `opens`) is excluded: an aggregate that
+   * exists cannot be created again, so emitting one is a compile error, as
+   * passing a non-creation event to `start` is. The decision's events stay
+   * typed as the whole union, the type a repository or an outbox stores.
    */
-  emit(...events: readonly z.output<Ev>[]): Result<Decision<this, z.output<Ev>>, never>;
+  emit(
+    ...events: readonly Exclude<z.output<Ev>, { readonly type: O }>[]
+  ): Result<Decision<this, z.output<Ev>>, never>;
 }
 
 type ConstructedAggregate<
@@ -661,7 +673,8 @@ type ConstructedAggregate<
   S extends Fields,
   A extends Schemas,
   Ev extends Events,
-> = AggregateInstance<S, A, Ev> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag };
+  O extends string,
+> = AggregateInstance<S, A, Ev, O> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag };
 
 /**
  * What `Entity.aggregate(tag)(fields, options)` returns. Deliberately not an
@@ -681,7 +694,7 @@ export type AggregateStatic<
   Ev extends Events,
   O extends string,
 > = {
-  new (d: Sealed<OutputOf<S, A>>): ConstructedAggregate<Tag, S, A, Ev>;
+  new (d: Sealed<OutputOf<S, A>>): ConstructedAggregate<Tag, S, A, Ev, O>;
   readonly entityName: Tag;
   readonly input: z.ZodObject<PlainOf<S, "input">>;
   readonly output: z.ZodObject<PlainOf<S, "output"> & A>;
@@ -691,7 +704,7 @@ export type AggregateStatic<
   readonly __output: OutputOf<S, A>;
   /** the event union, read by `Entity.Event` */
   readonly __event: z.output<Ev>;
-  readonly __instance: ConstructedAggregate<Tag, S, A, Ev>;
+  readonly __instance: ConstructedAggregate<Tag, S, A, Ev, O>;
   /** a snapshot or a state-based row → aggregate; emits nothing */
   make<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
   inspect(state: unknown): Result<Inspection<OutputOf<S, A>>, InvalidEntity>;

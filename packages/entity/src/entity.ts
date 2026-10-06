@@ -566,7 +566,8 @@ type AggregateInstanceSrc<
   S extends Fields,
   A extends Schemas,
   Ev extends Events,
-> = AggregateInstance<S, A, Ev>;
+  O extends string,
+> = AggregateInstance<S, A, Ev, O>;
 type AggregateStaticSrc<
   Tag extends string,
   S extends Fields,
@@ -636,7 +637,8 @@ export declare namespace Entity {
     S extends Fields,
     A extends Schemas,
     Ev extends Events,
-  > = AggregateInstanceSrc<S, A, Ev>;
+    O extends string,
+  > = AggregateInstanceSrc<S, A, Ev, O>;
   export type DecisionKey = DecisionKeySrc;
 
   // `InvalidEntity` is a class, so it needs both meanings under `Entity`: the

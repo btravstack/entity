@@ -130,6 +130,10 @@ current state with the handlers, and verifies the result with `make`. It
 returns a `Decision`: the events, and the state they produce. That state is
 the instance the verification built, and it is what gets persisted.
 
+`emit` accepts every declared event except the creation events: an aggregate
+that exists cannot be created again, so `subscription.emit({ type:
+"SubscriptionStarted", … })` does not compile.
+
 Only `emit` and `start` can build a `Decision`. A hand-written
 `{ state, events }` does not compile, so a repository that takes a `Decision`
 can only be handed events that were folded and checked.

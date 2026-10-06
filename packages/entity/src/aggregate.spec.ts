@@ -111,6 +111,8 @@ test("an emitted event that does not match the declared schema is a defect", () 
     "defect",
   );
   expect(channel(cart.emit({ type: "Nope" } as never))).toBe("defect");
+  // a creation event does not compile on an existing aggregate; forced past the type, it is a defect
+  expect(channel(cart.emit({ type: "CartOpened", cartId: id } as never))).toBe("defect");
 });
 
 test("a throwing handler is a defect", () => {

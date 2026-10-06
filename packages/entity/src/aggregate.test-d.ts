@@ -40,6 +40,9 @@ void decision;
 // @ts-expect-error an event outside the declared union does not compile
 doc.emit({ type: "Deleted" });
 
+// @ts-expect-error an existing aggregate cannot be created again: emit refuses a creation event
+doc.emit({ type: "Opened", id: "0199b1f4-1b1e-7000-8000-000000000000" });
+
 // @ts-expect-error start only accepts an opening event
 Doc.start({ type: "Renamed", label: "x" });
 

@@ -157,7 +157,8 @@ What an aggregate's command returns after its business checks. Parses each
 event against the declared union, folds the events onto the current state with
 the `evolve` handlers, and verifies the result with `make`. The `Decision`
 holds the parsed events and the verified state; the source aggregate is
-unchanged.
+unchanged. A creation event does not compile here: an aggregate that exists
+cannot be created again, which mirrors `start` accepting nothing else.
 
 An event that breaks an invariant, fails its schema, or reaches a handler that
 throws is a **defect**, never an `Err`: a decision that cannot hold is a bug in
