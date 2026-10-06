@@ -167,50 +167,75 @@ to it.
 
 ## Persist the state, or the events
 
-A decision holds both halves, so the repository picks one. The domain code
+A decision holds both halves, and the version the store must still be at, so
+a repository's `save` takes the decision and nothing else. The domain code
 above does not change.
 
-**State-based.** Store `decision.state.toJSON()` with a version, and write
-`decision.events` to an outbox in the same transaction. Load with `make`.
+**State-based.** Load with `make(row, { version })`. Save `decision.state.toJSON()`
+if the row is still at `decision.expectedVersion`, and write `decision.events`
+to an outbox in the same transaction.
 
 ```ts
-save(decision: Decision, expected: number): Result<number, ConcurrentModification> {
-  const { id } = decision.state;
-  const current = this.#rows.get(id)?.version ?? 0;
-  if (current !== expected) return Err(new ConcurrentModification({ id, expected }));
-  this.#rows.set(id, { state: decision.state.toJSON(), version: current + 1 });
+load(id: string) {
+  const row = this.#rows.get(id);
+  if (row === undefined) return Err(new SubscriptionNotFound({ id }));
+  return Subscription.make(row.state, { version: row.version });
+}
+
+save(decision: Decision): Result<number, ConcurrentModification> {
+  const { state, expectedVersion: expected } = decision;
+  const current = this.#rows.get(state.id)?.version ?? 0;
+  if (current !== expected) return Err(new ConcurrentModification({ id: state.id, expected }));
+  this.#rows.set(state.id, { state: state.toJSON(), version: current + 1 });
   this.outbox.push(...decision.events);
   return Ok(current + 1);
 }
 ```
 
-**Event-sourced.** Append `decision.events` to the stream if it is still at the
-version the command read. Load with `replay`.
+**Event-sourced.** Load with `replay`, which takes the stream's length as the
+version. Append `decision.events` if the stream is still that long.
 
 ```ts
-load(id: string) {
-  const stream = this.#streams.get(id);
-  if (stream === undefined) return Err(new SubscriptionNotFound({ id }));
-  return Subscription.replay(stream).map((subscription) => ({
-    subscription,
-    version: stream.length,
-  }));
+save(decision: Decision): Result<number, ConcurrentModification> {
+  const { state, expectedVersion: expected } = decision;
+  const stream = this.#streams.get(state.id) ?? [];
+  if (stream.length !== expected) return Err(new ConcurrentModification({ id: state.id, expected }));
+  this.#streams.set(state.id, [...stream, ...decision.events]);
+  return Ok(stream.length + decision.events.length);
 }
 ```
 
-A use case written against the port runs on either:
+A use case written against the port runs on either, and has no version to
+thread from the load to the save:
 
 ```ts
 export const changeSeats =
   (repository: SubscriptionRepository) => (id: string, seats: number) =>
     repository
       .load(id)
-      .flatMap(({ subscription, version }) =>
-        subscription
-          .changeSeats(seats)
-          .flatMap((decision) => repository.save(decision, version)),
-      );
+      .flatMap((subscription) => subscription.changeSeats(seats))
+      .flatMap((decision) => repository.save(decision));
 ```
+
+## What a decision remembers
+
+An aggregate remembers two things it has not saved: the version it was loaded
+at, and every event decided since. `make` and `replay` start with nothing
+pending; `start` starts at version `0` with its opening event. Each `emit`
+returns a decision holding **all** the pending events, and its state carries
+them forward.
+
+That makes a chain of commands one save: the last decision of
+`start(…).state.changeSeats(5).state.cancel(at)` holds all three events, at
+version `0`. Saving only the last decision of a chain loses nothing.
+
+It also makes reusing a saved state safe. A state whose decision was already
+saved still says it was loaded at the old version, so its next decision is a
+`ConcurrentModification`, never an overwrite. Reload after saving.
+
+The version lives beside the instance, not on it: it is not a field, not in
+`toJSON()`, and reserves no name. The package carries the number and never
+interprets it, so it can be a row counter or a stream position.
 
 Version checks, the outbox and the event store all stay in the adapter: the
 aggregate does no I/O. [Persist an aggregate relationally](/how-to/persist-relationally)
@@ -218,8 +243,11 @@ does the state-based half against a real database.
 
 ## Rehydrate without emitting
 
-`make` (a snapshot or a state row) and `replay` (a stream) both return an
-aggregate and emit nothing.
+`make` (a snapshot or a state row, with its version) and `replay` (a stream)
+both return an aggregate with nothing pending, and emit nothing. A `make`
+without a version is a compile error, and a defect if forced past the types:
+an aggregate that does not know its version could not tell a repository what
+to expect.
 
 `replay` treats a stored stream as untrusted input, the way `make` treats a
 row: every event is parsed against the declared union, and a bad one is an

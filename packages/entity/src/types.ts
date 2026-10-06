@@ -623,15 +623,22 @@ export declare class DecisionKey {
 }
 
 /**
- * What a command returns: the events it decided, and the state those events
- * produce, already verified by `make`. Only `emit` and `start` build one, so a
- * repository that takes a `Decision` can only be handed events that were
- * folded and checked against every invariant. Persist `state.toJSON()`,
- * `events`, or both — the decision is the same either way.
+ * What a command returns: the state, already verified by `make`; every event
+ * decided since the aggregate was loaded; and the version it was loaded at.
+ * Only `emit` and `start` build one, so a repository that takes a `Decision`
+ * can only be handed events that were folded and checked against every
+ * invariant — and it needs nothing else to save one.
+ *
+ * `events` accumulates across chained commands, so saving the last decision
+ * of a chain loses none of the earlier ones. `expectedVersion` is the one the
+ * store must still be at: `0` for a new aggregate, the stream length after
+ * `replay`, the row's version after `make`. The package carries it and never
+ * interprets it.
  */
 export type Decision<A, E> = {
   readonly state: A;
   readonly events: readonly E[];
+  readonly expectedVersion: number;
   // The property name is the diagnostic, as with `Sealed`.
   readonly __onlyEmitOrStartMakeADecision: DecisionKey;
 };
@@ -705,8 +712,16 @@ export type AggregateStatic<
   /** the event union, read by `Entity.Event` */
   readonly __event: z.output<Ev>;
   readonly __instance: ConstructedAggregate<Tag, S, A, Ev, O>;
-  /** a snapshot or a state-based row → aggregate; emits nothing */
-  make<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
+  /**
+   * a snapshot or a state-based row → aggregate; emits nothing. The version is
+   * required: it is what the aggregate's next decision tells the store to
+   * expect, so an aggregate can never be saved without one.
+   */
+  make<T>(
+    this: new (d: Sealed<OutputOf<S, A>>) => T,
+    state: unknown,
+    loaded: { readonly version: number },
+  ): Result<T, InvalidEntity>;
   inspect(state: unknown): Result<Inspection<OutputOf<S, A>>, InvalidEntity>;
   /** an opening event → the decision that creates the aggregate */
   start<T>(

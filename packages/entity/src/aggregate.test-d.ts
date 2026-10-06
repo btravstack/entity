@@ -101,3 +101,11 @@ Entity.aggregate("Anonymous")({ label: Label })({
   opens: { Opened: () => ({ label: "x" }) },
   evolve: { Renamed: (r) => r, Closed: (r) => r },
 });
+
+// @ts-expect-error a loaded aggregate says which version it was loaded at
+Doc.make({ id: "0199b1f4-1b1e-7000-8000-000000000000" });
+Doc.make({ id: "0199b1f4-1b1e-7000-8000-000000000000" }, { version: 3 });
+
+// the decision names the version a repository must still find
+const expected: number = decision.expectedVersion;
+void expected;
