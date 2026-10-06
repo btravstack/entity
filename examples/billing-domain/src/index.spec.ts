@@ -99,7 +99,9 @@ test("update returns a new entity and leaves the original alone", () => {
 
   expect(acme.name).toBe("Acme SA");
   expect(renamed.name).toBe("Acme SAS");
-  expect(acme.equals(renamed)).toBe(false);
+  // the same organization, in a different state
+  expect(renamed.sameIdentityAs(acme)).toBe(true);
+  expect(renamed.toJSON()).not.toEqual(acme.toJSON());
 });
 
 test("an entity nests inside another and survives the round trip", () => {
@@ -107,7 +109,7 @@ test("an entity nests inside another and survives the round trip", () => {
   expect(invoice.issuedTo).toBeInstanceOf(Organization);
 
   const rehydrated = Invoice.make(invoice.toJSON()).getOrThrow();
-  expect(rehydrated.equals(invoice)).toBe(true);
+  expect(rehydrated.toJSON()).toEqual(invoice.toJSON());
   expect(rehydrated.issuedTo).toBeInstanceOf(Organization);
 });
 

@@ -73,7 +73,7 @@ const plainFixture = (): PlainCustomer => Object.freeze(PlainCustomer.parse(raw)
 
 class Customer extends Entity("Customer")(
   {
-    id: Entity.field(CustomerId, { generated: true, immutable: true }),
+    id: Entity.field(CustomerId, { identity: true, generated: true }),
     email: Email,
     plan: Plan,
     seats: Seats,
@@ -180,7 +180,13 @@ test("all three yield the same create-request JSON Schema properties", () => {
 test("all three compare by value, each through its own function", () => {
   expect(isDeepStrictEqual(plainFixture(), plainFixture())).toBe(true);
 
-  expect(Customer.make(raw).getOrThrow().equals(Customer.make(raw).getOrThrow())).toBe(true);
+  // no structural `equals` on an entity: compare the stored data yourself
+  expect(
+    isDeepStrictEqual(
+      Customer.make(raw).getOrThrow().toJSON(),
+      Customer.make(raw).getOrThrow().toJSON(),
+    ),
+  ).toBe(true);
 
   const effectA = Either.getOrThrow(decodeEffect(raw));
   const effectB = Either.getOrThrow(decodeEffect(raw));
@@ -257,4 +263,12 @@ test("a Date's timestamp, a Map's entries and class-body state stay mutable", ()
 
   snapshot.note = "scratch";
   expect(snapshot.toJSON()).not.toHaveProperty("note");
+});
+
+test("only the entity compares by declared identity", () => {
+  const before = Customer.make(raw).getOrThrow();
+  const after = before.update({ seats: Seats.parse(3) }).getOrThrow();
+  // same customer, different state: plain zod and Effect would need the ids compared by hand
+  expect(after.sameIdentityAs(before)).toBe(true);
+  expect(isDeepStrictEqual(after.toJSON(), before.toJSON())).toBe(false);
 });

@@ -98,7 +98,7 @@ what they own:
   fields are installed with `Object.defineProperty(..., { writable: false })`
   and `_tag` non-enumerably, which is why `_tag` never reaches `toJSON()`,
   `JSON.stringify`, or spread. `toJSON()` is the **only** public projection —
-  it, `equals` and `update` all route through a module-private `project`, so
+  it and `update` route through a module-private `project`, so
   there is no second public spelling of the same data. It also carries the
   whole public surface: `Entity.field` / `Entity.computed` / `Entity.invariant` /
   `Entity.abstract` / `Entity.union` / `Entity.InvalidEntity` as expando
@@ -114,7 +114,7 @@ what they own:
   user's own intermediate subclass still finds it), then rewires the new
   prototype onto the receiver's — which is what makes `variant instanceof Root`
   true, picks up a behaviour-only intermediate root, and leaves the entity's own
-  `toJSON`/`equals`/`update` shadowing anything a root declares under those
+  `toJSON`/`sameIdentityAs`/`update` shadowing anything a root declares under those
   names. The rewiring is **instance-prototype only** — one `setPrototypeOf` on
   `child.prototype` — and that single fact explains the rest: a root's
   `static` members are not inherited (the static chain is untouched), a root's
@@ -130,13 +130,15 @@ what they own:
   keys and the tag — a bare-schema redeclaration used to drop the root's flags
   silently. Built against a loosened `BuildEntity` passed in from `entity.ts`, so
   this module imports no builder and there is no cycle.
-- **Equality** — `equals` is `node:util`'s **`isDeepStrictEqual`**, not `JSON.stringify` and
-  not a hand-rolled walk: serialising **threw** on a `bigint` field, compared
-  `Set`/`Map`/typed-array fields with different contents as **equal**, and
-  reported a nested record as changed when only its key order differed. All
-  three were measured, as was the cyclic-field stack overflow;
-  `equal.spec.ts` pins every one against the stdlib function. This import is
-  what makes the package **Node-only**.
+- **Identity, not equality** — `sameIdentityAs` compares the fields flagged
+  `identity` with `Object.is`, within a scope: the entity's own base, or the
+  abstract root that declared the identity (`identityScopes` in `base.ts`, set
+  by `extend`), so a root's variants share it. There is **no structural
+  `equals`**: it was `node:util`'s `isDeepStrictEqual`, the package's only Node
+  import, and it was removed (#38). Do not reintroduce a `node:` import; the
+  package bundles for the browser because of its absence. `sameIdentityAs` is
+  typed as a conditional _property_ on `BaseInstance`, so it is a compile error
+  on an entity with no identity field.
 - **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
   and recurses into arrays and plain objects, freezes `Date` as a leaf, and
   deliberately leaves `Map`/`Set`/class instances alone. Which _fields_ to skip

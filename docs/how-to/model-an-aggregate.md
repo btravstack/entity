@@ -84,7 +84,7 @@ const sum = (
 
 class Order extends Entity("Order")(
   {
-    id: Entity.field(OrderId, { generated: true, immutable: true }),
+    id: Entity.field(OrderId, { identity: true, generated: true }),
     customerId: Entity.field(CustomerId, { immutable: true }), // a reference
     currency: Entity.field(Currency, { immutable: true }),
     status: Entity.field(OrderStatus, { generated: true }), // "DRAFT" | "PLACED"
@@ -247,12 +247,19 @@ The relational mapping and concurrency recipe is tracked in
 Until then, [Persist and rehydrate](/how-to/persist-and-rehydrate) covers the
 single-row read and write.
 
-## Compare versions by ID
+## Compare versions by identity
 
-`equals` is structural: two versions of the same order with different lines are
-not `equals`. When the question is "is this the same order?", compare
-`order.id`. An identity comparison alongside `equals` is under discussion in
-[#38](https://github.com/btravstack/entity/issues/38).
+`Order.id` is flagged `identity`, so two versions of the same order with
+different lines are still the same order:
+
+```ts
+changed.sameIdentityAs(order); // true: same id, whatever the lines say
+```
+
+An order and a customer that happen to share an id string never compare as
+the same: identity is scoped to the entity that declares it.
+[Tags and identity](/explanation/tags-and-identity#four-kinds-of-sameness)
+separates this from comparing states.
 
 ## Failures name the whole path
 
@@ -417,8 +424,7 @@ class Person extends PersonBase.extend("Person")({}) {}
 class PersonWithAge extends PersonBase.extend("PersonWithAge")({ age: Age }) {}
 ```
 
-Each variant is a genuine entity with its own tag, schemas and `equals`
-identity. `PersonWithAge` is not a subclass of `Person` — an entity is
+Each variant is a genuine entity with its own tag and schemas. `PersonWithAge` is not a subclass of `Person` — an entity is
 [final](/explanation/sealed-construction#an-entity-is-final) — but both are
 instances of `PersonBase`, so code holding the root works on either. That is an
 inheritance choice; which of them is an aggregate root is still decided by the

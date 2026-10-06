@@ -16,7 +16,8 @@ test("an entity survives the round trip through storage", () => {
   repo.save(saved);
 
   const loaded = repo.byId(saved.id).getOrThrow();
-  expect(loaded.equals(saved)).toBe(true);
+  expect(loaded.sameIdentityAs(saved)).toBe(true);
+  expect(loaded.toJSON()).toEqual(saved.toJSON());
   // Behaviour comes back too, not just data — `make` returns a real instance.
   expect(loaded.isSelfTitled).toBe(true);
 });

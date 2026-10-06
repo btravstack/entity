@@ -1,11 +1,9 @@
-import { isDeepStrictEqual } from "node:util";
-
 import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
 import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthrown";
 import type { z } from "zod";
 
 import type { BuildEntity } from "./base.js";
-import { createBase, record } from "./base.js";
+import { createBase, identityScopeOf, record } from "./base.js";
 import { computed, type ComputedField } from "./computed.js";
 import { InvalidEntity } from "./errors.js";
 import { field, isFieldSpec, type FieldSpec, type Flags } from "./field.js";
@@ -108,6 +106,9 @@ export function Entity<Tag extends string>(tag: Tag) {
       .map(([k]) => k);
     const immutableKeys = Object.entries(fields)
       .filter(([, v]) => isFieldSpec(v) && v.flags.immutable)
+      .map(([k]) => k);
+    const identityKeys = Object.entries(fields)
+      .filter(([, v]) => isFieldSpec(v) && (v.flags as { identity?: true }).identity === true)
       .map(([k]) => k);
 
     /**
@@ -349,18 +350,27 @@ export function Entity<Tag extends string>(tag: Tag) {
       }
 
       /**
-       * Equal stored data means equal entity.
+       * Same business entity: same identity scope, and every `identity` field
+       * equal by `Object.is`. Attributes are deliberately not compared — a
+       * renamed organization is still that organization.
        *
-       * Compares the projected data structurally, not by `JSON.stringify`:
-       * serialising threw on a `bigint` field, equated `Set`/`Map`/typed-array
-       * fields with different contents, and reported a nested record as changed
-       * when only its key order differed. `node:util`'s `isDeepStrictEqual`
-       * handles all three, plus cycles — every case is pinned in
-       * `equal.spec.ts`. It is what makes this package Node-only.
+       * The scope is this class, or the abstract root that declared the
+       * identity, so a draft and the issued document it became compare equal
+       * while an unrelated entity with the same id never does. There is no
+       * structural `equals`: it was the package's only Node import
+       * (`node:util`'s `isDeepStrictEqual`), and comparing whole stored states
+       * is one line over `toJSON()` for the code that wants it.
+       *
+       * Typed as a property in `BaseInstance` so an entity with no identity
+       * field gets a compile error rather than a comparison that means nothing;
+       * at runtime it is an ordinary prototype method.
        */
-      equals(other: unknown): boolean {
-        if (!(other instanceof Base)) return false;
-        return isDeepStrictEqual(project(this), project(other));
+      sameIdentityAs(other: unknown): boolean {
+        const scope = (identityScopeOf(Base) ?? Base) as abstract new (...args: never[]) => unknown;
+        if (identityKeys.length === 0 || !(other instanceof scope)) return false;
+        const self = this as unknown as Record<string, unknown>;
+        const that = other as Record<string, unknown>;
+        return identityKeys.every((k) => Object.is(self[k], that[k]));
       }
 
       /**

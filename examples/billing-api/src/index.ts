@@ -83,7 +83,7 @@ export const renameOrganization = (
 
    These are plain JSON. Written to a file at build time, they are how a
    browser or a non-TypeScript client gets the contract without importing
-   this module, which imports the entity and so `node:util`.               */
+   this module, and so without depending on the domain behind it.         */
 
 const converter = new ZodToJsonSchemaConverter();
 

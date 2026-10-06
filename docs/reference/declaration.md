@@ -48,7 +48,7 @@ level is unwrapped. So `z.array(Customer)`, `z.optional(Slug)` and even
 not the container.
 
 Four names are reserved, because an entity installs them on every instance:
-`_tag`, `equals`, `toJSON`, `update`. Using one is a compile error naming
+`_tag`, `sameIdentityAs`, `toJSON`, `update`. Using one is a compile error naming
 `FieldNameIsReservedByEntity`.
 
 ### `options`
@@ -87,11 +87,20 @@ class Organization extends Entity("Organization")({
 | ----------- | ------- | -------------------------------------------------------------------------------------- |
 | `generated` | `false` | drops the key from `createInput`; a factory's generators supply it instead             |
 | `immutable` | `false` | drops the key from `updateInput`; `update()` rejects it even if smuggled past the type |
+| `identity`  | `false` | part of the business identity `sameIdentityAs` compares; implies `immutable`           |
 | `unbranded` | `false` | exempts this field from the branding rule; type-only, see below                        |
 
 An unflagged field is a bare schema — `name` above. There is no third state:
 both flags default to `false`, so `Entity.field(Slug, { immutable: true })` is
 `generated: false`.
+
+`identity: true` marks a field as part of the entity's business identity, which
+[`sameIdentityAs`](/reference/entry-points#entity-sameidentityas-other-boolean)
+compares. Several flagged fields form a composite identity. It implies
+`immutable`, since an entity cannot update itself into a different one, and
+the value must be a required primitive (a string, number, bigint or boolean),
+because identity is compared with `Object.is`. Declared on an abstract root,
+it spans every variant; a variant may not add identity fields to such a root.
 
 `unbranded: true` lets one descriptive leaf, such as a label or a display name,
 be a plain schema where the field map would otherwise demand a brand:
@@ -249,7 +258,7 @@ is widened to `string` so shared behaviour can still read it.
 | methods and getters                                   | inherited by every variant                             |
 | **class-body fields** (`count = 0`)                   | typed, but **never initialised** — see below           |
 | **statics** (`static of() {}`)                        | **not** inherited; they stay on the root               |
-| `toJSON`, `equals`, `update`                          | callable, never overridable                            |
+| `toJSON`, `sameIdentityAs`, `update`                  | callable, never overridable                            |
 | `variant instanceof Root`                             | `true`                                                 |
 | an intermediate `abstract class … {}` (no new fields) | inherited, behaviour and the root's fields both        |
 
@@ -329,7 +338,7 @@ the second path is covered by the two-compiler declaration pass.
 ### `Root.extend(tag)(fields, options?)`
 
 A **new** entity carrying the root's fields plus more, under its own tag — its
-own schemas, its own `equals` identity — inheriting the **instance** half of the
+own schemas — inheriting the **instance** half of the
 class body of whatever it was called on: its methods and accessors, but not its
 statics and not its field initialisers
 ([above](#entity-abstract-name-fields-options)).

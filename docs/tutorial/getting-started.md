@@ -86,7 +86,7 @@ Declare that:
 
 ```ts
 class Organization extends Entity("Organization")({
-  id: Entity.field(OrgId, { generated: true, immutable: true }),
+  id: Entity.field(OrgId, { identity: true, generated: true }),
   slug: Entity.field(Slug, { immutable: true }),
   name: DisplayName,
   createdAt: Entity.field(Instant, { generated: true, immutable: true }),
@@ -101,6 +101,8 @@ which carries none, stays a bare schema.
 - `immutable` drops it from `updateInput` — and `update()` rejects it at
   runtime even if something smuggles it past the type, so a change that
   cannot happen is reported rather than quietly ignored.
+- `identity` says the field is what makes this organization _this_
+  organization. It implies `immutable`, and step 9 uses it.
 
 The flags sit on the field, so there is no second list to keep in step with the
 field names, and a misspelled flag (`imutable`) is a compile error rather than a
@@ -206,7 +208,7 @@ A single field's schema cannot express "these two fields must agree".
 ```ts
 class Organization extends Entity("Organization")(
   {
-    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    id: Entity.field(OrgId, { identity: true, generated: true }),
     slug: Entity.field(Slug, { immutable: true }),
     name: DisplayName,
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),
@@ -239,7 +241,7 @@ const Upper = z.string().min(1).brand("Upper");
 
 class Organization extends Entity("Organization")(
   {
-    id: Entity.field(OrgId, { generated: true, immutable: true }),
+    id: Entity.field(OrgId, { identity: true, generated: true }),
     slug: Entity.field(Slug, { immutable: true }),
     name: DisplayName,
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),
@@ -273,7 +275,7 @@ const renamed = org.update({ name: name("Acme Corp") }).getOrThrow();
 renamed.name; // "Acme Corp"
 renamed.shout; // "ACME CORP" — re-derived, never stale
 org.name; // "Acme" — the original is unchanged
-renamed.equals(org); // false
+renamed.sameIdentityAs(org); // true — the same organization, in a new state
 ```
 
 `org.update({ slug })` does not compile: `slug` is flagged `immutable`.

@@ -48,7 +48,9 @@ test("a nested entity keeps its behaviour and its computed fields", () => {
   const order = Order.make(raw).getOrThrow();
   expect(order.customer.shout).toBe("ADA");
   expect(order.customer._tag).toBe("Customer");
-  expect(order.customer.equals(Customer.make({ id: cid, name: "ada" }).getOrThrow())).toBe(true);
+  expect(order.customer.toJSON()).toEqual(
+    Customer.make({ id: cid, name: "ada" }).getOrThrow().toJSON(),
+  );
 });
 
 test("entities nest inside an array field too", () => {

@@ -135,7 +135,7 @@ instances. The obligation stays on the variants, which have them.
 
 ## What a root cannot take over
 
-`toJSON`, `equals` and `update` are declared on the entity's own prototype, and
+`toJSON`, `sameIdentityAs` and `update` are declared on the entity's own prototype, and
 `extend` chains the root's prototype **below** it. So a root can call all three,
 and can never override them: a member declared under one of those names on a
 root compiles, and is silently never called. The chaining is what buys the rest

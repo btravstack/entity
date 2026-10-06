@@ -111,7 +111,7 @@ class's instance type cannot be a union at all (`TS2509`).
 
 **[btravstack.github.io/entity](https://btravstack.github.io/entity/)**
 
-- [Guarantees and compatibility](https://btravstack.github.io/entity/reference/guarantees) — what is enforced, what is left to you, supported Node/TypeScript/zod versions (Node only)
+- [Guarantees and compatibility](https://btravstack.github.io/entity/reference/guarantees) — what is enforced, what is left to you, supported Node/TypeScript/zod versions
 - [Compared with zod and Effect](https://btravstack.github.io/entity/explanation/compared) — one model, three ways
 - [Getting started](https://btravstack.github.io/entity/tutorial/getting-started) — from nothing to a working entity
 - [Reference](https://btravstack.github.io/entity/reference/declaration) — every member, option and type

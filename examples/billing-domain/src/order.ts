@@ -88,7 +88,7 @@ const sum = (lines: readonly { readonly subtotal: { readonly amount: number } }[
 
 export class Order extends Entity("Order")(
   {
-    id: Entity.field(OrderId, { generated: true, immutable: true }),
+    id: Entity.field(OrderId, { identity: true, generated: true }),
     customerId: Entity.field(CustomerId, { immutable: true }),
     currency: Entity.field(Currency, { immutable: true }),
     status: Entity.field(OrderStatus, { generated: true }),

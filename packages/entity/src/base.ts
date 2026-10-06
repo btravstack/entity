@@ -37,11 +37,30 @@ const declarationOf = (receiver: object) => {
   let ctor: object | null = receiver;
   while (ctor !== null) {
     const found = declarations.get(ctor);
-    if (found !== undefined) return found;
+    if (found !== undefined) return { ...found, owner: ctor };
     ctor = Object.getPrototypeOf(ctor) as object | null;
   }
   return undefined;
 };
+
+/**
+ * Which class an entity's identity is scoped to, when that is not the entity's
+ * own base: the abstract root that declared the `identity` fields, so every
+ * variant of it compares by the same identity. Keyed by the variant's base;
+ * absent means "this class alone".
+ */
+const identityScopes = new WeakMap<object, object>();
+
+export const identityScopeOf = (base: object): object | undefined => identityScopes.get(base);
+
+const hasIdentity = (fields: Fields): boolean =>
+  Object.values(fields).some(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      Object.hasOwn(v, "flags") &&
+      (v as { flags: { identity?: true } }).flags.identity === true,
+  );
 
 /** The options `rebuild` merges rather than overwrites. */
 type Mergeable = {
@@ -94,13 +113,23 @@ const rebuild = (
     );
   }
 
+  if (parent !== undefined && hasIdentity(parent.fields) && hasIdentity(nextFields)) {
+    // Same reasoning as the redeclaration defect above: the root fixed what
+    // identifies every variant, so a variant adding to it would make a draft
+    // and the document it became disagree on which fields to compare.
+    // oxlint-disable-next-line unthrown/no-throw
+    throw new Error(
+      `${nextTag}: the root already declares the identity — a variant may not add identity fields.`,
+    );
+  }
+
   const parentOptions = parent?.options as Mergeable | undefined;
   const childOptions = nextOptions as Mergeable | undefined;
 
   const invariants = concat(parentOptions?.invariants, childOptions?.invariants);
   const computed = { ...parentOptions?.computed, ...childOptions?.computed };
 
-  return buildEntity(nextTag)(
+  const child = buildEntity(nextTag)(
     { ...parent?.fields, ...nextFields },
     {
       ...parent?.options,
@@ -109,6 +138,8 @@ const rebuild = (
       ...(Object.keys(computed).length > 0 ? { computed } : {}),
     },
   );
+  if (parent !== undefined && hasIdentity(parent.fields)) identityScopes.set(child, parent.owner);
+  return child;
 };
 
 /**
@@ -118,7 +149,7 @@ const rebuild = (
  * Chaining rather than copying descriptors, for three reasons: `personal
  * instanceof AccountBase` becomes true, so the root is a real runtime
  * supertype; a behaviour-only intermediate root is picked up without any
- * bookkeeping; and the entity's own `toJSON`/`equals`/`update` stay own
+ * bookkeeping; and the entity's own `toJSON`/`sameIdentityAs`/`update` stay own
  * members of the child's prototype, so they shadow anything the root declares
  * under those names.
  */
