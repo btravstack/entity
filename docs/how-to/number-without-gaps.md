@@ -169,6 +169,10 @@ survive; with a real transaction the rollback does this for you, which is why
 the allocator's `release` disappears when you swap the in-memory counter for
 the counter row.
 
+To make the transition a command on the draft that also announces the
+issuance, allocate the number first and pass it in. That pattern is
+[Write commands and events](/how-to/write-commands).
+
 ## Number after the fact when throughput demands it
 
 Everything above allocates on the request path, which means the counter row is

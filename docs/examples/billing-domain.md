@@ -1,21 +1,22 @@
 ---
 title: Billing domain example
-description: Declaring entities — branded fields, the generated/immutable flags, computed, invariants, nesting, abstract roots, unions and factories — in a runnable package.
+description: Declaring entities — branded fields, the generated/immutable flags, computed, invariants, nesting, abstract roots, unions, factories, and commands returning events — in a runnable package.
 ---
 
 # Billing domain
 
 [`examples/billing-domain`](https://github.com/btravstack/entity/tree/main/examples/billing-domain)
-— the modelling half: one standalone entity, a root with two variants under a
-union, and the vocabulary they are all built from.
+— the modelling half: one standalone entity, a root with three variants under a
+union, the commands that move an invoice through its lifecycle, and the
+vocabulary they are all built from.
 
 ```sh
 pnpm --filter @btravstack/entity-example-billing-domain test
 ```
 
-Four modules, in dependency order: `vocabulary.ts`, `organization.ts`,
-`root.ts`, and `index.ts` — the two variants, the union over them, and the
-factories. The root sits in a module of its own on purpose;
+Five modules, in dependency order: `vocabulary.ts`, `organization.ts`,
+`root.ts`, `events.ts`, and `index.ts` — the variants and their commands, the
+union over them, and the factories. The root sits in a module of its own on purpose;
 [why](#three-things-in-this-package-that-look-odd-on-purpose).
 
 ## The vocabulary comes first
@@ -136,10 +137,16 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
       generated: true,
       immutable: true,
     }),
-    /* … lines, status, dunningReasons, level */
+    number: Entity.field(InvoiceNumber, { generated: true, immutable: true }),
+    lines: Entity.field(z.array(LineItem), { immutable: true }),
+    /* … status, dunningReasons, level */
   },
   {
     invariants: [
+      Entity.invariant(
+        (d) => d.lines.length > 0,
+        "an issued invoice bills at least one line",
+      ),
       Entity.invariant(
         (d) => d.status !== "VOID" || d.dunningReasons.length === 0,
         "a void invoice cannot be in dunning",
@@ -154,8 +161,9 @@ export class Invoice extends BillingDocumentBase.extend("Invoice")(
 ```
 
 `abstract signedAmount()` is the point of the root: a variant that forgets it
-does not compile (`TS2515`). It is _declared_ once and _implemented_ twice, with
-opposite sign — a credit note returns `-this.total.amount`. `counterpartySlug`
+does not compile (`TS2515`). It is _declared_ once and _implemented_ per
+variant — a credit note returns `-this.total.amount`, and a draft invoice, not
+on the ledger yet, returns `0`. `counterpartySlug`
 is the other half: behaviour written once and inherited, which is what a
 rebuilt-from-the-declaration extension could not carry. An entity itself is
 final; `extend` lives only here.
@@ -169,10 +177,10 @@ every variant. Restating one is not the way to keep it — a variant that named
 The options accumulate root-then-variant, `computed`
 merging per key rather than concatenating: `period` — the accounting period,
 derived from `issuedAt`, because reports work per period and a stored copy could
-disagree with the date — is on every variant without either of them naming it.
+disagree with the date — is on every variant without any of them naming it.
 `invariants` work the same way: the root's "total must not be negative" applies
-to both variants whether or not they declare rules of their own, and `Invoice`
-declares one of its own ("a void invoice cannot be in dunning"). The spec pins
+to every variant whether or not it declares rules of its own, and `Invoice`
+declares two of its own. The spec pins
 the inheritance both ways — patching `issuedAt` on an invoice is refused, and
 `invoice.period` is derived, though `Invoice` mentions neither.
 
@@ -199,6 +207,37 @@ export const createOrganization = Organization.factory({
 
 That is what leaves the entities trivially testable: nothing inside them reaches
 for ambient state.
+
+## Commands move an invoice through its lifecycle
+
+An invoice is two variants of the root. A `DraftInvoice` has editable lines and
+no number; an `Invoice` has a `number`, frozen `lines`, and a `status` covering
+the states that share that shape. There is no `createInvoice`: an issued
+invoice comes from `issue`, or from `Invoice.make` when a stored one is read
+back.
+
+Three commands, each an ordinary method on the variant it applies to:
+
+```ts
+draft.addLine(line); // Result<DraftInvoice, CurrencyMismatch | InvalidEntity>
+draft.issue({ number, at }); // Result<{ entity: Invoice; events: [InvoiceIssued] }, InvalidEntity>
+invoice.void(); // Result<{ entity: Invoice; events: [InvoiceVoided] }, InvoiceNotVoidable | InvalidEntity>
+```
+
+`issue` takes its number and instant as arguments, because allocating one is a
+transaction's job and reading the other is a clock's. `void` refuses a paid
+invoice with a typed `InvoiceNotVoidable`, though PAID and VOID are both valid
+states. The spec pins that refusal, and pins the other side too: the same
+change spelled `paid.update({ status: "VOID" })` succeeds, which is why a
+module boundary should expose commands rather than `update`.
+
+`events.ts` holds what the commands announce, and the integration contract
+published from `InvoiceIssued`. That contract is narrower than the domain
+event: the lines stay internal. The spec also checks that `make` and `update`
+announce nothing.
+
+The pattern is [Write commands and events](/how-to/write-commands); the
+reasoning is [Invariants and transitions](/explanation/invariants-and-transitions).
 
 ## Three things in this package that look odd on purpose
 
@@ -228,20 +267,24 @@ self-alias still compiles and simply degenerates.
 ## The union discriminates data, not instances
 
 ```ts
-export const BillingDocument = Entity.union("kind", [Invoice, CreditNote]);
+export const BillingDocument = Entity.union("kind", [
+  DraftInvoice,
+  Invoice,
+  CreditNote,
+]);
 export type BillingDocument = Entity.Instance<typeof BillingDocument>;
 ```
 
 A value, and a type of the same name beside it. `BillingDocument.make(row)`
-returns `Result<Invoice | CreditNote, InvalidEntity>` — the spec asserts which
-class comes back — and the type is that same `Invoice | CreditNote`, which
+returns `Result<DraftInvoice | Invoice | CreditNote, InvalidEntity>` — the spec
+asserts which class comes back — and the type is that same union, which
 `emit-guards.ts` pins. There is no class form to reach for: putting the union at
 a base-class position is `TS2507` at the declaration, because a class's instance
 type cannot be a union at all (`TS2509`).
 
-`kind` is a **declared domain field** — `z.literal("INVOICE")` on one member and
-`z.literal("CREDIT_NOTE")` on the other, both flagged `generated` so no caller
-can supply the wrong one.
+`kind` is a **declared domain field** — one literal per member,
+`"DRAFT_INVOICE"`, `"INVOICE"` and `"CREDIT_NOTE"`, each flagged `generated` so
+no caller can supply the wrong one.
 
 It is tempting to reach for `_tag` here, since every entity has one. That does
 not work, and fails quietly rather than loudly: `_tag` is non-enumerable, so it

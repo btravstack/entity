@@ -44,7 +44,15 @@ export const LineItem = z
   .object({ label: LineLabel, unit: Money, quantity: z.number().int().positive() })
   .brand("LineItem");
 
-export const InvoiceStatus = z.enum(["DRAFT", "ISSUED", "PAID", "VOID", "UNCOLLECTIBLE"]);
+/**
+ * Where an issued invoice stands. There is no `DRAFT`: a draft is a variant of
+ * its own (`DraftInvoice`), because it lacks a field every issued invoice
+ * carries — its `number`. A status covers the states that share a shape.
+ */
+export const InvoiceStatus = z.enum(["ISSUED", "PAID", "VOID", "UNCOLLECTIBLE"]);
+
+/** The legal number an invoice receives when it is issued, never before. */
+export const InvoiceNumber = z.number().int().positive().brand("InvoiceNumber");
 
 /** Escalation step of a dunning run. */
 export const Level = z.union([
