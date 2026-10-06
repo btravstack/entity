@@ -1,5 +1,134 @@
 # @btravstack/entity
 
+## 0.8.0
+
+### Minor Changes
+
+- 83af66b: `Entity.aggregate(tag)(fields)(options)` declares an aggregate root whose state
+  changes only through events. The options declare the `events` (a zod
+  discriminated union on `type`), an `opens` handler per creation event and an
+  `evolve` handler per other event; omitting one is a compile error.
+
+  - An aggregate has no `update()` and no factories. A command checks its
+    business rules and calls `this.emit(...events)`, which parses the events,
+    folds them, verifies the result with one `make`, and returns a sealed
+    `Entity.Decision`: the events and the verified state. Only `emit` and
+    `start` can build one, and events that break an invariant are a defect.
+  - `SomeAggregate.start(event)` creates from a creation event.
+    `SomeAggregate.replay(events)` parses and folds a stored stream; `make`
+    still rehydrates a snapshot or a state row. Neither emits events.
+  - The same aggregate persists as state plus an outbox or as an event stream
+    without changing its declaration.
+
+  `Entity` keeps its API. Four new top-level declaration-emit names:
+  `AggregateStatic`, `AggregateInstance`, `Decision`, `DecisionKey`, plus
+  `Entity.Decision`, `Entity.Event` and `Entity.Aggregate` in the namespace.
+
+- 1729958: **Breaking:** structural `equals` is removed, and entities compare by declared
+  identity instead.
+
+  - `Entity.field(schema, { identity: true })` marks a field as part of the
+    entity's business identity. Several flagged fields form a composite
+    identity. It implies `immutable`, and the value must be a required primitive.
+  - `entity.sameIdentityAs(other)` is true when `other` is in the same identity
+    scope and every identity field is equal by `Object.is`. The scope is the
+    class that declares the identity, or the abstract root when it is declared
+    there, so a root's variants (a draft and the document it became) share it.
+    On an entity with no identity field, calling it is a compile error.
+  - `equals` is gone, and with it the package's only Node import
+    (`node:util`'s `isDeepStrictEqual`), so the package now bundles for the
+    browser. To compare two whole states, compare their `toJSON()` with your own
+    deep-equality function.
+  - `sameIdentityAs` replaces `equals` as a reserved field name.
+
+  To migrate, flag your id fields `identity: true` and replace `a.equals(b)` with
+  `a.sameIdentityAs(b)` where you meant "the same entity", or with a deep
+  comparison of `toJSON()` where you meant "the same state".
+
+- aab342b: Add `SomeEntity.inspect(state)`, a read-side door for stored rows written before a rule existed. It validates the field schemas strictly and re-derives `computed` like `make`, then reports every broken invariant instead of refusing the row: `Result<Inspection<Output>, InvalidEntity>`, where `Inspection` is `{ data, violations }`.
+
+  `data` is plain frozen data, never an entity instance, so a row that breaks today's rules cannot reach a command by accident. The way back is a migration, then `make`, which stays strict. `violations` are the issues `make` would have failed with, so `Entity.codeOf` reads them. A field failure is still `InvalidEntity`, a throwing predicate is still a defect, and a nested entity field is inspected strictly.
+
+  `Entity.union` gains `inspect` too, dispatching on the discriminant. `Inspection` joins the top-level declaration-emit names, with `Entity.Inspection` for annotations. The new how-to, "Add a stricter rule without an outage", covers the rollout.
+
+- 20dcfc2: **Breaking:** `Entity.invariant` now takes one object with a required stable
+  `code`:
+
+  ```ts
+  Entity.invariant({
+    code: "NAME_TOO_LONG",
+    ensure: (d) => d.name.length <= 80,
+    message: "name must be at most 80 characters",
+  });
+  ```
+
+  The code is the rule's identity, which a caller keys behaviour off (an error
+  code in a response, a field to highlight, a localised string), while the
+  message may vary with the data. A failing rule's issue is now
+  `{ message, params: { code } }`; the code survives nested entities, arrays and
+  unions with the path prefixed, and the new `Entity.codeOf(issue)` reads it back.
+
+  To migrate, wrap each `Entity.invariant(ensure, message)` as
+  `Entity.invariant({ code, ensure, message })`. A missing code is a compile
+  error.
+
+- 4d79b0e: **Breaking:** `input`, `output`, `createInput` and `updateInput` are plain all
+  the way down, so an entity with a nested-entity field converts to JSON Schema
+  (#72).
+
+  - A field holding another entity, an array of entities, an optional or
+    nullable one, or an `Entity.union(...)` now embeds the nested entity's own
+    plain schema in each member: its `input` in `input`, `createInput` and
+    `updateInput`, its `output` (computed fields included) in `output`. A union
+    becomes a discriminated union of its members' plain schemas. Every member
+    converts with `z.toJSONSchema` in both directions, at any depth; before, all
+    of them threw.
+  - `make`, `update` and the factories are unchanged: they parse through an
+    internal schema that keeps the classes, so a nested field still holds a real
+    instance.
+  - `updateInput` is now derived from `input` rather than `output`. Its keys are
+    the same; only a nested entity's schema differs.
+  - An `Entity.union(...)` value's `input` and `output` are typed from its
+    members' schemas instead of `z.ZodType<unknown>`.
+
+  To migrate: parsing with a member now yields plain data at every depth, so
+  `Order.output.parse(x).lines[0]` is an object, not an `OrderLine`. Code that
+  relied on a member to construct nested instances should call `make` instead,
+  which is the entry point for building entities. Types follow suit:
+  `z.output<typeof Order.output>` describes plain nested data, while
+  `Entity.Output<typeof Order>` and the instance types still carry the nested
+  entities.
+
+- f3b42e3: `Entity.field(schema, { unbranded: true })` exempts one field from the rule
+  that every field be branded, an entity or a narrow literal. It is meant for a
+  descriptive leaf (a label, a display name) with no second value it could be
+  confused with, whose brand would otherwise leak into every consumer of the
+  derived schemas. The field is still validated and still honours `immutable`;
+  only the branding rule is relaxed, and only for that field. Existing
+  declarations are unchanged, and their emitted declarations do not grow.
+
+### Patch Changes
+
+- 8d928cd: A downstream library compiling with `declaration: true` can now export a value
+  whose inferred type runs a branded object through the package's deep-readonly
+  data type. That includes `SomeEntity.factory(...)` for an entity with a
+  nested-entity field. Declaration emit used to fail with `TS4023` (`$brand`
+  cannot be named); the brand now prints as `z.$brand<…>`.
+- 02c29e3: Document the self-referencing deriver idiom (#60): a `computed` deriver or an
+  `Entity.invariant` predicate may call the entity's own statics, given an
+  explicit return annotation — `(d): boolean => Doc.isActive(d.tags)`. The
+  unannotated form is `TS2506`, which is TypeScript resolving the deriver's
+  inferred return type inside the class's own base expression, not a rule of
+  the library. The annotation is still checked against both the body and the
+  schema. `computed.test-d.ts` pins the idiom, the wrong-annotation errors, and
+  the `this`-parameter dead end (`TS2502`).
+
+  Documentation only; no runtime or API change.
+
+- 08aca24: A synchronous generator that throws no longer escapes `factory(...)`'s returned
+  function: the factory now returns a `Defect` carrying the original cause, the
+  same channel a rejecting generator already takes under `factoryAsync`.
+
 ## 0.7.0
 
 ### Minor Changes
