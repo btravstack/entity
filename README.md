@@ -122,9 +122,9 @@ Organization.make({ ...row, name: "" }).match({
 | Schema member | Type        | For                                                                      |
 | ------------- | ----------- | ------------------------------------------------------------------------ |
 | `input`       | `ZodObject` | everything `make()` accepts                                              |
-| `output`      | `ZodObject` | stored state and response body                                           |
+| `output`      | `ZodObject` | stored state; pick a response from it by allowlist                       |
 | `createInput` | `ZodObject` | create request — `input` minus the `generated` fields                    |
-| `updateInput` | `ZodObject` | update request — `output` minus the `immutable` fields, partial          |
+| `updateInput` | `ZodObject` | update request — `input` minus the `immutable` fields, partial           |
 | _the class_   | zod schema  | parses to an instance; valid as a field, and anywhere zod takes a schema |
 
 | Entry point                       | Takes                           | For                                        |
@@ -134,10 +134,12 @@ Organization.make({ ...row, name: "" }).match({
 | `entity.update(patch)`            | a partial of the mutable fields | an update use case                         |
 | `entity.toJSON()`                 | —                               | the stored data, for a write or a response |
 
-| Field flag  | `Entity.field(schema, …)` | Meaning                                          |
-| ----------- | ------------------------- | ------------------------------------------------ |
-| `generated` | `{ generated: true }`     | the domain supplies this field, never the caller |
-| `immutable` | `{ immutable: true }`     | it never changes after creation                  |
+| Field flag  | `Entity.field(schema, …)` | Meaning                                           |
+| ----------- | ------------------------- | ------------------------------------------------- |
+| `generated` | `{ generated: true }`     | the domain supplies this field, never the caller  |
+| `immutable` | `{ immutable: true }`     | it never changes after creation                   |
+| `identity`  | `{ identity: true }`      | part of what `sameIdentityAs` compares; immutable |
+| `unbranded` | `{ unbranded: true }`     | this one descriptive leaf needs no brand          |
 
 | Option       | Meaning                                                                 |
 | ------------ | ----------------------------------------------------------------------- |
@@ -182,6 +184,52 @@ at the declaration, because a class's instance type cannot be a union at all
 (`TS2509`).
 ([Why](https://btravstack.github.io/entity/explanation/unions-and-roots).)
 
+## Aggregates
+
+An aggregate root changes only through events. `Entity.aggregate` declares the
+fields, then the events and one handler per event. It has no `update()`: every
+command checks its business rules and returns a sealed decision.
+
+```ts
+class Subscription extends Entity.aggregate("Subscription")({
+  id: Entity.field(SubscriptionId, { identity: true }), // a root needs an identity
+  seats: Seats,
+  status: z.enum(["ACTIVE", "CANCELLED"]),
+})({
+  events: SubscriptionEvent, // a zod discriminated union on `type`
+  opens: {
+    SubscriptionStarted: (e) => ({
+      id: e.subscriptionId,
+      seats: e.seats,
+      status: "ACTIVE",
+    }),
+  },
+  evolve: {
+    // one handler per event, or it does not compile
+    SeatsChanged: (r, e) => ({ ...r, seats: e.seats }),
+    SubscriptionCancelled: (r) => ({ ...r, status: "CANCELLED" }),
+  },
+}) {
+  changeSeats(seats: number) {
+    if (this.status === "CANCELLED") return Err(new SubscriptionIsCancelled());
+    return this.emit({ type: "SeatsChanged", seats }); // fold, verify once, decide
+  }
+}
+
+const decision = subscription.changeSeats(5).getOrThrow();
+decision.events; // every event since the load
+decision.expectedVersion; // the version the store must still be at
+repository.save(decision); // a state row and an outbox, or an event stream
+```
+
+Only `emit` and `start` build a decision, so a repository is only ever handed
+events that were folded and checked against every invariant. Load with
+`make(row, { version })` or `replay(stream)`; the same aggregate persists as
+state or as events without touching its declaration. Use `Entity` for
+everything inside the boundary, and for simple models where a public `update()`
+costs nothing. See [Model an event-driven
+aggregate](https://btravstack.github.io/entity/how-to/model-an-event-driven-aggregate).
+
 ## Documentation
 
 **[btravstack.github.io/entity](https://btravstack.github.io/entity/)** — built
@@ -189,7 +237,7 @@ with VitePress from [`docs/`](./docs), and organised by the four
 [Diátaxis](https://diataxis.fr/) modes:
 
 - **[Tutorial](https://btravstack.github.io/entity/tutorial/getting-started)** — from nothing to a working entity, one step at a time.
-- **How-to guides** — [expose an HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
+- **How-to guides** — [expose an HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [model an event-driven aggregate](https://btravstack.github.io/entity/how-to/model-an-event-driven-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
 - **[Reference](https://btravstack.github.io/entity/reference/declaration)** — every member, option and type, with signatures. Plus the [generated API reference](https://btravstack.github.io/entity/api/).
 - **[Guarantees and compatibility](https://btravstack.github.io/entity/reference/guarantees)** — before you adopt: what is enforced at compile time and at runtime, what is deliberately left to you, and the supported Node, TypeScript and zod versions. Then the same model [compared with plain zod and Effect `Schema.Class`](https://btravstack.github.io/entity/explanation/compared).
 - **[Explanation](https://btravstack.github.io/entity/explanation/why-entity)** — why it is built this way: sealed construction, what immutability covers, no I/O, why an entity is final and a union has no class form.

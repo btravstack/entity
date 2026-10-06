@@ -58,21 +58,22 @@ const loaded = Organization.make(row).getOrThrow(); // rows, imports, event fold
 const renamed = loaded.update({ name: next }).getOrThrow(); // a NEW entity
 ```
 
-| Schema member | For                                                                            |
-| ------------- | ------------------------------------------------------------------------------ |
-| `input`       | everything `make()` accepts                                                    |
-| `output`      | stored state, internal fields included: pick a response from it, by allowlist  |
-| `createInput` | what the domain lets a create set — `input` minus the `generated` fields       |
-| `updateInput` | what the domain lets change — `output` minus `immutable` and computed, partial |
-| _the class_   | parses to an instance; valid as a field                                        |
+| Schema member | For                                                                           |
+| ------------- | ----------------------------------------------------------------------------- |
+| `input`       | everything `make()` accepts                                                   |
+| `output`      | stored state, internal fields included: pick a response from it, by allowlist |
+| `createInput` | what the domain lets a create set — `input` minus the `generated` fields      |
+| `updateInput` | what the domain lets change — `input` minus the `immutable` fields, partial   |
+| _the class_   | parses to an instance; valid as a field                                       |
 
 The four are building blocks, not a public API. A route picks from them by
 allowlist, so an internal field stays internal and a new one stays out until
 someone adds it: see [Expose an HTTP
 contract](https://btravstack.github.io/entity/how-to/http-contract).
 
-`generated` and `immutable` are **flags on the field**, written with
-`Entity.field(schema, flags)`; a field carrying neither is a bare schema.
+`generated`, `immutable`, `identity` and `unbranded` are **flags on the
+field**, written with `Entity.field(schema, flags)`; a field carrying none is a
+bare schema.
 `computed` and `invariants` are the two declaration options.
 
 An entity is **final**. Fields and behaviour shared by several entities go on a
@@ -107,6 +108,52 @@ A variant is a real instance of its root, so `instanceof` narrows to it, and
 the union at a base-class position is `TS2507` at the declaration, because a
 class's instance type cannot be a union at all (`TS2509`).
 
+## Aggregates
+
+An aggregate root changes only through events. `Entity.aggregate` declares the
+fields, then the events and one handler per event. It has no `update()`: every
+command checks its business rules and returns a sealed decision.
+
+```ts
+class Subscription extends Entity.aggregate("Subscription")({
+  id: Entity.field(SubscriptionId, { identity: true }), // a root needs an identity
+  seats: Seats,
+  status: z.enum(["ACTIVE", "CANCELLED"]),
+})({
+  events: SubscriptionEvent, // a zod discriminated union on `type`
+  opens: {
+    SubscriptionStarted: (e) => ({
+      id: e.subscriptionId,
+      seats: e.seats,
+      status: "ACTIVE",
+    }),
+  },
+  evolve: {
+    // one handler per event, or it does not compile
+    SeatsChanged: (r, e) => ({ ...r, seats: e.seats }),
+    SubscriptionCancelled: (r) => ({ ...r, status: "CANCELLED" }),
+  },
+}) {
+  changeSeats(seats: number) {
+    if (this.status === "CANCELLED") return Err(new SubscriptionIsCancelled());
+    return this.emit({ type: "SeatsChanged", seats }); // fold, verify once, decide
+  }
+}
+
+const decision = subscription.changeSeats(5).getOrThrow();
+decision.events; // every event since the load
+decision.expectedVersion; // the version the store must still be at
+repository.save(decision); // a state row and an outbox, or an event stream
+```
+
+Only `emit` and `start` build a decision, so a repository is only ever handed
+events that were folded and checked against every invariant. Load with
+`make(row, { version })` or `replay(stream)`; the same aggregate persists as
+state or as events without touching its declaration. Use `Entity` for
+everything inside the boundary, and for simple models where a public `update()`
+costs nothing. See [Model an event-driven
+aggregate](https://btravstack.github.io/entity/how-to/model-an-event-driven-aggregate).
+
 ## Documentation
 
 **[btravstack.github.io/entity](https://btravstack.github.io/entity/)**
@@ -116,7 +163,7 @@ class's instance type cannot be a union at all (`TS2509`).
 - [Getting started](https://btravstack.github.io/entity/tutorial/getting-started) — from nothing to a working entity
 - [Reference](https://btravstack.github.io/entity/reference/declaration) — every member, option and type
 - [Explanation](https://btravstack.github.io/entity/explanation/why-entity) — why it is built this way
-- How-to: [HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
+- How-to: [HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [model an event-driven aggregate](https://btravstack.github.io/entity/how-to/model-an-event-driven-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
 
 ## License
 
