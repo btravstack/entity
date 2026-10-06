@@ -105,7 +105,9 @@ handler returning `status: "ACTIVE"` is checked against the enum, and a
 missing field is a compile error rather than a surprise at runtime.
 
 `invariants`, `computed` and the `identity` and `immutable` flags work as on any
-entity. What an aggregate does not have is `update`, the factories,
+entity, with one difference: an aggregate must flag an `identity` field, since
+a root is what others reference and what a repository loads. Leaving it out
+does not compile, and `sameIdentityAs` is therefore always available. What an aggregate does not have is `update`, the factories,
 `createInput` and `updateInput`.
 
 ## Decide with emit
