@@ -70,3 +70,10 @@ export type { AbstractEntity } from "./types.js";
 // travels with it — it is `EntityUnion`'s own constraint, so the reference is
 // unusable without it.
 export type { EntityUnion, UnionMember } from "./union.js";
+
+// `Entity.aggregate(...)` is `EntityStatic`'s story again: a consumer writing
+// `class X extends Entity.aggregate("X")(…) {}` emits the underlying
+// `AggregateStatic<…>`, and its instance type names `AggregateInstance`; a
+// command's declared return names `Decision`, which carries `DecisionKey`.
+// Each is checked by a guard in `examples/billing-domain/src/emit-guards.ts`.
+export type { AggregateInstance, AggregateStatic, Decision, DecisionKey } from "./types.js";

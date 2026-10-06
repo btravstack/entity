@@ -155,6 +155,21 @@ what they own:
   package bundles for the browser because of its absence. `sameIdentityAs` is
   typed as a conditional _property_ on `BaseInstance`, so it is a compile error
   on an entity with no identity field.
+- **`aggregate.ts`** — `Entity.aggregate(tag)(fields)(options)` (#158). Built
+  _as_ an entity — the same `Base`, so finality, the seal, freezing, `make`,
+  `inspect`, `toJSON` and identity are the entity's own — with `update` and
+  the factories deleted off it and `emit`/`start`/`replay` defined on it. Not a
+  subclass: an entity is final. `emit` and `start` parse events, fold them
+  with `opens`/`evolve`, run one `make`, and return a frozen `Decision`; any
+  failure there is a **defect** (a decision that cannot hold is a bug).
+  `replay` parses an untrusted stream and its final `make` is strict, so its
+  failures are `InvalidEntity`. `Decision` is sealed by `DecisionKey`, the
+  `ConstructionKey` construction. **Fields and options are two calls on
+  purpose**: in one call the handlers' return type was computed from a field
+  map still being inferred and every fresh literal widened (measured: `NoInfer`,
+  a constrained return parameter and an intersection-free signature all
+  widened). `AggregateStatic` has no `_zod` in its type, so an aggregate cannot
+  be nested as a field.
 - **`freeze.ts`** — `deepFreeze`, the runtime half of immutability. Freezes
   and recurses into arrays and plain objects, freezes `Date` as a leaf, and
   deliberately leaves `Map`/`Set`/class instances alone. Which _fields_ to skip
@@ -281,10 +296,11 @@ both directions at depth two, and the Date/bigint/custom/transform outcomes
   library can be "done". Resist convenience aliases.
 - **`index.ts` exports `Entity`, and nothing else you write against.** A bare
   `computed` or `union` is too generic to take from a consumer's import scope,
-  so everything hangs off the builder. The sole exception is the eleven
-  declaration-emit names — `AbstractEntity`, `BaseInstance`, `ConstructionKey`,
-  `EntityStatic`, `EntityUnion`, `FieldSpec`, `Inspection`, `MergedComputed`,
-  `MergedFields`, `Sealed`, `UnionMember` — exported at the top
+  so everything hangs off the builder. The sole exception is the fifteen
+  declaration-emit names — `AbstractEntity`, `AggregateInstance`,
+  `AggregateStatic`, `BaseInstance`, `ConstructionKey`, `Decision`,
+  `DecisionKey`, `EntityStatic`, `EntityUnion`, `FieldSpec`, `Inspection`,
+  `MergedComputed`, `MergedFields`, `Sealed`, `UnionMember` — exported at the top
   level as well: a downstream
   library compiling with `declaration: true` emits the _underlying_ name, not
   the namespace path aliasing it, so hiding them fails the consumer pass with

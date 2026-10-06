@@ -1,6 +1,6 @@
 ---
 title: Helper types
-description: Entity.Input, Entity.Output, Entity.CreateInput, Entity.Patch, Entity.Instance — and the ten declaration-emit names exported at the top level.
+description: Entity.Input, Entity.Output, Entity.CreateInput, Entity.Patch, Entity.Instance, Entity.Decision, Entity.Event — and the declaration-emit names exported at the top level.
 ---
 
 # Helper types
@@ -76,9 +76,10 @@ instead leaves ~90 bytes per flagged-field appearance, +8.0% total, and no
 
 ## The declaration-emit names
 
-Eleven types are exported at the top level: `AbstractEntity`, `BaseInstance`,
-`ConstructionKey`, `EntityStatic`, `EntityUnion`, `FieldSpec`, `Inspection`,
-`MergedComputed`, `MergedFields`, `Sealed`, `UnionMember`. They are the one
+Fifteen types are exported at the top level: `AbstractEntity`,
+`AggregateInstance`, `AggregateStatic`, `BaseInstance`, `ConstructionKey`,
+`Decision`, `DecisionKey`, `EntityStatic`, `EntityUnion`, `FieldSpec`,
+`Inspection`, `MergedComputed`, `MergedFields`, `Sealed`, `UnionMember`. They are the one
 exception to the single-import rule, and none of them is part of the API you
 write against. Ten
 also have namespace aliases for anyone annotating by hand — `Entity.Abstract`,
@@ -90,8 +91,12 @@ consumer's _emitted declarations_ use the top-level names.
 ```ts
 import type {
   AbstractEntity,
+  AggregateInstance,
+  AggregateStatic,
   BaseInstance,
   ConstructionKey,
+  Decision,
+  DecisionKey,
   EntityStatic,
   EntityUnion,
   FieldSpec,
@@ -108,6 +113,11 @@ The exception exists for one reason: a downstream library compiling with
 that aliases it, so every type its declarations can reach must have a
 top-level name. What each one buys was measured, not assumed:
 
+- **`AggregateStatic`, `AggregateInstance`, `Decision`, `DecisionKey`** —
+  what `Entity.aggregate(...)` returns, its instances, and the sealed decision
+  their commands return. `DecisionKey` is `ConstructionKey`'s construction,
+  which is what keeps a `Decision` unforgeable in a consumer's declarations
+  too: the billing fixture's guard forging one is an expected error.
 - **`BaseInstance`, `ConstructionKey`, `Sealed`** — the construction seal.
   Kept module-private, a consumer's emitted `extends` clause fails with
   `TS4020: … has or is using private name`. Exported, the emitted `.d.ts`

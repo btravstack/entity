@@ -249,6 +249,17 @@ announce nothing.
 The pattern is [Write commands and events](/how-to/write-commands); the
 reasoning is [Invariants and transitions](/explanation/invariants-and-transitions).
 
+## A subscription decides in events
+
+`Subscription` (`src/subscription.ts`) is an `Entity.aggregate`: it has no
+`update()`, and its state changes only through `SubscriptionStarted`,
+`SeatsChanged` and `SubscriptionCancelled`. `changeSeats` and `cancel` check
+their business rules, return a typed error when one fails, and otherwise call
+`this.emit(...)`, which returns the events together with the verified state.
+The persistence example stores those decisions as state rows and as an event
+stream without changing this file. See
+[Model an event-driven aggregate](/how-to/model-an-event-driven-aggregate).
+
 ## Three things in this package that look odd on purpose
 
 **The root is exported, and alone in `root.ts`.** A root's instance type is the

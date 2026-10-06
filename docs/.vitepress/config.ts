@@ -27,6 +27,10 @@ const GUIDE_SIDEBAR = [
       { text: "Number without gaps", link: "/how-to/number-without-gaps" },
       { text: "Enforce a uniqueness rule", link: "/how-to/enforce-uniqueness" },
       { text: "Write commands and events", link: "/how-to/write-commands" },
+      {
+        text: "Model an event-driven aggregate",
+        link: "/how-to/model-an-event-driven-aggregate",
+      },
       { text: "Test domain logic", link: "/how-to/test-domain-logic" },
     ],
   },

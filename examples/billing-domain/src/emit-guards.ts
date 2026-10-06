@@ -57,6 +57,8 @@ import type { z } from "zod";
 import { BillingDocument, Invoice, Organization } from "./index.js";
 import type { CreditNote, DisplayLabel, Money, Slug } from "./index.js";
 import { Order } from "./order.js";
+import { Subscription } from "./subscription.js";
+import type { Seats, SubscriptionEvent } from "./subscription.js";
 
 /* ── Construction stays sealed from outside the package ───────────────── */
 
@@ -133,3 +135,35 @@ export const isInvalid = (error: unknown): error is Entity.InvalidEntity =>
 export const inspectInvoice = (row: unknown) => Invoice.inspect(row);
 export const inspectDocument = (row: unknown) => BillingDocument.inspect(row);
 export type Inspected = Entity.Inspection<Row>;
+
+/* ── An event-driven aggregate (issue #158) ────────────────────────────── */
+
+// Unannotated, so the emitter prints `AggregateStatic`'s members and the
+// `Decision` they return. Each name they reach (`AggregateStatic`,
+// `AggregateInstance`, `Decision`, `DecisionKey`) is a top-level export of the
+// package for this reason.
+export const startGuard = (organizationId: string) =>
+  Subscription.start({
+    type: "SubscriptionStarted",
+    subscriptionId: "0199b1f4-1b1e-7000-8000-000000000000",
+    organizationId,
+    seats: 1,
+  });
+export const emitGuard = (subscription: Subscription) =>
+  subscription.emit({ type: "SeatsChanged", seats: 2 });
+export const replayGuard = (stream: unknown) => Subscription.replay(stream);
+export type SubscriptionDecision = Entity.Decision<Subscription, Entity.Event<typeof Subscription>>;
+export type AggregateOf = Entity.Aggregate<
+  "Subscription",
+  { seats: typeof Seats },
+  Record<never, never>,
+  typeof SubscriptionEvent,
+  "SubscriptionStarted"
+>;
+
+// @ts-expect-error a decision cannot be forged downstream either: only `emit`/`start` build one
+export const forgedDecision: SubscriptionDecision = { state: {} as Subscription, events: [] };
+
+declare const subscription: Subscription;
+// @ts-expect-error an aggregate has no `update`, and that survives declaration emit
+void subscription.update;

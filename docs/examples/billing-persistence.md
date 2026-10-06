@@ -86,3 +86,17 @@ exactly one write lands, with the loser receiving `SlugTaken` rather than a
 defect.
 
 Related how-to: [Enforce a uniqueness rule](/how-to/enforce-uniqueness).
+
+## One aggregate, two persistence styles
+
+`src/subscriptions.ts` stores the billing domain's `Subscription` aggregate two
+ways behind one port. `StateBasedSubscriptions` keeps the state's `toJSON()`
+with a version and writes the decision's events to an outbox in the same step;
+it loads with `make`. `EventSourcedSubscriptions` appends the events to a stream
+if it is still at the version the command read; it loads with `replay`.
+
+The spec runs the same scenarios against both: a round trip, two saves from one
+version (one wins, one is a `ConcurrentModification`), and a refused command
+that saves nothing. A last test feeds both the same decisions and checks they
+load the same state. See
+[Model an event-driven aggregate](/how-to/model-an-event-driven-aggregate).

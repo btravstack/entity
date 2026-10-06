@@ -284,5 +284,8 @@ export const voidInvoice = (deps: Deps) => (id: InvoiceId) => …;
 
 `immutable` is the one transition rule a declaration can carry: the issued
 variant's `lines` cannot be patched by anyone. Everything else is enforced by
-who can reach `update`. Why the library stops there is in
+who can reach `update`. When that is not enough, declare the root with
+`Entity.aggregate` instead: it has no `update` at all, and its commands can only
+return events folded and checked by `emit`. See
+[Model an event-driven aggregate](/how-to/model-an-event-driven-aggregate). Why the library stops there is in
 [Invariants and transitions](/explanation/invariants-and-transitions).
