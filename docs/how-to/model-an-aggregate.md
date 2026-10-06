@@ -242,10 +242,11 @@ instance ever broke. Detecting that takes a concurrency check at the storage
 layer, typically a version column that the save compares and increments, and a
 conflict returned as a value rather than a silent overwrite.
 
-The relational mapping and concurrency recipe is tracked in
-[#37](https://github.com/btravstack/entity/issues/37), and is not written yet.
-Until then, [Persist and rehydrate](/how-to/persist-and-rehydrate) covers the
-single-row read and write.
+[Persist an aggregate relationally](/how-to/persist-relationally) maps this
+order to tables, with the version check, an outbox for its events, and a
+migration for rows written by older releases.
+[Persist and rehydrate](/how-to/persist-and-rehydrate) covers the single-row
+read and write.
 
 ## Compare versions by identity
 

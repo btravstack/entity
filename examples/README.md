@@ -1,6 +1,6 @@
 # Examples
 
-Three small packages modelling one billing domain, each showing a different job
+Four small packages modelling one billing domain, each showing a different job
 `@btravstack/entity` does.
 
 📖 **[Annotated walkthroughs →](https://btravstack.github.io/entity/examples/)**
@@ -10,9 +10,10 @@ Three small packages modelling one billing domain, each showing a different job
 | [`billing-domain`](./billing-domain)           | Declaring entities: branded fields, `generated` / `immutable` / `computed`, invariants, nesting, unions, factories. |
 | [`billing-api`](./billing-api)                 | Composing the four plain `ZodObject`s into an HTTP contract and JSON Schema.                                        |
 | [`billing-persistence`](./billing-persistence) | Storing and rehydrating: `toJSON()` out, `make()` back.                                                             |
+| [`billing-relational`](./billing-relational)   | An aggregate in Postgres via Kysely: version column, transactional outbox, legacy-row migration.                    |
 
 Unlike the snippets in the guide, **this code compiles and is covered by
-tests**. There is no broker, no database and no server to start:
+tests**. There is no broker, no database server and nothing else to start:
 
 ```sh
 pnpm install

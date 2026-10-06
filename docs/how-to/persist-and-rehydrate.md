@@ -134,6 +134,9 @@ const repository: OrganizationRepository = {
 };
 ```
 
+When one aggregate spans several tables, or two writers can save the same
+row, see [Persist an aggregate relationally](/how-to/persist-relationally).
+
 ## Decide what a read failure means
 
 A row that fails validation is a real signal — the database holds data the

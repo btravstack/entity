@@ -18,6 +18,12 @@ catalog:
   "@btravstack/typedoc": 0.1.0
   "@changesets/cli": 3.0.3
   "@commitlint/cli": 21.2.3
+  # Real Postgres compiled to WASM and run in-process, so the relational example
+  # (`examples/billing-relational`) exercises genuine transactions, row counts
+  # and constraint violations inside the ordinary `pnpm test`, with no Docker
+  # and no server. Held on 0.4: `kysely-pglite-dialect` below declares
+  # `^0.2 || ^0.3 || ^0.4` as its peer range, and `strictPeerDependencies` is on.
+  "@electric-sql/pglite": 0.4.6
   # Pinned to the exact prerelease the package's design doc measured
   # `ZodToJsonSchemaConverter`'s behaviour against (dual-direction JSON Schema
   # generation, the `[jsonSchema, optional]` return shape with no "unsupported"
@@ -41,6 +47,13 @@ catalog:
   "@unthrown/standard-schema": 5.11.0
   "@unthrown/vitest": 5.11.0
   knip: 6.39.0
+  # The relational example's query builder. A query builder rather than an ORM:
+  # it maps plain rows and tracks nothing, which is the shape an immutable
+  # entity wants at the adapter (`toJSON()` out, `make()` back).
+  kysely: 0.29.6
+  # Connects Kysely to PGlite for the relational example's tests. Its pglite
+  # peer range is what holds `@electric-sql/pglite` on 0.4.
+  kysely-pglite-dialect: 1.3.1
   lefthook: 2.1.17
   oxfmt: 0.71.0
   oxlint: 1.86.0
