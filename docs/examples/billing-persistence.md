@@ -75,3 +75,14 @@ changes shape — which is the point of the entity knowing nothing about
 persistence in the first place.
 
 Related how-to: [Persist and rehydrate](/how-to/persist-and-rehydrate).
+
+## Uniqueness
+
+`uniqueness.ts` registers an organization under a slug no other organization
+holds. The preflight lookup gives early feedback; the store's write-time check
+stands in for a database unique index and is the only part that holds under
+concurrency. The spec races two creates past the lookup and asserts that
+exactly one write lands, with the loser receiving `SlugTaken` rather than a
+defect.
+
+Related how-to: [Enforce a uniqueness rule](/how-to/enforce-uniqueness).
