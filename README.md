@@ -191,7 +191,8 @@ with VitePress from [`docs/`](./docs), and organised by the four
 - **[Tutorial](https://btravstack.github.io/entity/tutorial/getting-started)** — from nothing to a working entity, one step at a time.
 - **How-to guides** — [expose an HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
 - **[Reference](https://btravstack.github.io/entity/reference/declaration)** — every member, option and type, with signatures. Plus the [generated API reference](https://btravstack.github.io/entity/api/).
-- **[Explanation](https://btravstack.github.io/entity/explanation/why-entity)** — why it is built this way: sealed construction, deep immutability, no I/O, why an entity is final and a union has no class form.
+- **[Guarantees and compatibility](https://btravstack.github.io/entity/reference/guarantees)** — before you adopt: what is enforced at compile time and at runtime, what is deliberately left to you, and the supported Node, TypeScript and zod versions. Then the same model [compared with plain zod and Effect `Schema.Class`](https://btravstack.github.io/entity/explanation/compared).
+- **[Explanation](https://btravstack.github.io/entity/explanation/why-entity)** — why it is built this way: sealed construction, what immutability covers, no I/O, why an entity is final and a union has no class form.
 
 ## Development
 

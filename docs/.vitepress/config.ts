@@ -34,6 +34,7 @@ const GUIDE_SIDEBAR = [
       { text: "Entry points", link: "/reference/entry-points" },
       { text: "Errors", link: "/reference/errors" },
       { text: "Helper types", link: "/reference/types" },
+      { text: "Guarantees and compatibility", link: "/reference/guarantees" },
       { text: "API reference", link: "/api/" },
     ],
   },
@@ -41,6 +42,7 @@ const GUIDE_SIDEBAR = [
     text: "Explanation",
     items: [
       { text: "Why entity?", link: "/explanation/why-entity" },
+      { text: "Compared with zod and Effect", link: "/explanation/compared" },
       { text: "Branded fields", link: "/explanation/branded-fields" },
       { text: "No I/O, by design", link: "/explanation/no-io" },
       { text: "Sealed construction", link: "/explanation/sealed-construction" },

@@ -31,6 +31,12 @@ catalog:
   # naming `JsonSchema` is what keeps an exported schema portable (TS2883).
   "@orpc/json-schema": 2.0.0-beta.41
   "@types/node": 26.6.4
+  # Only for the comparison spec in `examples/billing-domain`, which runs the
+  # same small model through Effect's `Schema.Class` so the docs' comparison
+  # page states measured behaviour, not recalled behaviour. Held on the 3.x
+  # line: issue #140 compares against the v3 `Schema.Class` API, and 4.0
+  # (2026-10-01) rewrote Schema.
+  effect: 3.22.2
   "@unthrown/oxlint": 5.11.0
   "@unthrown/standard-schema": 5.11.0
   "@unthrown/vitest": 5.11.0

@@ -28,7 +28,8 @@ features:
     details: "input, output, createInput and updateInput are derived from one field map — the generated / immutable flags a field carries, plus computed. Plain ZodObjects, so they convert to JSON Schema in both directions — no hand-written omit lists."
   - icon: { src: /icons/seal.svg }
     title: Sealed and immutable
-    details: "new SomeEntity(…) does not compile. Every instance comes through make, update or a factory, so the invariants have run — and its data is deep-frozen, mutation a compile error first."
+    details: "new SomeEntity(…) does not compile, so typed code gets every instance from make, update or a factory, with the invariants run. Plain data is deep-frozen and mutation is a compile error first. The exact limits are in Guarantees and compatibility."
+    link: /reference/guarantees
   - icon: { src: /icons/nest.svg }
     title: Entities nest in entities
     details: "The class is itself a zod schema, so it drops into z.object({ owner: Organization }) as a field and still parses to a real instance, with its own behaviour and identity."
