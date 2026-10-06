@@ -69,12 +69,15 @@ Its build is `typedoc && vitepress build`. TypeDoc reads
 which is git-ignored and regenerated every build — `docs/api/index.md` is the
 one hand-written page under `api/`.
 
-**An em dash in a heading you link to ships a dead anchor, and the build stays
-green.** VitePress's dead-link check does not validate anchors, and its
+**An em dash or an arrow (`→`) in a heading you link to ships a dead anchor,
+and the build stays green.** VitePress's dead-link check does not validate anchors, and its
 slugifier replaces ASCII punctuation but passes U+2014 through — measured:
 `### Everywhere else, parse — through a mint helper` emitted
 `id="everywhere-else-parse-—-through-a-mint-helper"`, which no natural link
-spelling matches. Keep em dashes out of linked headings.
+spelling matches, and `→` the same way (two such links into
+`reference/entry-points.md` were dead). Keep both out of linked headings, or
+give the heading an explicit ASCII anchor (`## … {#some-anchor}`), as the
+entry-points signatures do.
 
 TypeDoc runs from **`docs/`** rather than from `packages/entity/` (where the
 other btravstack repos put it), with its own TypeScript from the named

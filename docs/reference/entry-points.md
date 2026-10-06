@@ -16,7 +16,7 @@ There is no other: `new SomeEntity(…)`
 > import { Entity } from "@btravstack/entity";
 > ```
 
-## `SomeEntity.factory(generators)` → `(input) => Result<SomeEntity, InvalidEntity>`
+## `SomeEntity.factory(generators)` → `(input) => Result<SomeEntity, InvalidEntity>` {#someentity-factory-generators-input-result-someentity-invalidentity}
 
 Binds the sources of every field flagged `generated`. Generators are
 **functions**, called once per create.
@@ -48,7 +48,7 @@ createNote({ id, label }); // Result<Note, InvalidEntity>
 That call is the fully-typed way in for such an entity — every caller field is
 named and type-checked, where `Note.make(data)` takes `unknown`.
 
-## `SomeEntity.factoryAsync(generators)` → `(input) => AsyncResult<SomeEntity, InvalidEntity>`
+## `SomeEntity.factoryAsync(generators)` → `(input) => AsyncResult<SomeEntity, InvalidEntity>` {#someentity-factoryasync-generators-input-asyncresult-someentity-invalidentity}
 
 The same for promise-returning generators — an id from a database sequence,
 say. A generator that **rejects** surfaces as a `Defect`, not an
@@ -63,7 +63,7 @@ const createOrgAsync = Organization.factoryAsync({
 (await createOrgAsync({ slug, name })).getOrThrow();
 ```
 
-## `SomeEntity.make(data)` → `Result<SomeEntity, InvalidEntity>`
+## `SomeEntity.make(data)` → `Result<SomeEntity, InvalidEntity>` {#someentity-make-data-result-someentity-invalidentity}
 
 The only way in. Validates against `input`, re-derives the computed fields,
 checks the invariants, constructs. Extra keys are ignored, so a stored row
@@ -143,7 +143,7 @@ abstract root has no `make`, so it has no `inspect` either.
 [Add a stricter rule without an outage](/how-to/add-a-stricter-rule) puts it to
 work: a data-quality job, a read model, and the rollout order.
 
-## `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>`
+## `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>` {#entity-update-patch-result-someentity-invalidentity}
 
 Returns a **new** entity. Re-runs the invariants and re-derives the computed
 fields.
@@ -163,7 +163,7 @@ change the caller asked for cannot silently not happen. Rehydrating data and
 patching it are different acts: one heals what is already written, the other
 states an intent.
 
-## `entity.toJSON()` → `DeepReadonly<Output>`
+## `entity.toJSON()` → `DeepReadonly<Output>` {#entity-tojson-deepreadonly-output}
 
 Projects exactly `output`'s keys. Excludes `_tag` and any class-body fields.
 Called implicitly by `JSON.stringify`.
@@ -175,7 +175,7 @@ frozen reference. Typed as the plain mutable shape,
 runtime — the readonly type makes the freeze visible at compile time. Need a
 mutable copy? Clone: `structuredClone(org.toJSON())`.
 
-## `entity.sameIdentityAs(other)` → `boolean`
+## `entity.sameIdentityAs(other)` → `boolean` {#entity-sameidentityas-other-boolean}
 
 True when `other` is the **same business entity**: it belongs to the same
 identity scope, and every field flagged `identity` is equal by `Object.is`.
