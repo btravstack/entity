@@ -87,10 +87,18 @@ class Organization extends Entity("Organization")({
 | ----------- | ------- | -------------------------------------------------------------------------------------- |
 | `generated` | `false` | drops the key from `createInput`; a factory's generators supply it instead             |
 | `immutable` | `false` | drops the key from `updateInput`; `update()` rejects it even if smuggled past the type |
+| `unbranded` | `false` | exempts this field from the branding rule; type-only, see below                        |
 
 An unflagged field is a bare schema — `name` above. There is no third state:
 both flags default to `false`, so `Entity.field(Slug, { immutable: true })` is
 `generated: false`.
+
+`unbranded: true` lets one descriptive leaf, such as a label or a display name,
+be a plain schema where the field map would otherwise demand a brand:
+`Entity.field(z.string().min(1), { unbranded: true })`. It changes nothing at
+runtime; the field is validated like any other. Only `true` opts out. See
+[Branded fields](/explanation/branded-fields#a-leaf-with-nothing-to-confuse-it-with)
+for when it is the right call.
 
 The flags argument is **required**. The function exists to flag, so
 `Entity.field(Slug, {})` is legal and does exactly nothing; write the bare

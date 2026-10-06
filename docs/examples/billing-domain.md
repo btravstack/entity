@@ -52,7 +52,7 @@ export class Organization extends Entity("Organization")(
   {
     id: Entity.field(OrganizationId, { generated: true, immutable: true }),
     slug: Entity.field(Slug, { immutable: true }),
-    name: DisplayName,
+    name: Entity.field(z.string().min(1), { unbranded: true }),
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),
     riskTier: z.enum(["STANDARD", "WATCHLIST", "BLOCKED"]).optional(),
   },
@@ -84,6 +84,12 @@ fields drop out of `createInput`; `immutable` marks what `update` refuses.
 `name` carries neither, so it stays a bare schema. `computed` is re-derived on
 **every** construction path, so it cannot drift from its sources — the spec
 checks that by renaming an organization and asserting the label followed.
+
+`name` is **unbranded**: free display text, with nothing it could be confused
+with, so it opts out of the branding rule rather than carrying a brand every
+consumer of the public response would have to mint.
+[Branded fields](/explanation/branded-fields#a-leaf-with-nothing-to-confuse-it-with)
+explains when that is the right call; `id` and `slug` keep their brands.
 
 `riskTier` is internal: the credit team sets it and no customer may see it. It
 is still an ordinary mutable field, because the domain does not know who is
