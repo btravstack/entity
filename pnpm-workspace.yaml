@@ -23,23 +23,23 @@ catalog:
   # generation, the `[jsonSchema, optional]` return shape with no "unsupported"
   # flag). `@orpc/zod`'s stable "latest" line (1.x) predates the v2 API this
   # package's contract tests exercise.
-  "@orpc/zod": 2.0.0-beta.40
+  "@orpc/zod": 2.0.0-beta.41
   # Same release train as `@orpc/zod` above — the billing-api example defines a
   # contract and converts it to JSON Schema in the same file, so they move together.
-  "@orpc/contract": 2.0.0-beta.40
+  "@orpc/contract": 2.0.0-beta.41
   # `ZodToJsonSchemaConverter.convert` returns `[JsonSchema, optional]`, and
   # naming `JsonSchema` is what keeps an exported schema portable (TS2883).
-  "@orpc/json-schema": 2.0.0-beta.40
-  "@types/node": 26.6.2
-  "@unthrown/oxlint": 5.9.0
-  "@unthrown/standard-schema": 5.9.0
-  "@unthrown/vitest": 5.9.0
-  knip: 6.38.0
-  lefthook: 2.1.14
-  oxfmt: 0.70.0
-  oxlint: 1.85.0
+  "@orpc/json-schema": 2.0.0-beta.41
+  "@types/node": 26.6.4
+  "@unthrown/oxlint": 5.11.0
+  "@unthrown/standard-schema": 5.11.0
+  "@unthrown/vitest": 5.11.0
+  knip: 6.39.0
+  lefthook: 2.1.17
+  oxfmt: 0.71.0
+  oxlint: 1.86.0
   tsdown: 0.23.0
-  turbo: 2.11.4
+  turbo: 2.11.7
   typedoc: 0.28.20
   typedoc-plugin-markdown: 4.13.1
   # 7.0.2 is the exact release the package's design doc measured the
@@ -56,10 +56,10 @@ catalog:
   # That band of realistic domain widths is where issues #31 and #32 shipped.
   # Aliased because one `package.json` cannot name `typescript` twice.
   typescript-consumer: "npm:typescript@5.9.3"
-  unthrown: 5.10.0
-  "@vitest/coverage-v8": 4.1.11
+  unthrown: 5.11.0
+  "@vitest/coverage-v8": 5.0.3
   vitepress: 1.6.4
-  vitest: 4.1.11
+  vitest: 5.0.3
   zod: 4.6.5
 
 catalogs:
@@ -90,17 +90,13 @@ overrides:
   #
   # Side effect, measured and accepted: vitest's own vite was resolving to 8.2.0,
   # and pnpm dedupes it onto this 6.4.3 rather than keeping a second copy —
-  # vitest 4.1.10 declares `vite: "^6.0.0 || ^7.0.0 || ^8.0.0"`, so 6.4.3 is
+  # vitest 5.0.3 declares `vite: "^6.4.0 || ^7.0.0 || ^8.0.0"`, so 6.4.3 is
   # inside its supported range and the suite passes on it. Path-scoped selectors
   # (`vitepress>vite`) were tried and produce the byte-identical tree, because
   # the dedupe is resolution, not the selector — so the simpler form is kept.
   # Pinning vitest's vite apart would mean an inline `vite` devDependency on the
   # library package for a purely transitive concern; not worth it.
   "vite@<6.4.3": "6.4.3"
-  # GHSA-82fw-gwwq-j7x9 (Moderate): path traversal via Vitest mock redirect.
-  # Reaches us through the test toolchain, not the published package. 4.1.11 is
-  # the first patched release in the same line.
-  "vitest@<4.1.11": "4.1.11"
   # GHSA-2883-xcg3-v3hh (High): js-yaml expands merge keys without bounding CPU
   # on empty merge sources. It reaches us through commitlint's loader chain, not
   # runtime code. 4.3.2 is the first patched release.
@@ -110,6 +106,28 @@ overrides:
   # docs > @btravstack/theme > vitepress > postcss > nanoid — never the shipped
   # package. 3.3.18 is the first release patched for the widened range.
   "nanoid@<3.3.18": "3.3.18"
+  # GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p (High) and a moderate quadratic
+  # `{a},b}` rewrite: brace-expansion DoS. Reaches us only through the docs
+  # build — docs > typedoc > minimatch > brace-expansion. 5.0.12 fixes all three.
+  "brace-expansion@>=4.0.0 <5.0.12": "5.0.12"
+  # Two Highs (authority injection via port, host confusion via unclosed
+  # bracket) and a moderate (host case normalization) in fast-uri 3.1.6.
+  # Reaches us through commitlint's config validator (ajv), never runtime code.
+  # 3.1.8 is the first release clear of all three.
+  "fast-uri@>=3.0.0 <3.1.8": "3.1.8"
+  # GHSA (High): source-map-js event-loop DoS via indexed section offsets.
+  # Reaches us through vite > postcss, in the docs and test toolchains only.
+  "source-map-js@<1.2.2": "1.2.2"
+  # GHSA (High): @vue/server-renderer XSS via missing CR in the attribute-name
+  # blacklist. Reaches us through vitepress's SSG of our own static docs. Lift
+  # `vue` rather than the renderer alone: vue pins its @vue/* siblings exactly,
+  # so moving one would split the set.
+  "vue@<3.5.42": "3.5.42"
+  # Moderate: markdown-it linkify quadratic paths. Reaches us through typedoc
+  # rendering our own source comments in the docs build.
+  "markdown-it@<14.3.1": "14.3.1"
+  # Moderate: smol-toml quadratic parse(). Reaches us through knip only.
+  "smol-toml@<1.9.0": "1.9.0"
 
 peerDependencyRules:
   ignoreMissing:
@@ -122,6 +140,7 @@ minimumReleaseAgeExclude:
   # registry-maturity delay — these are published from btravstack repos.
   - "@btravstack/theme"
   - "@btravstack/typedoc"
+  - lefthook-windows-x64@2.1.17
 
 allowBuilds:
   esbuild: true
