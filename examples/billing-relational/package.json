@@ -1,0 +1,32 @@
+{
+  "name": "@btravstack/entity-example-billing-relational",
+  "private": true,
+  "description": "Persisting an aggregate in a relational database",
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@btravstack/entity": "workspace:*",
+    "@btravstack/entity-example-billing-domain": "workspace:*",
+    "kysely": "catalog:",
+    "unthrown": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@btravstack/tsconfig": "catalog:",
+    "@electric-sql/pglite": "catalog:",
+    "@types/node": "catalog:",
+    "@unthrown/vitest": "catalog:",
+    "kysely-pglite-dialect": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

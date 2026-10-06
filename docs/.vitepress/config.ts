@@ -22,6 +22,7 @@ const GUIDE_SIDEBAR = [
       { text: "Persist and rehydrate", link: "/how-to/persist-and-rehydrate" },
       { text: "Evolve an entity", link: "/how-to/evolve-an-entity" },
       { text: "Model an aggregate", link: "/how-to/model-an-aggregate" },
+      { text: "Persist an aggregate relationally", link: "/how-to/persist-relationally" },
       { text: "Number without gaps", link: "/how-to/number-without-gaps" },
       { text: "Enforce a uniqueness rule", link: "/how-to/enforce-uniqueness" },
       { text: "Write commands and events", link: "/how-to/write-commands" },
@@ -68,6 +69,7 @@ const EXAMPLES_SECTION = {
     { text: "Billing domain", link: "/examples/billing-domain" },
     { text: "HTTP contract", link: "/examples/billing-api" },
     { text: "Persistence", link: "/examples/billing-persistence" },
+    { text: "Relational persistence", link: "/examples/billing-relational" },
   ],
 };
 

@@ -1,6 +1,6 @@
 ---
 title: Examples
-description: Three small packages modelling one billing domain — code that compiles and is covered by tests, unlike the snippets in the guide.
+description: Four small packages modelling one billing domain — code that compiles and is covered by tests, unlike the snippets in the guide.
 ---
 
 # Examples
@@ -10,7 +10,7 @@ Annotated tours of the runnable packages under
 model one small billing domain between them, each showing a different job.
 
 **Unlike the snippets elsewhere in this guide, this code compiles and is covered
-by tests.** One of the three goes further: `billing-domain` is the fixture
+by tests.** One of the four goes further: `billing-domain` is the fixture
 proving a downstream library can emit its own declarations against this package.
 
 Nothing needs installing and nothing needs to be listening:
@@ -40,13 +40,20 @@ because it parses to an instance rather than to data.
 `toJSON()` out, `make()` back, over an in-memory store: the round trip, the
 absent `_tag`, and a corrupt row arriving as a `Result` rather than a throw.
 
+## [Relational persistence](/examples/billing-relational)
+
+The order aggregate in Postgres through Kysely, run in-process on PGlite: owned
+lines in a child table, a reference as a foreign key, a snapshot as copied
+columns, a version column that turns a lost update into a typed conflict, a
+transactional outbox, and legacy rows migrated before `make`.
+
 ## Why these exist as packages rather than snippets
 
 Every fenced block in the rest of this guide is written by hand. It is checked
 by review and nothing else, so it can drift from the library without any build
 noticing.
 
-These three cannot. They are workspace packages: they typecheck, their specs
+These four cannot. They are workspace packages: they typecheck, their specs
 run in CI, and they consume `@btravstack/entity` through its real published
 entry point rather than a path alias. If the library changes underneath them,
 something goes red.
