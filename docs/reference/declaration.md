@@ -149,7 +149,7 @@ Computed fields are re-derived on every construction path rather than stored —
 see [Why `computed` re-derives](/explanation/computed-fields), which also covers
 when to reach for a plain getter instead.
 
-## `Entity.invariant(ensure, message)`
+## `Entity.invariant(ensure, message, options?)`
 
 One rule spanning the whole entity: the predicate, and what to say when it
 fails.
@@ -163,6 +163,7 @@ invariants: [
   Entity.invariant(
     (d) => d.endsAt > d.startsAt,
     (d) => `endsAt must be after ${d.startsAt}`,
+    { code: "ENDS_BEFORE_START" },
   ),
 ];
 ```
@@ -174,6 +175,14 @@ data when the text depends on it.
 Every failing rule in the list reports, not just the first, and none of them
 carries a `path`: an invariant spans the entity, which is what separates it from
 a field complaint.
+
+`options.code` gives the rule a stable identity for a caller that keys
+behaviour off **which** rule failed: an error code in a response, a field to
+highlight, a localised string. The message may vary with the data; the code
+must not. [`Entity.codeOf(issue)`](/reference/errors#entity-codeof-issue)
+reads it back, from a top-level issue and from one reported through a nested
+entity, an array or a union alike. A rule without a code produces the same
+`{ message }` issue it always did.
 
 `d` is the **declared** fields, not the output — a rule cannot read a computed
 field. Every computed value is a function of declared data, so any rule about

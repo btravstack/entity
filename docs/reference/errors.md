@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: Entity.InvalidEntity, its structured issues and rendered message, the Entity.keysOf / Entity.renderIssue helpers, and the table of which failure goes down which channel.
+description: Entity.InvalidEntity, its structured issues and rendered message, the Entity.keysOf / Entity.renderIssue / Entity.codeOf helpers, and the table of which failure goes down which channel.
 ---
 
 # Errors
@@ -70,6 +70,29 @@ wrapped one, which is why the helper exists. `renderIssue` is the spelling
 `message` is built from, so a hand-assembled error list and a logged message
 never disagree. [Expose an HTTP contract](/how-to/http-contract#handle-failures-at-the-edge)
 uses both.
+
+## `Entity.codeOf(issue)`
+
+The code an `Entity.invariant` declared with `{ code }`, or `undefined`:
+
+```ts
+e.issues.map(Entity.codeOf); // ["MISSING_FAILURE_REASON", undefined, …]
+```
+
+The code rides on the issue as `params.code`, zod's slot for a custom issue's
+metadata, and zod carries it through a nested entity, an array or a union with
+the path prefixed. So an invariant failing two levels down reads as
+`{ path: ["holder", "missions", 0], params: { code: "…" } }`.
+
+`params` is **not** part of the Standard Schema issue type: Standard Schema
+standardises `message` and `path`, nothing else, which is why this is a helper
+and not a typed field. It checks the shape rather than trusting it, and
+returns `undefined` for a schema-validation issue, since a field's validator
+supplies no domain code. A field schema's own `.refine(…, { params: { code } })`
+is read the same way.
+
+Do not reach for `issue.code`: on a zod issue that is zod's own kind
+(`"invalid_type"`, `"too_small"`, `"custom"`), not a domain code.
 
 ## Which channel a failure takes
 

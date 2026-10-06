@@ -2,7 +2,7 @@ import { P, type Result } from "unthrown";
 import { z } from "zod";
 
 import type { InvalidEntity } from "./errors.js";
-import { keysOf } from "./issues.js";
+import { toZodIssue } from "./issues.js";
 
 /**
  * The composable surface: input data parsed into a class instance.
@@ -32,7 +32,7 @@ function instanceSchema<T>(
           for (const issue of invalid.issues) {
             // zod prefixes this schema's position, so forwarding the issue's
             // own path yields the full `["owner", "secret"]`.
-            ctx.addIssue({ code: "custom", message: issue.message, path: keysOf(issue) });
+            ctx.addIssue(toZodIssue(issue));
           }
           return z.NEVER;
         }),

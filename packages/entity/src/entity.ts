@@ -11,7 +11,7 @@ import { InvalidEntity } from "./errors.js";
 import { field, isFieldSpec, type FieldSpec, type Flags } from "./field.js";
 import { deepFreeze } from "./freeze.js";
 import { invariant, type Invariant } from "./invariant.js";
-import { keysOf, renderIssue } from "./issues.js";
+import { codeOf, keysOf, renderIssue } from "./issues.js";
 import { attachSchema } from "./schema.js";
 import { shape, type OnlyNominal } from "./shape.js";
 import type {
@@ -256,14 +256,15 @@ export function Entity<Tag extends string>(tag: Tag) {
       // Every failing rule reports, not just the first. A predicate that throws
       // escapes to the defect channel via the `fromThrowable` around `make`,
       // which is what a bug in a rule should be.
+      // no `path` — an invariant spans the entity, not one field
       const broken = (invariants ?? [])
         .filter((rule) => !rule.ensure(d))
-        .map((rule) => rule.describe(d));
-      // no `path` — an invariant spans the entity, not one field
+        .map((rule) => ({
+          message: rule.describe(d),
+          ...(rule.code === undefined ? {} : { params: { code: rule.code } }),
+        }));
       if (broken.length > 0) {
-        return Err(
-          new InvalidEntity({ entity: tag, issues: broken.map((message) => ({ message })) }),
-        );
+        return Err(new InvalidEntity({ entity: tag, issues: broken }));
       }
       // A defect, not an `InvalidEntity`: subclassing is a bug in domain code,
       // not bad caller input. `fromThrowable` is what keeps it inside the
@@ -464,8 +465,10 @@ Entity.abstract = createBase(Entity as unknown as BuildEntity);
 Entity.InvalidEntity = InvalidEntity;
 // The issue helpers an adapter needs to turn an `InvalidEntity` into a
 // response body: `keysOf` normalises a Standard Schema path (bare key or
-// `{ key }` wrapper) to plain keys, `renderIssue` is the human spelling —
-// the same one `InvalidEntity.message` is built from.
+// `{ key }` wrapper) to plain keys, `codeOf` reads an invariant's declared
+// code, `renderIssue` is the human spelling — the same one
+// `InvalidEntity.message` is built from.
+Entity.codeOf = codeOf;
 Entity.keysOf = keysOf;
 Entity.renderIssue = renderIssue;
 

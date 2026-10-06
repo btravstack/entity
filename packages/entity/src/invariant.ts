@@ -7,6 +7,7 @@
 export type Invariant<D> = {
   readonly ensure: (d: D) => boolean;
   readonly describe: (d: D) => string;
+  readonly code?: string;
 };
 
 /**
@@ -43,6 +44,14 @@ export type Invariant<D> = {
  * the list reports, not just the first, and none carries a `path`: an invariant
  * spans the entity, which is what distinguishes it from a field complaint.
  *
+ * `options.code` is the rule's stable identity, for a caller that keys
+ * behaviour off *which* rule failed — an HTTP error code, a field to
+ * highlight, a localised string. The message may vary with the data; the code
+ * must not. It rides on the issue as `params.code` — zod's own slot for a
+ * custom issue's metadata, which zod carries through nested entities, arrays
+ * and unions with the path prefixed — and `Entity.codeOf(issue)` reads it
+ * back. A message-only rule's issue is unchanged: `{ message }`, no `params`.
+ *
  * A predicate that throws is a Defect rather than an `InvalidEntity`, on the
  * same reasoning as `computed` — a rule is pure and total, so a violation is a
  * bug in domain code rather than bad caller input.
@@ -50,9 +59,11 @@ export type Invariant<D> = {
 export function invariant<D>(
   ensure: (d: D) => boolean,
   message: string | ((d: D) => string),
+  options?: { readonly code: string },
 ): Invariant<D> {
   return {
     ensure,
     describe: typeof message === "function" ? message : () => message,
+    ...(options === undefined ? {} : { code: options.code }),
   };
 }

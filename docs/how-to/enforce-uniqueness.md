@@ -246,8 +246,9 @@ registerOrganization(store)(input).match({
 If your API renders every failure in one response shape, do that here, at the
 edge, by mapping `SlugTaken` into it. Converting it into an `InvalidEntity`
 first to borrow its `issues` would erase the distinction the matcher depends on.
-Stable machine-readable codes for invariant failures are tracked in
-[issue #70](https://github.com/btravstack/entity/issues/70).
+An invariant failure carries its own stable code, read with
+[`Entity.codeOf`](/reference/errors#entity-codeof-issue), so both kinds of
+failure can still end up in one response shape.
 
 Related: [Persist and rehydrate](/how-to/persist-and-rehydrate) for the
 repository this store sits beside, and
