@@ -74,7 +74,7 @@ check, and keep them in step with the shape by hand.
 ```ts
 class Customer extends Entity("Customer")(
   {
-    id: Entity.field(CustomerId, { generated: true, immutable: true }),
+    id: Entity.field(CustomerId, { identity: true, generated: true }),
     email: Email,
     plan: Plan,
     seats: Seats,
@@ -98,9 +98,9 @@ const createCustomer = Customer.factory({
 The two flags on `id` are what the hand-written parts above become:
 `Customer.createInput` and `Customer.updateInput` are derived from them,
 `createCustomer` and `customer.update(patch)` are the create and update
-functions, and both return a `Result`. Freezing and `equals` come with the
-class. The cost is the adoption: two more peer dependencies, branded fields
-everywhere, Node only. See [Guarantees and compatibility](/reference/guarantees).
+functions, and both return a `Result`. Freezing and `sameIdentityAs` come with
+the class. The cost is the adoption: two more peer dependencies and branded
+fields everywhere. See [Guarantees and compatibility](/reference/guarantees).
 
 ## Effect Schema.Class
 
@@ -147,7 +147,8 @@ brings its own schema language rather than zod, and a wider ecosystem with it.
 | refuse a patch to the id at runtime | `.strict()` on your update schema  | `update` rejects it with the key's path     | `onExcessProperty: "error"` on your decode     |
 | re-check the rule on update         | your update function re-parses     | `update` re-runs every invariant            | your update function re-decodes                |
 | failures as values                  | `safeParse` result                 | `Result<T, InvalidEntity>`                  | `Either` from `decodeUnknownEither`            |
-| value equality                      | `isDeepStrictEqual` yourself       | `entity.equals(other)`                      | `Equal.equals(a, b)`                           |
+| value equality                      | `isDeepStrictEqual` yourself       | `isDeepStrictEqual` over `toJSON()`         | `Equal.equals(a, b)`                           |
+| identity equality                   | compare the ids yourself           | `sameIdentityAs`, from `identity` flags     | compare the ids yourself                       |
 | runtime-immutable instance          | `Object.freeze`, shallow, yourself | non-writable fields, plain data deep-frozen | not frozen in 3.22.2; `readonly` is type-level |
 
 Each row is exercised for all three columns by the spec.
@@ -173,10 +174,9 @@ parses to an instance through a transform; contracts here use
 
 ## Choosing
 
-- Plain zod is enough when a model has no behaviour worth a class, or must run
-  in a browser as is.
+- Plain zod is enough when a model has no behaviour worth a class.
 - Effect `Schema.Class` fits when the codebase already speaks Effect.
-- entity fits a zod-based Node backend where the same four jobs (type,
+- entity fits a zod-based backend where the same four jobs (type,
   validator, behaviour, nesting) recur across many models and you want the
   request schemas and update rules derived from one declaration, with every
   failure as a `Result`.

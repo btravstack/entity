@@ -50,7 +50,7 @@ satisfy the branded type, which is exactly the point.
 ```ts
 export class Organization extends Entity("Organization")(
   {
-    id: Entity.field(OrganizationId, { generated: true, immutable: true }),
+    id: Entity.field(OrganizationId, { identity: true, generated: true }),
     slug: Entity.field(Slug, { immutable: true }),
     name: Entity.field(z.string().min(1), { unbranded: true }),
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),

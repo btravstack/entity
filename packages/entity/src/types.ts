@@ -51,6 +51,11 @@ export type ImmutableKeys<S extends Fields> = {
   [K in keyof S]: S[K] extends { readonly flags: { readonly immutable: true } } ? K : never;
 }[keyof S] &
   PropertyKey;
+/** The fields `sameIdentityAs` compares. Same rule as above: computed inside a body, never passed. */
+export type IdentityKeys<S extends Fields> = {
+  [K in keyof S]: S[K] extends { readonly flags: { readonly identity: true } } ? K : never;
+}[keyof S] &
+  PropertyKey;
 
 /** The data an entity accepts on the wire. */
 export type InputOf<S extends Fields> = z.infer<z.ZodObject<SchemasOf<S>>>;
@@ -238,7 +243,18 @@ export type Sealed<D> = D & { readonly __useMakeOrFactoryInstead: ConstructionKe
 // oxlint-disable-next-line typescript/consistent-type-definitions
 export interface BaseInstance<S extends Fields, A extends Schemas> {
   toJSON(): DeepReadonly<OutputOf<S, A>>;
-  equals(other: unknown): boolean;
+  /**
+   * Whether `other` is the same business entity: same identity scope (this
+   * class, or the abstract root that declared the identity), and every
+   * `identity` field equal by `Object.is`. Attributes are not compared.
+   * A property rather than a method so it can be absent — a compile error —
+   * on an entity that declares no identity. The not-callable arm is an inline
+   * literal, not a named alias, so TypeDoc has nothing undocumented to report;
+   * its property name is the diagnostic.
+   */
+  readonly sameIdentityAs: [IdentityKeys<S>] extends [never]
+    ? { readonly __declareAnIdentityFieldToCompareIdentity: never }
+    : (other: unknown) => boolean;
   update(patch: PatchOf<S, A, ImmutableKeys<S>>): Result<this, InvalidEntity>;
 }
 

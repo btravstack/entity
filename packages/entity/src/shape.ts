@@ -36,7 +36,7 @@ type StripUndefined<T> = T extends undefined ? never : T;
  */
 type IsEntity<T> = T extends {
   readonly toJSON: () => unknown;
-  readonly equals: (other: unknown) => boolean;
+  readonly sameIdentityAs: unknown;
   readonly update: (patch: never) => unknown;
 }
   ? true
@@ -80,7 +80,7 @@ type FieldNameIsReservedByEntity = {
  * `static` declaration the author wrote themselves, so it is visible in a way
  * this is not.
  */
-type ReservedFieldName = "_tag" | "equals" | "toJSON" | "update";
+type ReservedFieldName = "_tag" | "sameIdentityAs" | "toJSON" | "update";
 
 // Judges the *unwrapped* schema: an inline `Entity.field(...)` spec is nominal
 // exactly when the schema it carries is — unless the spec says

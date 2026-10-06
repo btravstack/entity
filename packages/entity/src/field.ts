@@ -23,27 +23,35 @@ type RejectWidenedBoolean<V> = boolean extends V ? UnknownFlagIsRejected : V;
  * Declares a field with modifiers, public as `Entity.field`:
  *
  * ```ts
- * id: Entity.field(OrgId, { generated: true, immutable: true }),
+ * id: Entity.field(OrgId, { identity: true, generated: true }),
  * ```
  *
  * `generated` drops the key from `createInput` and hands it to a factory
  * generator; `immutable` drops it from `updateInput` so `update` refuses it.
+ *
+ * `identity` makes the field part of the entity's business identity, which
+ * `sameIdentityAs` compares (#38). Several flagged fields form a composite
+ * identity. It implies `immutable` — an entity cannot `update` itself into a
+ * different one — and the value must be a required primitive, since identity
+ * is compared with `Object.is`.
+ *
  * `unbranded` exempts this one field from the rule that every field be
  * branded, an entity or a narrow literal — for a descriptive leaf (a label, a
  * free-text note) with no second value it could be confused with, whose brand
  * would only leak into every consumer of the derived schemas (#73). It is a
  * deliberate, visible opt-out per field, never a default.
+ *
  * The flags argument is required — the function exists to flag; an empty
  * object is legal and does nothing.
  */
-// `unbranded` sits apart from `Flags` because it is type-only: nothing at
-// runtime reads it, and `FieldSpec`'s flags carry it only when it is `true`, so
-// the declarations of every other flagged field do not grow by an
-// `unbranded: false` they never asked for. Spelled inline rather than through a
-// named alias, which TypeDoc would report as an undocumented reference.
+// `identity` and `unbranded` sit apart from `Flags` and appear on `FieldSpec`'s
+// flags only when `true`, so the declarations of every other flagged field do
+// not grow by keys they never asked for. The accepted keys are spelled inline
+// rather than through a named alias, which TypeDoc would report as an
+// undocumented reference.
 export function field<
   T extends z.core.$ZodType,
-  const F extends Partial<Flags & { readonly unbranded: boolean }>,
+  const F extends Partial<Flags & { readonly identity: boolean; readonly unbranded: boolean }>,
 >(
   // Bare `T`, not `T & OnlyNominal<{ value: T }>["value"]`: the intersection at an
   // inference site measurably breaks zod's alias preservation. An unbranded schema
@@ -67,27 +75,41 @@ export function field<
   // also satisfies `Partial<Flags>` and widens `generated` to `false` at the
   // type level while the runtime read would honour whatever `someBoolean` is
   // — measured — so a non-literal `boolean` arm is rejected the same way.
+  // The identity check sits on the flags, not the schema, for the alias reason
+  // above. An identity is compared with `Object.is`, so its value must be a
+  // primitive that is always present: an object would compare by reference,
+  // and an optional one would make two entities with no id "the same".
   flags: F &
-    Record<Exclude<keyof F, keyof Flags | "unbranded">, UnknownFlagIsRejected> & {
-      readonly [K in keyof F & (keyof Flags | "unbranded")]: RejectWidenedBoolean<F[K]>;
-    },
+    Record<Exclude<keyof F, keyof Flags | "identity" | "unbranded">, UnknownFlagIsRejected> & {
+      readonly [K in keyof F & (keyof Flags | "identity" | "unbranded")]: RejectWidenedBoolean<
+        F[K]
+      >;
+    } & (F extends { identity: true }
+      ? z.output<T> extends string | number | bigint | boolean
+        ? unknown
+        : { readonly __identityFieldMustBeARequiredPrimitive: never }
+      : unknown),
 ): FieldSpec<
   T,
   {
     generated: F extends { generated: true } ? true : false;
-    immutable: F extends { immutable: true } ? true : false;
-  } & (F extends { unbranded: true } ? { unbranded: true } : unknown)
+    immutable: F extends { immutable: true } ? true : F extends { identity: true } ? true : false;
+  } & (F extends { identity: true } ? { identity: true } : unknown) &
+    (F extends { unbranded: true } ? { unbranded: true } : unknown)
 > {
+  const identity = flags.identity === true;
   return {
     schema: schema as T,
     flags: {
       generated: flags.generated === true,
-      immutable: flags.immutable === true,
+      immutable: flags.immutable === true || identity,
+      ...(identity ? { identity: true } : {}),
       ...(flags.unbranded === true ? { unbranded: true } : {}),
     } as {
       generated: F extends { generated: true } ? true : false;
-      immutable: F extends { immutable: true } ? true : false;
-    } & (F extends { unbranded: true } ? { unbranded: true } : unknown),
+      immutable: F extends { immutable: true } ? true : F extends { identity: true } ? true : false;
+    } & (F extends { identity: true } ? { identity: true } : unknown) &
+      (F extends { unbranded: true } ? { unbranded: true } : unknown),
   };
 }
 

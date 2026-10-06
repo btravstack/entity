@@ -52,6 +52,8 @@ test("a root operation changes an owned line and re-derives the total", () => {
   expect(changed.lines[0]!.quantity).toBe(3);
   expect(changed.total.amount).toBe(30_00);
   expect(order.lines[0]!.quantity).toBe(1);
+  // a new version of the same order: identity holds while the lines changed
+  expect(changed.sameIdentityAs(order)).toBe(true);
 });
 
 test("a change valid for the line alone is refused when the order breaks a rule", () => {

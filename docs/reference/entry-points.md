@@ -1,6 +1,6 @@
 ---
 title: Entry points
-description: factory, factoryAsync, make, update, toJSON and equals — every way in and out of an entity.
+description: factory, factoryAsync, make, update, toJSON and sameIdentityAs — every way in and out of an entity.
 ---
 
 # Entry points
@@ -131,12 +131,28 @@ frozen reference. Typed as the plain mutable shape,
 runtime — the readonly type makes the freeze visible at compile time. Need a
 mutable copy? Clone: `structuredClone(org.toJSON())`.
 
-## `entity.equals(other)` → `boolean`
+## `entity.sameIdentityAs(other)` → `boolean`
 
-True when both are the same entity and their stored data is deep-equal.
-Compares the stored data **structurally**, so entities holding equal arrays
-compare equal. `Set`, `Map` and typed-array fields compare by contents, `Date`
-by timestamp, `bigint` like any other primitive, and a nested object or record
-is compared key-by-key rather than by key order. Arrays stay order-sensitive.
-Two separate `Entity(...)` calls never compare equal, even with identical
-fields.
+True when `other` is the **same business entity**: it belongs to the same
+identity scope, and every field flagged `identity` is equal by `Object.is`.
+Attributes are not compared, so a renamed organization is still the same
+organization:
+
+```ts
+const renamed = org.update({ name: name("Acme Corp") }).getOrThrow();
+renamed.sameIdentityAs(org); // true
+```
+
+The scope is the class that declares the identity. On a plain entity that is
+the entity itself, so an unrelated entity with an equal id is never the same.
+On an abstract root it is the root, so every variant shares it: a draft and the
+issued document it became compare as one entity. A non-entity, `null` or
+`undefined` gives `false`, never a throw.
+
+Only an entity that flags at least one field `identity` has the method; on any
+other it is a compile error whose message names `__declareAnIdentityFieldToCompareIdentity`.
+
+There is no structural `equals`. To compare two whole stored states, compare
+their `toJSON()` with the deep-equality function of your choice, such as
+`node:util`'s `isDeepStrictEqual`. [Tags and identity](/explanation/tags-and-identity#four-kinds-of-sameness)
+explains why the package keeps only identity.

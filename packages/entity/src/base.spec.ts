@@ -82,32 +82,6 @@ test("a behaviour-only intermediate root is picked up", () => {
   expect(b.describe()).toBe("business FR1");
 });
 
-test("two sibling variants of one root are never equal, even with matching data", () => {
-  // Deliberately indistinguishable *as data*: one root, two variants adding the
-  // same field under the same schema, and identical values. Both projections
-  // are `{ id, label, note }` with equal contents, so `deepEqual` says yes and
-  // only `equals`' `instanceof Base` guard can say no. That guard is the whole
-  // subject here — prototype rewiring makes both `instanceof Twinned`, so
-  // without it a sibling variant would pass as the same entity.
-  abstract class Twinned extends Entity.abstract("Twinned")({
-    id: AccountId,
-    label: Label,
-  }) {}
-  class Left extends Twinned.extend("Left")({ note: Label }) {}
-  class Right extends Twinned.extend("Right")({ note: Label }) {}
-
-  const left = Left.make({ id, label: "Ada", note: "n" }).getOrThrow();
-  const right = Right.make({ id, label: "Ada", note: "n" }).getOrThrow();
-
-  // the data really is identical — this is what makes the assertions below bite
-  expect(left.toJSON()).toEqual(right.toJSON());
-  expect(left).toBeInstanceOf(Twinned);
-  expect(right).toBeInstanceOf(Twinned);
-
-  expect(left.equals(right)).toBe(false);
-  expect(right.equals(left)).toBe(false);
-});
-
 test("a root's class-body *field* is never initialised", () => {
   abstract class WithField extends Entity.abstract("WithField")({ id: AccountId }) {
     counter = 0;
@@ -238,11 +212,8 @@ test("a variant cannot relax the root by declaring an empty invariants list", ()
   expect(Loose.make({ id, label: "x".repeat(21), note: "n" }).isErr()).toBe(true);
 });
 
-test("an entity's own toJSON/equals/update shadow a root's", () => {
+test("an entity's own toJSON/update shadow a root's", () => {
   abstract class Shadowing extends Entity.abstract("Shadowing")({ id: AccountId }) {
-    override equals(): boolean {
-      return true;
-    }
     override toJSON(): never {
       return "hijacked" as never;
     }
@@ -252,10 +223,8 @@ test("an entity's own toJSON/equals/update shadow a root's", () => {
   }
   class Shadowed extends Shadowing.extend("Shadowed")({ label: Label }) {}
   const a = Shadowed.make({ id, label: "a" }).getOrThrow();
-  const b = Shadowed.make({ id, label: "b" }).getOrThrow();
   // the root sits *below* the entity's own prototype in the chain, so a root
-  // can call these three but never override them
-  expect(a.equals(b)).toBe(false);
+  // can call these but never override them
   expect(a.toJSON()).toEqual({ id, label: "a" });
   expect(a.update({ label: "c" as z.infer<typeof Label> }).getOrThrow().label).toBe("c");
 });

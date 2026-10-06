@@ -105,9 +105,9 @@ converter.convert(OrganizationResponse, "output");
 Or through zod directly, with `z.toJSONSchema(…, { io: "input" | "output" })`.
 
 The converted schemas are plain JSON, and the spec checks they survive a
-`JSON.stringify` round trip. That is how a browser gets this contract: the
-module itself imports the entity, and with it `node:util`, so a client takes
-the JSON Schema files, or a zod-only module, instead. The how-to's section on
+`JSON.stringify` round trip. That is how a client gets this contract without
+depending on the domain module: it takes the JSON Schema files, or a zod-only
+module, instead. The how-to's section on
 [sharing the contract with a browser](/how-to/http-contract#share-the-contract-with-a-browser)
 covers both.
 

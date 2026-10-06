@@ -46,9 +46,9 @@ four plain `ZodObject`s exist separately, and the spec pins it both ways.
 
 ## Sharing it with a browser
 
-This module imports the entity, and the entity imports `node:util`, so a
-browser bundle cannot include it. The exported JSON Schemas are plain JSON:
-write them to files at build time and ship those instead.
+This module imports the domain, so a client importing it would depend on every
+change there. The exported JSON Schemas are plain JSON: write them to files at
+build time and ship those instead.
 
 See also the how-to: [Expose an HTTP
 contract](https://btravstack.github.io/entity/how-to/http-contract).

@@ -148,15 +148,13 @@ z.toJSONSchema(CreateOrganizationBody, { io: "input" }); // ✓ additionalProper
 
 ## Share the contract with a browser
 
-The package is Node-only: `equals` imports `node:util`. A module that imports
-an entity class, even only to `.pick` its schemas, carries that import with it.
-Bundling such a module for the browser fails; measured with esbuild:
+The package imports no Node built-in, so a browser bundle can import the
+module that holds your contract, entity classes included. Whether it should is
+a design question, not a technical one: importing the domain module couples
+the client to every change in it, and ships its behaviour to a place that
+only needs shapes.
 
-```text
-✘ [ERROR] Could not resolve "node:util"
-```
-
-A client gets the contract another way. Pick one:
+To keep the client independent of the domain, pick one:
 
 - **JSON Schema, as data.** Write the converted schemas to `.json` files at
   build time and ship those. They are plain JSON, so any client can validate
@@ -174,7 +172,7 @@ A client gets the contract another way. Pick one:
     name: z.string(),
   });
 
-  // server.ts: Node-only, imports the entity
+  // server.ts: imports the entity
   const toView = (org: Organization): z.input<typeof OrganizationView> => ({
     id: org.id,
     slug: org.slug,

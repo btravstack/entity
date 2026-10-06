@@ -57,7 +57,7 @@ rule:
 ```ts
 export class Organization extends Entity("Organization")(
   {
-    id: Entity.field(OrganizationId, { generated: true, immutable: true }),
+    id: Entity.field(OrganizationId, { identity: true, generated: true }),
     slug: Entity.field(Slug, { immutable: true }),
     name: DisplayName,
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),

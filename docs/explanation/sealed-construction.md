@@ -41,7 +41,7 @@ types, so that cannot regress.
 `Organization.extend` does not exist.
 
 A bare subclass is an alias you cannot tell apart from what it aliases: same
-tag, same schemas, indistinguishable under `equals`.
+tag, same schemas, the same stored data.
 [`Entity.abstract`](/reference/declaration#entity-abstract-name-fields-options)
 exists for the legitimate case: extension lives on a root, which is tagless and
 therefore has an identity to give away rather than one to duplicate.
