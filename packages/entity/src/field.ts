@@ -28,10 +28,23 @@ type RejectWidenedBoolean<V> = boolean extends V ? UnknownFlagIsRejected : V;
  *
  * `generated` drops the key from `createInput` and hands it to a factory
  * generator; `immutable` drops it from `updateInput` so `update` refuses it.
+ * `unbranded` exempts this one field from the rule that every field be
+ * branded, an entity or a narrow literal — for a descriptive leaf (a label, a
+ * free-text note) with no second value it could be confused with, whose brand
+ * would only leak into every consumer of the derived schemas (#73). It is a
+ * deliberate, visible opt-out per field, never a default.
  * The flags argument is required — the function exists to flag; an empty
  * object is legal and does nothing.
  */
-export function field<T extends z.core.$ZodType, const F extends Partial<Flags>>(
+// `unbranded` sits apart from `Flags` because it is type-only: nothing at
+// runtime reads it, and `FieldSpec`'s flags carry it only when it is `true`, so
+// the declarations of every other flagged field do not grow by an
+// `unbranded: false` they never asked for. Spelled inline rather than through a
+// named alias, which TypeDoc would report as an undocumented reference.
+export function field<
+  T extends z.core.$ZodType,
+  const F extends Partial<Flags & { readonly unbranded: boolean }>,
+>(
   // Bare `T`, not `T & OnlyNominal<{ value: T }>["value"]`: the intersection at an
   // inference site measurably breaks zod's alias preservation. An unbranded schema
   // intersected this way still resolved and was rejected, but every *branded* one paid
@@ -55,25 +68,26 @@ export function field<T extends z.core.$ZodType, const F extends Partial<Flags>>
   // type level while the runtime read would honour whatever `someBoolean` is
   // — measured — so a non-literal `boolean` arm is rejected the same way.
   flags: F &
-    Record<Exclude<keyof F, keyof Flags>, UnknownFlagIsRejected> & {
-      readonly [K in keyof F & keyof Flags]: RejectWidenedBoolean<F[K]>;
+    Record<Exclude<keyof F, keyof Flags | "unbranded">, UnknownFlagIsRejected> & {
+      readonly [K in keyof F & (keyof Flags | "unbranded")]: RejectWidenedBoolean<F[K]>;
     },
 ): FieldSpec<
   T,
   {
     generated: F extends { generated: true } ? true : false;
     immutable: F extends { immutable: true } ? true : false;
-  }
+  } & (F extends { unbranded: true } ? { unbranded: true } : unknown)
 > {
   return {
     schema: schema as T,
     flags: {
       generated: flags.generated === true,
       immutable: flags.immutable === true,
+      ...(flags.unbranded === true ? { unbranded: true } : {}),
     } as {
       generated: F extends { generated: true } ? true : false;
       immutable: F extends { immutable: true } ? true : false;
-    },
+    } & (F extends { unbranded: true } ? { unbranded: true } : unknown),
   };
 }
 

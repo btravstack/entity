@@ -122,6 +122,14 @@ data, and a transforming schema has no output representation. That is the
 whole reason the four plain `ZodObject`s exist separately, and the example's
 spec pins it in both directions: the four convert, the class throws.
 
+## A client builds a response without the domain's vocabulary
+
+The response's `name` is a plain string, because the entity declares it
+`unbranded`. A client, or a test building a fixture, parses the identifiers
+through the contract's own schema, which is the boundary parse that mints
+`id` and `slug`, and writes `name` as a literal. The spec does exactly that,
+without importing `DisplayName` or any entity behaviour.
+
 ## One detail worth copying
 
 The JSON Schema exports carry an explicit `JsonSchema` annotation:

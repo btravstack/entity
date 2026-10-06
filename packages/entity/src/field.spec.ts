@@ -51,3 +51,24 @@ test("an entity class is still a legal flagged field, yielding real instances", 
   const w = Wrapper.make({ id, owner: { id, slug: "acme", name: "Acme" } }).getOrThrow();
   expect(w.owner).toBeInstanceOf(Organization);
 });
+
+test("an unbranded leaf is recorded on the spec only when set, and behaves like any field", () => {
+  const plain = Entity.field(z.string().min(1), { unbranded: true, immutable: true });
+  expect(plain.flags).toEqual({ generated: false, immutable: true, unbranded: true });
+  expect(Entity.field(Name, { immutable: true }).flags).toEqual({
+    generated: false,
+    immutable: true,
+  });
+
+  class Mission extends Entity("Mission")({ id: Id, label: plain }) {}
+  const mission = Mission.make({ id: "0199b1f4-1b1e-7000-8000-000000000000", label: "x" });
+  expect(mission.getOrThrow().toJSON()).toEqual({
+    id: "0199b1f4-1b1e-7000-8000-000000000000",
+    label: "x",
+  });
+  // still validated, and still immutable: only the branding rule is relaxed
+  expect(Mission.make({ id: "0199b1f4-1b1e-7000-8000-000000000000", label: "" }).isErr()).toBe(
+    true,
+  );
+  expect(Object.keys(Mission.updateInput.shape)).toEqual(["id"]);
+});

@@ -104,3 +104,50 @@ describe("shape() rejects unbranded scalars", () => {
     shape({ id: Id, updatedAt: Name, equality: Name, tag: Name, json: Name });
   });
 });
+
+describe("an unbranded leaf opts out of the rule, one field at a time (#73)", () => {
+  const Id = z.uuid().brand("Id");
+  const Plain = z.string().min(1);
+
+  test("a plain descriptive leaf compiles without a cast", () => {
+    shape({ id: Id, label: Entity.field(Plain, { unbranded: true }) });
+    shape({ id: Id, note: Entity.field(Plain.optional(), { unbranded: true }) });
+    shape({ id: Id, tags: Entity.field(z.array(Plain), { unbranded: true }) });
+    shape({ id: Id, label: Entity.field(Plain, { unbranded: true, immutable: true }) });
+  });
+
+  test("its output is the plain type, so a consumer constructs it with no brand", () => {
+    class Mission extends Entity("Mission")({
+      id: Id,
+      label: Entity.field(Plain, { unbranded: true }),
+    }) {}
+    const label: Entity.Output<typeof Mission>["label"] = "any string at all";
+    void label;
+    // the opted-out leaf takes a plain string; the id beside it still does not
+    // @ts-expect-error a meaningful id keeps its brand
+    const id: Entity.Output<typeof Mission>["id"] = "0199b1f4-1b1e-7000-8000-000000000000";
+    void id;
+  });
+
+  test("the opt-out is per field: a sibling is still checked", () => {
+    shape({
+      id: Id,
+      label: Entity.field(Plain, { unbranded: true }),
+      // @ts-expect-error the flag on `label` does not relax `name`
+      name: Plain,
+    });
+  });
+
+  test("only `true` opts out", () => {
+    // @ts-expect-error `unbranded: false` is the default, not an opt-out
+    shape({ id: Id, label: Entity.field(Plain, { unbranded: false }) });
+    const flag: boolean = true as boolean;
+    // @ts-expect-error a widened boolean could be either, so it is rejected like the other flags
+    Entity.field(Plain, { unbranded: flag });
+  });
+
+  test("a misspelled flag is still a compile error", () => {
+    // @ts-expect-error `unbraned` is not a flag
+    Entity.field(Plain, { unbraned: true });
+  });
+});

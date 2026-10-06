@@ -83,13 +83,16 @@ type FieldNameIsReservedByEntity = {
 type ReservedFieldName = "_tag" | "equals" | "toJSON" | "update";
 
 // Judges the *unwrapped* schema: an inline `Entity.field(...)` spec is nominal
-// exactly when the schema it carries is.
+// exactly when the schema it carries is — unless the spec says
+// `unbranded: true`, the one sanctioned per-field opt-out (#73).
 type OnlyNominal<T extends Fields> = {
   [K in keyof T]: K extends ReservedFieldName
     ? FieldNameIsReservedByEntity
-    : IsNominalField<z.infer<SchemaOf<T[K]>>> extends true
+    : T[K] extends { readonly flags: { readonly unbranded: true } }
       ? T[K]
-      : DomainFieldMustBeBrandedOrAnEntity;
+      : IsNominalField<z.infer<SchemaOf<T[K]>>> extends true
+        ? T[K]
+        : DomainFieldMustBeBrandedOrAnEntity;
 };
 
 /** The only sanctioned way to declare a domain shape. */

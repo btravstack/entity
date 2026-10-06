@@ -1,15 +1,16 @@
 ---
 title: Branded fields
-description: Why every field must be nominal, what counts as nominal, why the compile error is a type name, and where a branded value actually has to be minted.
+description: Why every field must be nominal, what counts as nominal, when a leaf may opt out, why the compile error is a type name, and where a branded value actually has to be minted.
 ---
 
 # Branded fields
 
 Every field of an entity must be **nominal**: a branded schema, a narrow
 literal union, a boolean, or another entity class. A bare `z.string()` is a
-compile error naming `DomainFieldMustBeBrandedOrAnEntity`. This is the
-package's most opinionated constraint, and it is the one place where it makes
-your declaration longer rather than shorter — so it has to earn itself.
+compile error naming `DomainFieldMustBeBrandedOrAnEntity`, unless that one field
+[opts out](#a-leaf-with-nothing-to-confuse-it-with). This is the package's most
+opinionated constraint, and it is the one place where it makes your declaration
+longer rather than shorter — so it has to earn itself.
 
 ## The bug the rule removes
 
@@ -63,6 +64,48 @@ level is unwrapped — so `z.array(Customer)`, `Slug.optional()` and
 `z.array(Slug).optional()` all pass; the rule applies to the element, not the
 container. What it rejects is exactly the interchangeable core: bare
 `z.string()`, bare `z.number()`, and any array or optional of those.
+
+## A leaf with nothing to confuse it with
+
+Some leaves have no identity to protect. A free-text label, a display name, a
+note: there is no second string it could be swapped with, no function taking
+two of them in a row, no invariant riding on the brand. Branding one only
+satisfies the rule, and it dilutes the brands that do mean something (the ids
+sitting next to it).
+
+It also leaks. A brand lives on a schema's **output** type, so everything that
+reads `.output` inherits it: the response schema a contract picks from
+`output`, a client typing a response, a test building a fixture. Each of them
+has to mint a `DisplayName` to produce a value whose brand never meant
+anything. Requests are unaffected, because `z.input` of a branded schema is the
+plain primitive.
+
+For such a leaf, opt out on the field itself:
+
+```ts
+class Organization extends Entity("Organization")({
+  id: Entity.field(OrgId, { generated: true, immutable: true }),
+  slug: Entity.field(Slug, { immutable: true }),
+  name: Entity.field(z.string().min(1), { unbranded: true }),
+}) {}
+```
+
+`unbranded: true` relaxes exactly one thing: the branding rule, for that one
+field. The value is still validated by its schema on every construction path,
+`immutable` still applies, and a sibling field is still checked. `id` and
+`slug` keep their brands, and swapping an organization id for an invoice id
+stays a compile error.
+
+The opt-out is visible and per field on purpose. A global switch, or brands
+stripped automatically from the derived schemas, would quietly erase the
+guarantees on the fields where they matter. The question to ask of each leaf
+is whether confusing it with another value would be a bug. If it would, brand
+it.
+
+Whatever stays branded is minted at the consumer's boundary, by parsing:
+a client parses the response body through the contract's own schema, which
+mints `id` and `slug` exactly once and leaves `name` a plain string. The
+[HTTP contract example](/examples/billing-api) does this in a test.
 
 ## The error is a type name
 

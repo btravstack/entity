@@ -1,14 +1,10 @@
-import {
-  DisplayName,
-  Organization,
-  Slug,
-  createOrganization,
-} from "@btravstack/entity-example-billing-domain";
+import { Organization, Slug, createOrganization } from "@btravstack/entity-example-billing-domain";
 import { expect, test } from "vitest";
 import { z } from "zod";
 
 import {
   CreateOrganizationBody,
+  OrganizationResponse,
   RenameOrganizationBody,
   createOrganizationSchema,
   organizationContract,
@@ -26,7 +22,7 @@ const keysOf = (schema: z.ZodObject) => Object.keys(schema.shape).sort();
 
 /** An organization the credit team has already assessed: the internal field is set. */
 const watchlisted = () =>
-  createOrganization({ slug: Slug.parse("acme"), name: DisplayName.parse("Acme SA") })
+  createOrganization({ slug: Slug.parse("acme"), name: "Acme SA" })
     .flatMap((org) => org.update({ riskTier: "WATCHLIST" }))
     .getOrThrow();
 
@@ -126,4 +122,25 @@ test("the class itself does not convert — and that is the design", () => {
 
 test("the contract exposes one procedure per operation", () => {
   expect(Object.keys(organizationContract).sort()).toEqual(["create", "list", "rename"]);
+});
+
+/* ── A consumer builds a response without minting meaningless brands ──── */
+
+test("a consumer builds a response with a plain name, parsing only the real identifiers", () => {
+  // The identifiers come through the contract's own schema, the way any client
+  // parses at its boundary. `name` opted out of branding, so it is just a string.
+  const identity = OrganizationResponse.pick({
+    id: true,
+    slug: true,
+    createdAt: true,
+    displayLabel: true,
+  }).parse({
+    id: "0199b1f4-1b1e-7000-8000-000000000000",
+    slug: "acme",
+    createdAt: "2026-08-06T09:00:00.000Z",
+    displayLabel: "Acme SA (acme)",
+  });
+  const response: OrganizationResponse = { ...identity, name: "Acme SA", selfTitled: true };
+
+  expect(OrganizationResponse.parse(response)).toEqual(response);
 });

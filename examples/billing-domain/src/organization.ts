@@ -1,7 +1,7 @@
 import { Entity } from "@btravstack/entity";
 import { z } from "zod";
 
-import { DisplayLabel, DisplayName, Instant, OrganizationId, Slug } from "./vocabulary.js";
+import { DisplayLabel, Instant, OrganizationId, Slug } from "./vocabulary.js";
 
 /**
  * `Entity.field(schema, { generated, immutable })` flags the fields the
@@ -16,6 +16,11 @@ import { DisplayLabel, DisplayName, Instant, OrganizationId, Slug } from "./voca
  * of sending `output`. It stays absent until the credit team assesses the
  * organization.
  *
+ * `name` is **unbranded**: free display text, with no second string it could
+ * be confused with and no invariant riding on a brand. Branding it only made
+ * every consumer of the public response mint a `DisplayName` to build one
+ * (#73). `id` and `slug` keep their brands — mixing those up is a real bug.
+ *
  * A plain, rootless entity: nothing else shares its fields, so there is nothing
  * for a root to hold.
  */
@@ -23,7 +28,7 @@ export class Organization extends Entity("Organization")(
   {
     id: Entity.field(OrganizationId, { generated: true, immutable: true }),
     slug: Entity.field(Slug, { immutable: true }),
-    name: DisplayName,
+    name: Entity.field(z.string().min(1), { unbranded: true }),
     createdAt: Entity.field(Instant, { generated: true, immutable: true }),
     riskTier: z.enum(["STANDARD", "WATCHLIST", "BLOCKED"]).optional(),
   },
