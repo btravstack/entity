@@ -2,7 +2,7 @@
   "extends": "@btravstack/tsconfig/base.json",
   "compilerOptions": {
     "rootDir": "./src",
-    "types": ["node"]
+    "types": ["node", "@unthrown/vitest"]
   },
   "include": ["src/**/*"]
 }

@@ -143,6 +143,38 @@ abstract root has no `make`, so it has no `inspect` either.
 [Add a stricter rule without an outage](/how-to/add-a-stricter-rule) puts it to
 work: a data-quality job, a read model, and the rollout order.
 
+## `SomeAggregate.start(event)` → `Result<Decision<SomeAggregate, Event>, never>` {#someaggregate-start}
+
+Creates an aggregate from one of its **creation** events, the keys of `opens`.
+Another event type does not compile. The event is parsed against the declared
+union, handed to its `opens` handler, and the record it returns goes through
+`make`. A failure at any step is a defect: creation is a command, so an event
+that breaks the aggregate is a bug in it.
+
+## `aggregate.emit(...events)` → `Result<Decision<this, Event>, never>` {#aggregate-emit}
+
+What an aggregate's command returns after its business checks. Parses each
+event against the declared union, folds the events onto the current state with
+the `evolve` handlers, and verifies the result with `make`. The `Decision`
+holds the parsed events and the verified state; the source aggregate is
+unchanged. A creation event does not compile here: an aggregate that exists
+cannot be created again, which mirrors `start` accepting nothing else.
+
+An event that breaks an invariant, fails its schema, or reaches a handler that
+throws is a **defect**, never an `Err`: a decision that cannot hold is a bug in
+the command, and nothing about it should be persisted. Only `emit` and `start`
+build a `Decision`; a hand-written `{ state, events }` does not compile.
+
+## `SomeAggregate.replay(events)` → `Result<SomeAggregate, InvalidEntity>` {#someaggregate-replay}
+
+A stored stream → the aggregate, emitting nothing. The stream is untrusted, so
+every event is parsed; a bad one is an `InvalidEntity` whose issue path starts
+with its index (`[3, "seats"]`). The first event must be a creation event, and a
+creation event later in the stream is refused at its index. The fold ends in
+`make`, which is strict: a stream breaking a rule added since is an
+`InvalidEntity`, as a row would be. Upcast old event versions before calling
+it.
+
 ## `entity.update(patch)` → `Result<SomeEntity, InvalidEntity>` {#entity-update-patch-result-someentity-invalidentity}
 
 Returns a **new** entity. Re-runs the invariants and re-derives the computed

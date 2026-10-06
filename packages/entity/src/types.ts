@@ -592,3 +592,127 @@ export type EntityFactory<T, S extends Fields, G extends PropertyKey> = (
 export type AsyncEntityFactory<T, S extends Fields, G extends PropertyKey> = (
   input: CreateInputOf<S, G>,
 ) => AsyncResult<T, InvalidEntity>;
+
+/* ── Aggregates (#158) ──────────────────────────────────────────────────── */
+
+/**
+ * What an aggregate's `events` option accepts: a schema whose output carries a
+ * string `type` — a `z.discriminatedUnion("type", [...])` in practice. The
+ * `type` is what `opens`/`evolve` key their handlers by.
+ */
+export type Events = z.ZodType<{ readonly type: string }>;
+
+/** The declared event whose `type` is `K`. */
+export type EventNamed<Ev extends Events, K> = Extract<z.output<Ev>, { readonly type: K }>;
+
+/**
+ * What an event handler folds over and returns: the declared fields as the
+ * plain, **unbranded** input shape, because nothing has validated it yet. The
+ * one `make` at the end of a fold is what turns it into an aggregate.
+ */
+export type RecordOf<S extends Fields> = z.input<z.ZodObject<PlainOf<S, "input">>>;
+
+/**
+ * The unforgeable half of a `Decision` — the same construction as
+ * `ConstructionKey`, for the same reason: a `private` member makes a type no
+ * object literal can satisfy, and it emits as an ordinary declared class.
+ */
+export declare class DecisionKey {
+  private constructor();
+  private readonly seal: never;
+}
+
+/**
+ * What a command returns: the events it decided, and the state those events
+ * produce, already verified by `make`. Only `emit` and `start` build one, so a
+ * repository that takes a `Decision` can only be handed events that were
+ * folded and checked against every invariant. Persist `state.toJSON()`,
+ * `events`, or both — the decision is the same either way.
+ */
+export type Decision<A, E> = {
+  readonly state: A;
+  readonly events: readonly E[];
+  // The property name is the diagnostic, as with `Sealed`.
+  readonly __onlyEmitOrStartMakeADecision: DecisionKey;
+};
+
+/**
+ * An aggregate instance: an entity's data, `toJSON` and `sameIdentityAs`, and
+ * `emit` in place of `update`. An interface, not a type alias, for `emit`'s
+ * polymorphic `this` (TS2526 — see `BaseInstance`).
+ */
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export interface AggregateInstance<
+  S extends Fields,
+  A extends Schemas,
+  Ev extends Events,
+  O extends string,
+> {
+  toJSON(): DeepReadonly<OutputOf<S, A>>;
+  readonly sameIdentityAs: [IdentityKeys<S>] extends [never]
+    ? { readonly __declareAnIdentityFieldToCompareIdentity: never }
+    : (other: unknown) => boolean;
+  /**
+   * Folds `events` onto this state, verifies the result with `make`, and
+   * returns the decision. Events breaking an invariant, failing their own
+   * schema, or a throwing handler are defects: a decision that does not hold
+   * is a bug in the command, never something to persist.
+   *
+   * A creation event (`O`, the keys of `opens`) is excluded: an aggregate that
+   * exists cannot be created again, so emitting one is a compile error, as
+   * passing a non-creation event to `start` is. The decision's events stay
+   * typed as the whole union, the type a repository or an outbox stores.
+   */
+  emit(
+    ...events: readonly Exclude<z.output<Ev>, { readonly type: O }>[]
+  ): Result<Decision<this, z.output<Ev>>, never>;
+}
+
+type ConstructedAggregate<
+  Tag extends string,
+  S extends Fields,
+  A extends Schemas,
+  Ev extends Events,
+  O extends string,
+> = AggregateInstance<S, A, Ev, O> & DeepReadonly<OutputOf<S, A>> & { readonly _tag: Tag };
+
+/**
+ * What `Entity.aggregate(tag)(fields, options)` returns. Deliberately not an
+ * `EntityStatic`: no `update`, no factories, no `createInput`/`updateInput` —
+ * state changes only through events, and `start` is creation. No `_zod` slot
+ * in the type either, so an aggregate cannot be nested as another entity's
+ * field: a root is referenced by id, never embedded.
+ *
+ * `O` is the opening event types — a literal union of event names, so it costs
+ * a few characters in a consumer's declarations, unlike the field-key unions
+ * the dead-end ledger in `GeneratedKeys` warns about.
+ */
+export type AggregateStatic<
+  Tag extends string,
+  S extends Fields,
+  A extends Schemas,
+  Ev extends Events,
+  O extends string,
+> = {
+  new (d: Sealed<OutputOf<S, A>>): ConstructedAggregate<Tag, S, A, Ev, O>;
+  readonly entityName: Tag;
+  readonly input: z.ZodObject<PlainOf<S, "input">>;
+  readonly output: z.ZodObject<PlainOf<S, "output"> & A>;
+  /** the declared event union, for an outbox or an event store's contract */
+  readonly events: Ev;
+  readonly __input: InputOf<S>;
+  readonly __output: OutputOf<S, A>;
+  /** the event union, read by `Entity.Event` */
+  readonly __event: z.output<Ev>;
+  readonly __instance: ConstructedAggregate<Tag, S, A, Ev, O>;
+  /** a snapshot or a state-based row → aggregate; emits nothing */
+  make<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, state: unknown): Result<T, InvalidEntity>;
+  inspect(state: unknown): Result<Inspection<OutputOf<S, A>>, InvalidEntity>;
+  /** an opening event → the decision that creates the aggregate */
+  start<T>(
+    this: new (d: Sealed<OutputOf<S, A>>) => T,
+    event: EventNamed<Ev, O>,
+  ): Result<Decision<T, z.output<Ev>>, never>;
+  /** a stored stream → aggregate: parse every event, fold, one `make`; emits nothing */
+  replay<T>(this: new (d: Sealed<OutputOf<S, A>>) => T, events: unknown): Result<T, InvalidEntity>;
+};

@@ -425,6 +425,32 @@ matters.
 
 `extend` lives only on a root. The entity it returns is final.
 
+## `Entity.aggregate(tag)(fields)(options)`
+
+An aggregate root whose state changes only through events. After the tag, the
+fields are the second call and take everything `Entity(tag)(fields)` takes; the
+options are the third:
+
+| Option       | Required | What it is                                                                                    |
+| ------------ | -------- | --------------------------------------------------------------------------------------------- |
+| `events`     | yes      | a zod discriminated union on `type`: every event the aggregate produces                       |
+| `opens`      | yes      | one handler per **creation** event: `(event) => record`                                       |
+| `evolve`     | yes      | one handler per **other** event: `(record, event) => record`; all of them, or a compile error |
+| `invariants` | no       | as on `Entity`                                                                                |
+| `computed`   | no       | as on `Entity`                                                                                |
+
+A handler's record is the fields' plain, unbranded input shape: unvalidated
+data, which a single `make` turns into the aggregate at the end of a fold.
+Fields and options are separate calls so the fields are fixed before the
+handlers are checked: a handler's returned literals and fields are checked
+exactly, where with both in one call they widened.
+
+The class has `make`, `inspect`, `start` and `replay` as statics, and `toJSON`,
+`sameIdentityAs` and `emit` on its instances. It has no `update`, no factories,
+no `createInput` and no `updateInput`, and it cannot be nested as another
+entity's field. See [Entry points](/reference/entry-points#someaggregate-start)
+and [Model an event-driven aggregate](/how-to/model-an-event-driven-aggregate).
+
 ## `Entity.union(discriminant, members)`
 
 A union of entities. `Entity.union` returns a **value**, so a union is declared

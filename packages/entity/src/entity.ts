@@ -2,6 +2,7 @@ import { fromSchema, type SchemaIssues } from "@unthrown/standard-schema";
 import { Err, Ok, P, all, fromPromise, fromThrowable, type Result } from "unthrown";
 import { z } from "zod";
 
+import { createAggregate, type BuildEntityClass } from "./aggregate.js";
 import type { BuildEntity } from "./base.js";
 import { createBase, identityScopeOf, record } from "./base.js";
 import { computed, type ComputedField } from "./computed.js";
@@ -28,6 +29,11 @@ import type {
   GeneratedKeys,
   ImmutableKeys,
   Inspection,
+  AggregateInstance,
+  AggregateStatic,
+  Decision,
+  DecisionKey,
+  Events,
   MergedComputed,
   MergedFields,
   PatchOf,
@@ -526,6 +532,7 @@ Entity.field = field;
 Entity.invariant = invariant;
 Entity.union = union;
 Entity.abstract = createBase(Entity as unknown as BuildEntity);
+Entity.aggregate = createAggregate(Entity as unknown as BuildEntityClass);
 Entity.InvalidEntity = InvalidEntity;
 // The issue helpers an adapter needs to turn an `InvalidEntity` into a
 // response body: `keysOf` normalises a Standard Schema path (bare key or
@@ -553,6 +560,21 @@ type ComputedFieldSrc<T extends z.core.$ZodType, D> = ComputedField<T, D>;
 type FieldSpecSrc<T extends z.core.$ZodType, F extends Flags> = FieldSpec<T, F>;
 type InvariantSrc<D> = Invariant<D>;
 type InspectionSrc<D> = Inspection<D>;
+type DecisionSrc<A, E> = Decision<A, E>;
+type DecisionKeySrc = DecisionKey;
+type AggregateInstanceSrc<
+  S extends Fields,
+  A extends Schemas,
+  Ev extends Events,
+  O extends string,
+> = AggregateInstance<S, A, Ev, O>;
+type AggregateStaticSrc<
+  Tag extends string,
+  S extends Fields,
+  A extends Schemas,
+  Ev extends Events,
+  O extends string,
+> = AggregateStatic<Tag, S, A, Ev, O>;
 type EntityUnionSrc<K extends string, M extends readonly UnionMember[]> = EntityUnion<K, M>;
 type ConstructionKeySrc = ConstructionKey;
 type SealedSrc<D> = Sealed<D>;
@@ -595,6 +617,29 @@ export declare namespace Entity {
 
   /** What `inspect` returns: a stored row's plain data, and the invariants it breaks. */
   export type Inspection<D> = InspectionSrc<D>;
+
+  /** What an aggregate's command returns: the decided events and the verified state. */
+  export type Decision<A, E> = DecisionSrc<A, E>;
+
+  /** An aggregate's declared event union — for a repository, an outbox or an event store. */
+  export type Event<E extends { readonly __event: unknown }> = E["__event"];
+
+  /** What `Entity.aggregate(tag)(fields, options)` returns. */
+  export type Aggregate<
+    Tag extends string,
+    S extends Fields,
+    A extends Schemas,
+    Ev extends Events,
+    O extends string,
+  > = AggregateStaticSrc<Tag, S, A, Ev, O>;
+  // Exported only so a consumer's emitted declarations can name them.
+  export type AggregateInstance<
+    S extends Fields,
+    A extends Schemas,
+    Ev extends Events,
+    O extends string,
+  > = AggregateInstanceSrc<S, A, Ev, O>;
+  export type DecisionKey = DecisionKeySrc;
 
   // `InvalidEntity` is a class, so it needs both meanings under `Entity`: the
   // value for `instanceof`, the type for annotations. A re-export carries both,
