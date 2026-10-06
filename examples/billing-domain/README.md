@@ -1,7 +1,7 @@
 # billing-domain
 
-The modelling half of the example: two entities and the vocabulary they are
-built from.
+The modelling half of the example: the entities, their commands, and the
+vocabulary they are built from.
 
 ```sh
 pnpm --filter @btravstack/entity-example-billing-domain test
@@ -25,7 +25,7 @@ pnpm --filter @btravstack/entity-example-billing-domain typecheck
   `Result`, never an exception.
 - **Nesting.** `Invoice.issuedTo` is an `Organization` — the class is itself a
   zod schema, so it parses back to a real instance with its behaviour intact.
-- **A union** over `Invoice` and `CreditNote`, dispatching on `kind` — a
+- **A union** over `DraftInvoice`, `Invoice` and `CreditNote`, dispatching on `kind` — a
   _declared_ field, never `_tag`. `_tag` is non-enumerable and absent from
   `toJSON()`, so a union built on it matches nothing and says so with an empty
   `expected one of` set. This package shipped that bug for exactly one commit;
@@ -34,6 +34,11 @@ pnpm --filter @btravstack/entity-example-billing-domain typecheck
 - **Factories.** The package reads no clock and generates no id; a factory is
   where those come in, bound once. That is what leaves the entities trivially
   testable.
+- **Commands and events.** `addLine`, `issue` and `void` are methods on the
+  variant they apply to. They refuse forbidden transitions with typed errors
+  (`void` on a paid invoice), move a draft to the issued variant, and return
+  explicit events from `events.ts` beside the new entity. `update` can still
+  make the same change unchecked, and the spec pins that too.
 
 ## Two things that look odd on purpose
 

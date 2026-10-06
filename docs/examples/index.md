@@ -25,8 +25,9 @@ pnpm test
 Declaring the entities: branded fields, the `generated` / `immutable` flags,
 `computed`,
 invariants as values, one entity nested inside another, an abstract root with
-two variants gathered under a discriminated union, and factories binding the id
-and clock the package refuses to read for itself.
+three variants gathered under a discriminated union, factories binding the id
+and clock the package refuses to read for itself, and commands that move an
+invoice from draft to issued to void, returning typed errors and events.
 
 ## [HTTP contract](/examples/billing-api)
 
