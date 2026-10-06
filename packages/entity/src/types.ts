@@ -149,10 +149,20 @@ type Immutable =
  * `DeepReadonly<A> | DeepReadonly<B>`, since testing the union as a whole
  * would send a mixed `string | { … }` down the mapped-type branch and mangle
  * the string.
+ *
+ * A branded *object* (`z.object(…).brand("Money")`) is peeled, mapped and
+ * re-branded rather than mapped whole. Mapping it whole turns the brand into
+ * `{ readonly [$brand]: … }`, a computed key over zod's `unique symbol`, which
+ * a downstream declaration emit cannot name — `TS4023`, measured on 7.0.2 and
+ * 5.9.3 wherever this type is printed expanded, e.g. an exported factory of an
+ * entity with a nested-entity field (#152). Re-intersecting `z.core.$brand<B>`
+ * prints as `z.$brand<"Money">` instead.
  */
 export type DeepReadonly<T> = T extends Immutable
   ? T
-  : { readonly [K in keyof T]: DeepReadonly<T[K]> };
+  : T extends z.core.$brand<infer B>
+    ? DeepReadonly<Omit<T, typeof z.core.$brand>> & z.core.$brand<B>
+    : { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
 /**
  * What `update` accepts: a partial of the stored data, minus the immutable

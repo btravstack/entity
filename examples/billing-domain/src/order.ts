@@ -163,20 +163,17 @@ export const createCustomer = Customer.factory({ id: () => crypto.randomUUID() }
 export const createOrderLine = OrderLine.factory({ id: () => crypto.randomUUID() });
 
 /**
- * The factory stays module-private, behind a function with an explicit return
- * type. Exported as is, it fails declaration emit: its inferred type spells
- * out the nested `OrderLine` input, which reaches zod's `$brand`, and TypeScript
- * reports `TS4023` because it cannot name that symbol. Measured on 7.0.2.
- *
- * It is the better entry point regardless: every order opens as an empty draft
- * for one customer, so the caller supplies only what varies.
+ * Exported on purpose: the regression guard for #152. Its inferred type spells
+ * out the nested `OrderLine` instance, branded `Money` included, and that once
+ * failed declaration emit with `TS4023` on both compilers.
  */
-const draftOrder = Order.factory({
+export const createOrder = Order.factory({
   id: () => crypto.randomUUID(),
   status: () => "DRAFT" as const,
 });
 
+/** Every order opens as an empty draft for one customer, so the caller supplies only what varies. */
 export const openOrder = (
   customerId: z.output<typeof CustomerId>,
   currency: z.output<typeof Currency>,
-): Result<Order, Entity.InvalidEntity> => draftOrder({ customerId, currency, lines: [] });
+): Result<Order, Entity.InvalidEntity> => createOrder({ customerId, currency, lines: [] });
