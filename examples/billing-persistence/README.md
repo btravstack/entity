@@ -69,3 +69,22 @@ number was allocated, and the next invoice still taking that number.
 
 See also the how-to: [Number without
 gaps](https://btravstack.github.io/entity/how-to/number-without-gaps).
+
+## Uniqueness
+
+`uniqueness.ts` is a rule no invariant can express: "this slug is not taken" is
+a fact about every _other_ organization. The use case checks it with a
+preflight lookup for feedback, and the store enforces it at write time, the way
+a database unique index does.
+
+```ts
+await registerOrganization(store)(input); // AsyncResult<Organization, InvalidEntity | SlugTaken>
+```
+
+The spec races two creates for the same slug: both pass the lookup, the store
+rejects one insert, and that violation is mapped to the same `SlugTaken` the
+lookup returns. A store that is down stays a Defect, so a conflict (409) never
+looks like an outage (503).
+
+See also the how-to: [Enforce a uniqueness
+rule](https://btravstack.github.io/entity/how-to/enforce-uniqueness).
