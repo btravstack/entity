@@ -112,9 +112,10 @@ export default defineConfig({
     const newBase = pageData.relativePath.startsWith("api/")
       ? "https://btravstack.github.io/btravstack/"
       : "https://btravstack.github.io/btravstack/entity/";
-    const canonicalUrl = `${newBase}${normalizedPath}`
-      .replace(/index\.md$/, "")
-      .replace(/\.md$/, "");
+    const canonicalUrl =
+      pageData.relativePath === "api/index.md"
+        ? "https://btravstack.github.io/btravstack/api/entity/"
+        : `${newBase}${normalizedPath}`.replace(/index\.md$/, "").replace(/\.md$/, "");
 
     pageData.frontmatter ??= {};
     pageData.frontmatter.head ??= [];
