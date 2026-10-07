@@ -1,7 +1,8 @@
 # entity branding
 
-The illustrated mascot is a pink beet pictured on an identity card,
-part of the shared btravstack beet family. Its editable source is
+The illustrated mascot is a pink beet at the bottom of an identity-card photo,
+with its hands resting across the lower frame as if ready to climb out. It belongs
+to the shared btravstack beet family. Its editable source is
 [`scripts/generate-brand.mjs`](https://github.com/btravstack/btravstack.github.io/blob/main/scripts/generate-brand.mjs)
 in the website repository. Regenerate there, then copy the project assets from
 `apps/website/public/logos/` into this repository's `docs/public/`:
