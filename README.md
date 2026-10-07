@@ -15,7 +15,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[**Documentation**](https://btravstack.github.io/entity/) · [**Getting started**](https://btravstack.github.io/entity/tutorial/getting-started) · [**Reference**](https://btravstack.github.io/entity/reference/declaration) · [**Why entity?**](https://btravstack.github.io/entity/explanation/why-entity)
+[**Documentation**](https://btravstack.github.io/btravstack/entity/) · [**Getting started**](https://btravstack.github.io/btravstack/entity/tutorial/getting-started) · [**Reference**](https://btravstack.github.io/btravstack/entity/reference/declaration) · [**Why entity?**](https://btravstack.github.io/btravstack/entity/explanation/why-entity)
 
 </div>
 
@@ -68,7 +68,7 @@ pnpm add @btravstack/entity zod unthrown @unthrown/standard-schema
 
 `zod`, `unthrown` and `@unthrown/standard-schema` are **peer dependencies** —
 install all four.
-([Why](https://btravstack.github.io/entity/explanation/peer-dependencies).)
+([Why](https://btravstack.github.io/btravstack/entity/explanation/peer-dependencies).)
 
 ## A worked example
 
@@ -182,7 +182,7 @@ only need the shared behaviour".
 There is no class form. Putting the union at a base-class position is `TS2507`
 at the declaration, because a class's instance type cannot be a union at all
 (`TS2509`).
-([Why](https://btravstack.github.io/entity/explanation/unions-and-roots).)
+([Why](https://btravstack.github.io/btravstack/entity/explanation/unions-and-roots).)
 
 ## Aggregates
 
@@ -228,19 +228,19 @@ events that were folded and checked against every invariant. Load with
 state or as events without touching its declaration. Use `Entity` for
 everything inside the boundary, and for simple models where a public `update()`
 costs nothing. See [Model an event-driven
-aggregate](https://btravstack.github.io/entity/how-to/model-an-event-driven-aggregate).
+aggregate](https://btravstack.github.io/btravstack/entity/how-to/model-an-event-driven-aggregate).
 
 ## Documentation
 
-**[btravstack.github.io/entity](https://btravstack.github.io/entity/)** — built
+**[btravstack.github.io/entity](https://btravstack.github.io/btravstack/entity/)** — built
 with VitePress from [`docs/`](./docs), and organised by the four
 [Diátaxis](https://diataxis.fr/) modes:
 
-- **[Tutorial](https://btravstack.github.io/entity/tutorial/getting-started)** — from nothing to a working entity, one step at a time.
-- **How-to guides** — [expose an HTTP contract](https://btravstack.github.io/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/entity/how-to/model-an-aggregate) · [model an event-driven aggregate](https://btravstack.github.io/entity/how-to/model-an-event-driven-aggregate) · [test domain logic](https://btravstack.github.io/entity/how-to/test-domain-logic)
-- **[Reference](https://btravstack.github.io/entity/reference/declaration)** — every member, option and type, with signatures. Plus the [generated API reference](https://btravstack.github.io/entity/api/).
-- **[Guarantees and compatibility](https://btravstack.github.io/entity/reference/guarantees)** — before you adopt: what is enforced at compile time and at runtime, what is deliberately left to you, and the supported Node, TypeScript and zod versions. Then the same model [compared with plain zod and Effect `Schema.Class`](https://btravstack.github.io/entity/explanation/compared).
-- **[Explanation](https://btravstack.github.io/entity/explanation/why-entity)** — why it is built this way: sealed construction, what immutability covers, no I/O, why an entity is final and a union has no class form.
+- **[Tutorial](https://btravstack.github.io/btravstack/entity/tutorial/getting-started)** — from nothing to a working entity, one step at a time.
+- **How-to guides** — [expose an HTTP contract](https://btravstack.github.io/btravstack/entity/how-to/http-contract) · [persist and rehydrate](https://btravstack.github.io/btravstack/entity/how-to/persist-and-rehydrate) · [model an aggregate](https://btravstack.github.io/btravstack/entity/how-to/model-an-aggregate) · [model an event-driven aggregate](https://btravstack.github.io/btravstack/entity/how-to/model-an-event-driven-aggregate) · [test domain logic](https://btravstack.github.io/btravstack/entity/how-to/test-domain-logic)
+- **[Reference](https://btravstack.github.io/btravstack/entity/reference/declaration)** — every member, option and type, with signatures. Plus the [generated API reference](https://btravstack.github.io/btravstack/api/entity/).
+- **[Guarantees and compatibility](https://btravstack.github.io/btravstack/entity/reference/guarantees)** — before you adopt: what is enforced at compile time and at runtime, what is deliberately left to you, and the supported Node, TypeScript and zod versions. Then the same model [compared with plain zod and Effect `Schema.Class`](https://btravstack.github.io/btravstack/entity/explanation/compared).
+- **[Explanation](https://btravstack.github.io/btravstack/entity/explanation/why-entity)** — why it is built this way: sealed construction, what immutability covers, no I/O, why an entity is final and a union has no class form.
 
 ## Development
 

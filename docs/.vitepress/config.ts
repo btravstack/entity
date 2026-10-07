@@ -109,7 +109,10 @@ export default defineConfig({
     const normalizedPath = pageData.relativePath.replace(/^\/+/, "");
     // cleanUrls is true, so the public URL has no `.html` extension: strip
     // `index.md` to the directory and any other `.md` to the bare route.
-    const canonicalUrl = `${SITE_URL}${normalizedPath}`
+    const newBase = pageData.relativePath.startsWith("api/")
+      ? "https://btravstack.github.io/btravstack/"
+      : "https://btravstack.github.io/btravstack/entity/";
+    const canonicalUrl = `${newBase}${normalizedPath}`
       .replace(/index\.md$/, "")
       .replace(/\.md$/, "");
 
@@ -123,6 +126,10 @@ export default defineConfig({
       pageData.frontmatter.editLink = false;
     }
 
+    pageData.frontmatter.head.push([
+      "meta",
+      { "http-equiv": "refresh", content: `0;url=${canonicalUrl}` },
+    ]);
     pageData.frontmatter.head.push(["link", { rel: "canonical", href: canonicalUrl }]);
 
     const pageTitle = pageData.title || pageData.frontmatter.title || "entity";
